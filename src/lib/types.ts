@@ -24,6 +24,7 @@ export type TimelineTodo = {
   status: TodoStatus;
   dueDate?: string;
   showOnTimeline: boolean;
+  order?: number;
 };
 
 export type StickyLink = {

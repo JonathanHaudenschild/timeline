@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import {
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   FileText,
   Folder,
   Globe,
@@ -76,6 +78,7 @@ const iconOptions: Array<{ value: LinkIconName; label: string }> = [
 
 export function StickyLinks({ links, canEdit, onChange }: StickyLinksProps) {
   const [draftLink, setDraftLink] = useState<StickyLink | null>(null);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   function saveLink() {
     if (!draftLink) return;
@@ -86,32 +89,45 @@ export function StickyLinks({ links, canEdit, onChange }: StickyLinksProps) {
 
   return (
     <>
-      <aside className="sticky-links" aria-label="Project links">
-        {links.map((link) => (
-          <div className="sticky-link-row" key={link.id}>
-            <a
-              className="sticky-link"
-              href={link.url}
-              target="_blank"
-              rel="noreferrer"
-              title={link.label}
-            >
-              <StickyLinkIcon icon={link.icon} />
-              <b>{link.label}</b>
-            </a>
+      <aside className={`sticky-links ${isCollapsed ? 'collapsed' : ''}`} aria-label="Project links">
+        {isCollapsed ? null : (
+          <div className="sticky-link-list">
+            {links.map((link) => (
+              <div className="sticky-link-row" key={link.id}>
+                <a
+                  className="sticky-link"
+                  href={link.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={link.label}
+                >
+                  <StickyLinkIcon icon={link.icon} />
+                  <b>{link.label}</b>
+                </a>
+                {canEdit ? (
+                  <button type="button" className="sticky-link-edit" onClick={() => setDraftLink(link)} aria-label={`Edit ${link.label}`}>
+                    edit
+                  </button>
+                ) : null}
+              </div>
+            ))}
             {canEdit ? (
-              <button type="button" className="sticky-link-edit" onClick={() => setDraftLink(link)} aria-label={`Edit ${link.label}`}>
-                edit
+              <button type="button" className="sticky-link add-link" onClick={() => setDraftLink(emptyLink())}>
+                <span aria-hidden="true">+</span>
+                <b>Add</b>
               </button>
             ) : null}
           </div>
-        ))}
-        {canEdit ? (
-          <button type="button" className="sticky-link add-link" onClick={() => setDraftLink(emptyLink())}>
-            <span aria-hidden="true">+</span>
-            <b>Add</b>
-          </button>
-        ) : null}
+        )}
+        <button
+          type="button"
+          className="sticky-link-collapse"
+          onClick={() => setIsCollapsed((collapsed) => !collapsed)}
+          aria-label={isCollapsed ? 'Expand project links' : 'Collapse project links'}
+          title={isCollapsed ? 'Expand links' : 'Collapse links'}
+        >
+          {isCollapsed ? <ChevronRight size={18} strokeWidth={3} /> : <ChevronLeft size={18} strokeWidth={3} />}
+        </button>
       </aside>
 
       {draftLink ? (

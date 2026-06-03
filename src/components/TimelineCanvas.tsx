@@ -37,6 +37,28 @@ type HitBox = {
   height: number;
 };
 
+type EventCalloutPlacement = {
+  event: TimelineEvent;
+  category: string;
+  color: string;
+  x: number;
+  boxX: number;
+  boxY: number;
+  boxWidth: number;
+  boxHeight: number;
+  anchorY: number;
+  isSelected: boolean;
+};
+
+type TodoMarkerPlacement = {
+  todo?: TimelineTodo;
+  label: string;
+  x: number;
+  markerX: number;
+  y: number;
+  markerWidth: number;
+};
+
 export function TimelineCanvas({
   project,
   completedTodoStatus,
@@ -125,28 +147,44 @@ export function TimelineCanvas({
           <code>{project.startDate} / {project.endDate}</code>
         </div>
         <div className="timeline-actions">
-          <button type="button" className="secondary" onClick={() => setZoom((current) => Math.max(0.8, current - 0.3))}>
-            -
-          </button>
-          <span className="zoom-readout">{Math.round(zoom * 100)}%</span>
-          <button type="button" className="secondary" onClick={() => setZoom((current) => Math.min(8, current + 0.3))}>
-            +
-          </button>
-          <button
-            type="button"
-            className="secondary today-button"
-            onClick={panToNow}
-          >
-            Jump to now
-          </button>
-          <button type="button" className="secondary today-button" onClick={fitTimeline}>
-            Fit timeline
-          </button>
-          {canEdit ? (
-            <button type="button" onClick={() => onCreateEvent({ date: project.startDate, time: '09:00' })}>
-              Add event
+          <div className="zoom-control-group">
+            <button type="button" className="secondary" onClick={() => setZoom((current) => Math.max(0.8, current - 0.3))}>
+              -
             </button>
-          ) : null}
+            <span className="zoom-readout">{Math.round(zoom * 100)}%</span>
+            <button type="button" className="secondary" onClick={() => setZoom((current) => Math.min(8, current + 0.3))}>
+              +
+            </button>
+          </div>
+          <details className="mobile-control-menu timeline-mobile-menu">
+            <summary>Tools</summary>
+            <div className="mobile-control-panel">
+              <button type="button" className="secondary today-button" onClick={panToNow}>
+                Jump to now
+              </button>
+              <button type="button" className="secondary today-button" onClick={fitTimeline}>
+                Fit timeline
+              </button>
+              {canEdit ? (
+                <button type="button" onClick={() => onCreateEvent({ date: project.startDate, time: '09:00' })}>
+                  Add event
+                </button>
+              ) : null}
+            </div>
+          </details>
+          <div className="desktop-control-group">
+            <button type="button" className="secondary today-button" onClick={panToNow}>
+              Jump to now
+            </button>
+            <button type="button" className="secondary today-button" onClick={fitTimeline}>
+              Fit timeline
+            </button>
+            {canEdit ? (
+              <button type="button" onClick={() => onCreateEvent({ date: project.startDate, time: '09:00' })}>
+                Add event
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
       <div className="timeline-filters">
@@ -195,11 +233,6 @@ export function TimelineCanvas({
       <canvas
         ref={canvasRef}
         className={`timeline-canvas ${project.settings.mode}`}
-        onWheel={(event) => {
-          if (project.settings.mode !== 'view') return;
-          event.preventDefault();
-          setZoom((current) => Math.max(0.8, Math.min(8, current + (event.deltaY > 0 ? -0.2 : 0.2))));
-        }}
         onPointerDown={(event) => {
           const hit = hitBoxesRef.current.find(
             (box) =>
@@ -331,12 +364,14 @@ function drawTimeline(
           visibleIndex % 18 === 0,
       )
     : visibleEvents;
-  const maxCallouts = denseMode ? 8 : zoom < 1.2 ? 14 : zoom < 2 ? 24 : zoom < 4 ? 40 : 72;
+  const maxCallouts = denseMode ? 8 : zoom < 1.2 ? 16 : zoom < 2 ? 28 : zoom < 4 ? 46 : 80;
   const calloutStride = Math.max(1, Math.ceil(displayEvents.length / maxCallouts));
   const selectedVisibleIndex = displayEvents.findIndex(({ event }) => event.id === selectedEventId);
   const hitBoxes: HitBox[] = [];
-  const calloutLanes = createCalloutLanes(timelineY, height, 116);
+  const calloutLanes = createCalloutLanes(timelineY, height, 96);
   const occupiedLanes = calloutLanes.map(() => [] as Array<{ left: number; right: number }>);
+  const eventCallouts: EventCalloutPlacement[] = [];
+  const hasSelectedEvent = Boolean(selectedEventId);
 
   if (denseMode) {
     ctx.fillStyle = '#111111';
@@ -348,11 +383,16 @@ function drawTimeline(
 
   displayEvents.forEach(({ event, x }) => {
     const category = eventTimelineCategory(event);
+    const isSelected = selectedEventId === event.id;
+    const isDimmed = hasSelectedEvent && !isSelected;
     const color = event.color || colorForType(event.type, project.settings.typeColors) || (category === 'milestone' ? '#d7ff2f' : '#ffffff');
+
+    ctx.save();
+    if (isDimmed) ctx.globalAlpha = 0.22;
 
     if (category === 'milestone') {
       ctx.strokeStyle = '#ff3b9d';
-      ctx.lineWidth = selectedEventId === event.id ? 5 : 3;
+      ctx.lineWidth = isSelected ? 5 : 3;
       ctx.beginPath();
       ctx.moveTo(x, 42);
       ctx.lineTo(x, height - 34);
@@ -368,14 +408,23 @@ function drawTimeline(
       roundRect(ctx, x, timelineY - 8, spanWidth, 16, 0);
       ctx.fill();
       ctx.stroke();
+      ctx.restore();
       hitBoxes.push({ event, x, y: timelineY - 12, width: spanWidth, height: 24 });
       return;
     }
 
-    ctx.fillStyle = selectedEventId === event.id ? '#ff3b9d' : '#111111';
+    if (isSelected) {
+      ctx.fillStyle = '#d7ff2f';
+      ctx.beginPath();
+      ctx.arc(x, timelineY, 14, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = isSelected ? '#ff3b9d' : '#111111';
     ctx.beginPath();
-    ctx.arc(x, timelineY, selectedEventId === event.id ? 9 : 6, 0, Math.PI * 2);
+    ctx.arc(x, timelineY, isSelected ? 9 : 6, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
     hitBoxes.push({ event, x: x - 9, y: timelineY - 9, width: 18, height: 18 });
   });
 
@@ -408,28 +457,38 @@ function drawTimeline(
 
     occupiedLanes[safeLaneIndex].push({ left: boxX - 10, right: boxX + boxWidth + 10 });
 
-    ctx.strokeStyle = '#111111';
-    ctx.lineWidth = isSelected ? 3 : 2;
-    ctx.beginPath();
-    ctx.moveTo(x, timelineY);
-    ctx.lineTo(x, anchorY);
-    ctx.lineTo(boxX + boxWidth / 2, anchorY);
-    ctx.stroke();
-
-    ctx.fillStyle = color;
-    ctx.strokeStyle = '#111111';
-    ctx.lineWidth = selectedEventId === event.id ? 4 : 2;
-    roundRect(ctx, boxX, boxY, boxWidth, boxHeight, 0);
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.fillStyle = '#111111';
-    drawBoxText(ctx, event, category, boxX, boxY, boxWidth, boxHeight, isSelected);
+    eventCallouts.push({
+      event,
+      category,
+      color,
+      x,
+      boxX,
+      boxY,
+      boxWidth,
+      boxHeight,
+      anchorY,
+      isSelected,
+    });
     hitBoxes.push({ event, x: boxX, y: boxY, width: boxWidth, height: boxHeight });
   });
 
+  const layeredEventCallouts = [...eventCallouts].sort((a, b) => Number(a.isSelected) - Number(b.isSelected));
+
+  layeredEventCallouts.forEach((callout) => {
+    ctx.save();
+    if (hasSelectedEvent && !callout.isSelected) ctx.globalAlpha = 0.28;
+    ctx.strokeStyle = callout.isSelected ? '#ff3b9d' : '#111111';
+    ctx.lineWidth = callout.isSelected ? 3 : 2;
+    ctx.beginPath();
+    ctx.moveTo(callout.x, timelineY);
+    ctx.lineTo(callout.x, callout.anchorY);
+    ctx.lineTo(callout.boxX + callout.boxWidth / 2, callout.anchorY);
+    ctx.stroke();
+    ctx.restore();
+  });
+
   if (project.settings.showTodosOnTimeline) {
-    drawTodoMarkers(
+    const todoMarkers = planTodoMarkers(
       ctx,
       project.todos.filter((todo) => shouldDrawTodo(todo, completedTodoStatus)),
       project,
@@ -439,17 +498,87 @@ function drawTimeline(
       width,
       height,
       hitBoxes,
+      calloutLanes,
+      occupiedLanes,
     );
+
+    todoMarkers.forEach((marker) => {
+      ctx.save();
+      if (hasSelectedEvent) ctx.globalAlpha = 0.24;
+      ctx.strokeStyle = '#111111';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(marker.x, timelineY);
+      ctx.lineTo(marker.x, marker.y);
+      ctx.lineTo(marker.markerX + marker.markerWidth / 2, marker.y);
+      ctx.stroke();
+      ctx.restore();
+    });
+
+    layeredEventCallouts.forEach(drawEventCalloutBox);
+    todoMarkers.forEach(drawTodoMarkerBox);
+  } else {
+    layeredEventCallouts.forEach(drawEventCalloutBox);
   }
 
   hitBoxesRef.current = hitBoxes;
+
+  function drawEventCalloutBox(callout: EventCalloutPlacement) {
+    ctx.save();
+    if (hasSelectedEvent && !callout.isSelected) ctx.globalAlpha = 0.42;
+    if (callout.isSelected) {
+      ctx.fillStyle = '#ff3b9d';
+      roundRect(ctx, callout.boxX - 7, callout.boxY - 7, callout.boxWidth + 14, callout.boxHeight + 14, 0);
+      ctx.fill();
+      ctx.fillStyle = '#d7ff2f';
+      roundRect(ctx, callout.boxX - 3, callout.boxY - 3, callout.boxWidth + 6, callout.boxHeight + 6, 0);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = callout.color;
+    ctx.strokeStyle = '#111111';
+    ctx.lineWidth = callout.isSelected ? 4 : 2;
+    roundRect(ctx, callout.boxX, callout.boxY, callout.boxWidth, callout.boxHeight, 0);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#111111';
+    drawBoxText(
+      ctx,
+      callout.event,
+      callout.category,
+      callout.boxX,
+      callout.boxY,
+      callout.boxWidth,
+      callout.boxHeight,
+      callout.isSelected,
+    );
+    ctx.restore();
+  }
+
+  function drawTodoMarkerBox(marker: TodoMarkerPlacement) {
+    ctx.save();
+    if (hasSelectedEvent) ctx.globalAlpha = 0.42;
+    ctx.fillStyle = '#e8fbff';
+    ctx.strokeStyle = '#111111';
+    ctx.setLineDash([5, 4]);
+    roundRect(ctx, marker.markerX, marker.y, marker.markerWidth, 22, 0);
+    ctx.fill();
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = '#111111';
+    ctx.font = '900 11px system-ui, sans-serif';
+    ctx.fillText(truncateToWidth(ctx, marker.label, marker.markerWidth - 16), marker.markerX + 8, marker.y + 6);
+    ctx.restore();
+  }
 }
 
 function shouldDrawTodo(todo: TimelineTodo, completedTodoStatus: string) {
   return Boolean(todo.showOnTimeline && todo.dueDate && !isTodoCompleted(todo, completedTodoStatus));
 }
 
-function drawTodoMarkers(
+function planTodoMarkers(
   ctx: CanvasRenderingContext2D,
   todos: TimelineTodo[],
   project: TimelineProject,
@@ -459,16 +588,16 @@ function drawTodoMarkers(
   width: number,
   height: number,
   hitBoxes: HitBox[],
+  sharedLanes: number[],
+  sharedOccupiedLanes: Array<Array<{ left: number; right: number }>>,
 ) {
   const todosByDate = new Map<string, TimelineTodo[]>();
+  const markers: TodoMarkerPlacement[] = [];
 
   todos.forEach((todo) => {
     if (!todo.dueDate) return;
     todosByDate.set(todo.dueDate, [...(todosByDate.get(todo.dueDate) ?? []), todo]);
   });
-
-  const occupiedLanes: Array<Array<{ left: number; right: number }>> = [[], [], []];
-  const baseY = Math.min(height - 104, timelineY + 92);
 
   [...todosByDate.entries()]
     .map(([date, dateTodos]) => ({
@@ -483,43 +612,30 @@ function drawTodoMarkers(
       const label = dateTodos.length > 1 ? `${dateTodos.length}x ${firstTitle}` : firstTitle;
       const markerWidth = Math.min(180, Math.max(86, ctx.measureText(label).width + 18));
       const markerX = Math.max(8, Math.min(width - markerWidth - 8, x - markerWidth / 2));
-      const laneIndex = findAvailableLane(occupiedLanes, markerX, markerWidth);
+      const laneIndex = findAvailableLane(sharedOccupiedLanes, markerX, markerWidth);
 
       if (laneIndex === -1) return;
 
-      const y = baseY + laneIndex * 28;
-      occupiedLanes[laneIndex].push({ left: markerX - 8, right: markerX + markerWidth + 8 });
+      const eventLaneY = sharedLanes[laneIndex];
+      const y = eventLaneY < timelineY ? eventLaneY + 106 : eventLaneY - 34;
+      if (y < 56 || y > height - 56) return;
 
-      ctx.strokeStyle = '#111111';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(x, timelineY);
-      ctx.lineTo(x, y);
-      ctx.lineTo(markerX + markerWidth / 2, y);
-      ctx.stroke();
+      sharedOccupiedLanes[laneIndex].push({ left: markerX - 8, right: markerX + markerWidth + 8 });
 
-      ctx.fillStyle = '#e8fbff';
-      ctx.strokeStyle = '#111111';
-      ctx.setLineDash([5, 4]);
-      roundRect(ctx, markerX, y, markerWidth, 22, 0);
-      ctx.fill();
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      ctx.fillStyle = '#111111';
-      ctx.font = '900 11px system-ui, sans-serif';
-      ctx.fillText(truncateToWidth(ctx, label, markerWidth - 16), markerX + 8, y + 6);
+      markers.push({ todo: dateTodos[0], label, x, markerX, y, markerWidth });
       if (dateTodos[0]) {
         hitBoxes.push({ todo: dateTodos[0], x: markerX, y, width: markerWidth, height: 22 });
       }
     });
+
+  return markers;
 }
 
 function createCalloutLanes(timelineY: number, height: number, boxHeight: number) {
   const topPadding = 82;
-  const bottomPadding = 62;
-  const railGap = 46;
-  const laneGap = 18;
+  const bottomPadding = 48;
+  const railGap = 34;
+  const laneGap = 12;
   const lanes: number[] = [];
 
   for (let y = topPadding; y + boxHeight < timelineY - railGap; y += boxHeight + laneGap) {

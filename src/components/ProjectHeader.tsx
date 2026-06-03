@@ -73,8 +73,40 @@ export function ProjectHeader({
             Edit
           </button>
         </div>
+        <details className="mobile-control-menu">
+          <summary>Project tools</summary>
+          <div className="mobile-control-panel">
+            {project.settings.mode === 'edit' ? (
+              <>
+                <button type="button" className="secondary" onClick={onProjectPinChange}>
+                  {project.settings.viewPinHash ? 'Change project PIN' : 'Add project PIN'}
+                </button>
+                <button type="button" className="secondary" onClick={onEditPinChange}>
+                  {project.settings.editPinHash ? 'Change edit PIN' : 'Add edit PIN'}
+                </button>
+                {project.settings.viewPinHash ? (
+                  <button type="button" className="secondary" onClick={onProjectPinRemove}>
+                    Remove project PIN
+                  </button>
+                ) : null}
+              </>
+            ) : null}
+            <label className="import-button">
+              Import Excel
+              <input
+                type="file"
+                accept=".xlsx"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) onImport(file);
+                  event.target.value = '';
+                }}
+              />
+            </label>
+          </div>
+        </details>
         {project.settings.mode === 'edit' ? (
-          <>
+          <div className="desktop-control-group">
             <button type="button" className="secondary" onClick={onProjectPinChange}>
               {project.settings.viewPinHash ? 'Change project PIN' : 'Add project PIN'}
             </button>
@@ -86,9 +118,9 @@ export function ProjectHeader({
                 Remove project PIN
               </button>
             ) : null}
-          </>
+          </div>
         ) : null}
-        <label className="import-button">
+        <label className="import-button desktop-only-control">
           Import Excel
           <input
             type="file"

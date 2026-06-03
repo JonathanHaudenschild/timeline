@@ -157,8 +157,10 @@ export function TimelineApp() {
   function selectEvent(eventId: string | undefined) {
     setSelectedEventId(eventId);
     setSelectedPopoverMinimized(false);
-    setPopoverPosition(null);
-    popoverDragRef.current = null;
+    if (!eventId) {
+      setPopoverPosition(null);
+      popoverDragRef.current = null;
+    }
   }
 
   function selectTodo(todo: TimelineTodo) {
@@ -649,7 +651,9 @@ export function TimelineApp() {
                 <dt>Type</dt>
                 <dd>{selectedEvent.type}</dd>
                 <dt>Note</dt>
-                <dd>{selectedEvent.note || '-'}</dd>
+                <dd>
+                  {selectedEvent.note.trim() ? <MarkdownBlock markdown={selectedEvent.note} /> : '-'}
+                </dd>
               </dl>
               {canEdit ? (
                 <button type="button" className="popover-edit" onClick={() => setDraftEvent({ ...selectedEvent })}>

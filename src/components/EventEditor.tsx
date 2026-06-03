@@ -2,6 +2,7 @@
 
 import type { TimelineEvent } from '@/lib/types';
 import { colorForType } from '@/lib/colors';
+import { MarkdownBlock } from './MarkdownBlock';
 
 type EventEditorProps = {
   draft: TimelineEvent;
@@ -128,13 +129,18 @@ export function EventEditor({ draft, events, typeColors, onChange, onCancel, onS
         <span>Show on timeline</span>
       </label>
       <label>
-        <span>Note</span>
+        <span>Markdown note</span>
         <textarea
           value={draft.note}
           onChange={(event) => onChange({ ...draft, note: event.target.value })}
-          rows={3}
+          rows={5}
         />
       </label>
+      {draft.note.trim() ? (
+        <div className="event-note-preview">
+          <MarkdownBlock markdown={draft.note} />
+        </div>
+      ) : null}
       <div className="action-row">
         <button type="submit">Save event</button>
         <button type="button" className="secondary" onClick={onCancel}>

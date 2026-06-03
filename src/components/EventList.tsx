@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { MarkdownBlock } from './MarkdownBlock';
 import { formatShortGermanDateRange } from '@/lib/dateFormat';
 import type { TimelineEvent } from '@/lib/types';
 
@@ -82,7 +83,23 @@ export function EventList({
             {isMinimized ? 'Expand' : 'Minimize'}
           </button>
           {canEdit ? (
-            <>
+            <details className="mobile-control-menu event-mobile-menu">
+              <summary>Actions</summary>
+              <div className="mobile-control-panel">
+                <button type="button" onClick={onAdd}>
+                  Add event
+                </button>
+                <button type="button" className="secondary" onClick={() => onSetAllTimeline(true)}>
+                  Show all
+                </button>
+                <button type="button" className="secondary" onClick={() => onSetAllTimeline(false)}>
+                  Hide all
+                </button>
+              </div>
+            </details>
+          ) : null}
+          {canEdit ? (
+            <div className="desktop-control-group">
               <button type="button" onClick={onAdd}>
                 Add event
               </button>
@@ -92,7 +109,7 @@ export function EventList({
               <button type="button" className="secondary" onClick={() => onSetAllTimeline(false)}>
                 Hide all
               </button>
-            </>
+            </div>
           ) : null}
         </div>
       </div>
@@ -125,17 +142,17 @@ export function EventList({
                 className={selectedEventId === event.id ? 'selected' : ''}
                 onClick={() => onSelect(event)}
               >
-                <td className="event-date-cell">{formatShortGermanDateRange(event.date, event.endDate)}</td>
-                <td className="event-time-cell">{event.time}</td>
-                <td className="event-what-cell">{event.what}</td>
-                <td>{event.who}</td>
-                <td>
+                <td className="event-date-cell" data-label="Date">{formatShortGermanDateRange(event.date, event.endDate)}</td>
+                <td className="event-time-cell" data-label="Time">{event.time}</td>
+                <td className="event-what-cell" data-label="What">{event.what}</td>
+                <td data-label="Who">{event.who}</td>
+                <td data-label="Type">
                   <span className="event-badge type-badge">{event.type}</span>
                 </td>
-                <td>
+                <td data-label="Category">
                   <span className="event-badge category-badge">{event.category || event.type || 'event'}</span>
                 </td>
-                <td>
+                <td data-label="Timeline">
                   {canEdit ? (
                     <button
                       type="button"
@@ -153,8 +170,10 @@ export function EventList({
                     </span>
                   )}
                 </td>
-                <td className="event-note-cell">{event.note}</td>
-                <td>
+                <td className="event-note-cell" data-label="Note">
+                  {event.note.trim() ? <MarkdownBlock markdown={event.note} /> : null}
+                </td>
+                <td data-label="Actions">
                   {canEdit ? (
                     <>
                       <button

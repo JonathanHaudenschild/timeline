@@ -6,7 +6,7 @@ import { TodoEditor } from './TodoEditor';
 import type { TimelineTodo, TodoStatus } from '@/lib/types';
 import { defaultTodoStatuses, formatTodoStatus, isTodoCompleted, normalizeTodoStatus } from '@/lib/todos';
 
-type TodoSortKey = 'due-date' | 'a-z' | 'owner' | 'created';
+type TodoSortKey = 'manual' | 'due-date' | 'a-z' | 'owner' | 'created';
 
 type TodoBoardProps = {
   todos: TimelineTodo[];
@@ -35,7 +35,7 @@ export function TodoBoard({
   const [newStatus, setNewStatus] = useState('');
   const [editingStatus, setEditingStatus] = useState<TodoStatus | null>(null);
   const [editingStatusName, setEditingStatusName] = useState('');
-  const [sortKey, setSortKey] = useState<TodoSortKey>('due-date');
+  const [sortKey, setSortKey] = useState<TodoSortKey>('manual');
   const [search, setSearch] = useState('');
   const selectedTodo = selectedTodoId ? todos.find((todo) => todo.id === selectedTodoId) ?? null : null;
   const activeDraftTodo = selectedTodo && selectedTodo.id !== draftTodo?.id ? selectedTodo : draftTodo;
@@ -49,6 +49,7 @@ export function TodoBoard({
       status: 'open',
       dueDate: '',
       showOnTimeline: true,
+      order: nextTodoOrder(todos, 'open'),
     });
   }
 
@@ -61,7 +62,25 @@ export function TodoBoard({
   }
 
   function moveTodo(todoId: string, status: TodoStatus) {
-    onChange(todos.map((todo) => (todo.id === todoId ? { ...todo, status } : todo)));
+    onChange(todos.map((todo) => (todo.id === todoId ? { ...todo, status, order: nextTodoOrder(todos, status) } : todo)));
+  }
+
+  function nudgeTodo(todoId: string, status: TodoStatus, direction: -1 | 1) {
+    const columnTodoIds = todos
+      .filter((todo) => todo.status === status)
+      .sort(compareManualTodos)
+      .map((todo) => todo.id);
+    const index = columnTodoIds.indexOf(todoId);
+    const targetIndex = index + direction;
+
+    if (index === -1 || targetIndex < 0 || targetIndex >= columnTodoIds.length) return;
+
+    const reorderedIds = [...columnTodoIds];
+    const [movedId] = reorderedIds.splice(index, 1);
+    reorderedIds.splice(targetIndex, 0, movedId);
+    const nextOrder = new Map(reorderedIds.map((id, orderIndex) => [id, orderIndex + 1]));
+
+    onChange(todos.map((todo) => (nextOrder.has(todo.id) ? { ...todo, order: nextOrder.get(todo.id)! } : todo)));
   }
 
   const totalOpen = todos.filter((todo) => !isTodoCompleted(todo, completedTodoStatus)).length;
@@ -132,6 +151,7 @@ export function TodoBoard({
           <label className="todo-sort-control">
             <span>Sort</span>
             <select value={sortKey} onChange={(event) => setSortKey(event.target.value as TodoSortKey)}>
+              <option value="manual">Manual</option>
               <option value="due-date">Due date</option>
               <option value="a-z">A-Z</option>
               <option value="owner">Owner</option>
@@ -146,24 +166,29 @@ export function TodoBoard({
               placeholder="Todo, owner, status"
             />
           </label>
-          <form
-            className="add-status-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              addStatus();
-            }}
-          >
-            <input
-              value={newStatus}
-              onChange={(event) => setNewStatus(event.target.value)}
-              placeholder="New status"
-              aria-label="New todo status"
+          <details className="mobile-control-menu todo-mobile-menu">
+            <summary>Actions</summary>
+            <div className="mobile-control-panel">
+              <StatusForm
+                newStatus={newStatus}
+                onNewStatusChange={setNewStatus}
+                onAddStatus={addStatus}
+              />
+              <button type="button" onClick={addTodo}>
+                Add todo
+              </button>
+            </div>
+          </details>
+          <div className="desktop-control-group">
+            <StatusForm
+              newStatus={newStatus}
+              onNewStatusChange={setNewStatus}
+              onAddStatus={addStatus}
             />
-            <button type="submit" className="secondary">Add column</button>
-          </form>
-          <button type="button" onClick={addTodo}>
-            Add todo
-          </button>
+            <button type="button" onClick={addTodo}>
+              Add todo
+            </button>
+          </div>
         </div>
       </div>
       {activeDraftTodo ? (
@@ -180,10 +205,11 @@ export function TodoBoard({
       ) : null}
       <div className="todo-columns">
         {visibleStatuses.map((status) => {
+          const allColumnTodos = todos.filter((todo) => todo.status === status).sort(compareManualTodos);
           const columnTodos = filteredTodos
             .filter((todo) => todo.status === status)
             .sort((a, b) => compareTodos(a, b, sortKey));
-          const canRemoveStatus = !defaultTodoStatuses.includes(status) && columnTodos.length === 0;
+          const canRemoveStatus = !defaultTodoStatuses.includes(status) && allColumnTodos.length === 0;
 
           return (
             <div
@@ -307,6 +333,32 @@ export function TodoBoard({
                     <div className="todo-card-topline">
                       <span className="todo-drag-grip" aria-hidden="true">drag</span>
                       <div className="todo-card-title">{todo.title}</div>
+                      <div className="todo-card-order">
+                        <button
+                          type="button"
+                          className="column-move"
+                          disabled={allColumnTodos[0]?.id === todo.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            nudgeTodo(todo.id, status, -1);
+                          }}
+                          aria-label={`Move ${todo.title} up`}
+                        >
+                          up
+                        </button>
+                        <button
+                          type="button"
+                          className="column-move"
+                          disabled={allColumnTodos.at(-1)?.id === todo.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            nudgeTodo(todo.id, status, 1);
+                          }}
+                          aria-label={`Move ${todo.title} down`}
+                        >
+                          down
+                        </button>
+                      </div>
                     </div>
                     <div className="todo-card-meta">
                       <span>{todo.who || 'No owner'}</span>
@@ -359,7 +411,36 @@ export function TodoBoard({
   );
 }
 
+function StatusForm({
+  newStatus,
+  onNewStatusChange,
+  onAddStatus,
+}: {
+  newStatus: string;
+  onNewStatusChange: (status: string) => void;
+  onAddStatus: () => void;
+}) {
+  return (
+    <form
+      className="add-status-form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onAddStatus();
+      }}
+    >
+      <input
+        value={newStatus}
+        onChange={(event) => onNewStatusChange(event.target.value)}
+        placeholder="New status"
+        aria-label="New todo status"
+      />
+      <button type="submit" className="secondary">Add column</button>
+    </form>
+  );
+}
+
 function compareTodos(a: TimelineTodo, b: TimelineTodo, sortKey: TodoSortKey) {
+  if (sortKey === 'manual') return compareManualTodos(a, b);
   if (sortKey === 'created') return a.id.localeCompare(b.id);
   if (sortKey === 'a-z') return compareText(a.title, b.title);
   if (sortKey === 'owner') {
@@ -371,6 +452,18 @@ function compareTodos(a: TimelineTodo, b: TimelineTodo, sortKey: TodoSortKey) {
   if (a.dueDate && !b.dueDate) return -1;
   if (!a.dueDate && b.dueDate) return 1;
   return compareText(a.title, b.title);
+}
+
+function compareManualTodos(a: TimelineTodo, b: TimelineTodo) {
+  const orderCompare = (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER);
+  return orderCompare || a.id.localeCompare(b.id);
+}
+
+function nextTodoOrder(todos: readonly TimelineTodo[], status: TodoStatus) {
+  const maxOrder = todos
+    .filter((todo) => todo.status === status)
+    .reduce((max, todo) => Math.max(max, todo.order ?? 0), 0);
+  return maxOrder + 1;
 }
 
 function compareText(a: string, b: string) {
