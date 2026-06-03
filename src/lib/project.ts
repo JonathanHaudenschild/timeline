@@ -78,12 +78,32 @@ export function createDefaultProject(hash: string): TimelineProject {
         showOnTimeline: true,
       },
     ],
+    todoBoards: [
+      {
+        id: 'board-main',
+        name: 'Main',
+        todos: [
+          {
+            id: 'todo-first',
+            title: 'Add first real event',
+            who: 'Project team',
+            body: '- Switch to edit mode\n- Click the timeline\n- Save the event',
+            status: 'open',
+            dueDate: '2026-06-05',
+            showOnTimeline: true,
+          },
+        ],
+        statuses: defaultTodoStatuses,
+        completedTodoStatus: 'done',
+      },
+    ],
     settings: {
       mode: 'view',
       showTodosOnTimeline: true,
       typeColors: defaultTypeColors,
       todoStatuses: defaultTodoStatuses,
       completedTodoStatus: 'done',
+      activeTodoBoardId: 'board-main',
       stickyLinks: [],
     },
   };

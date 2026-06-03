@@ -7,12 +7,13 @@ import { formatTodoStatus } from '@/lib/todos';
 type TodoEditorProps = {
   draft: TimelineTodo;
   statuses: TodoStatus[];
+  boards?: Array<{ id: string; name: string; locked?: boolean }>;
   onChange: (todo: TimelineTodo) => void;
   onCancel: () => void;
   onSave: () => void;
 };
 
-export function TodoEditor({ draft, statuses, onChange, onCancel, onSave }: TodoEditorProps) {
+export function TodoEditor({ draft, statuses, boards = [], onChange, onCancel, onSave }: TodoEditorProps) {
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Edit todo">
       <form
@@ -49,6 +50,21 @@ export function TodoEditor({ draft, statuses, onChange, onCancel, onSave }: Todo
               ))}
             </select>
           </label>
+          {boards.length > 1 ? (
+            <label>
+              <span>Board</span>
+              <select
+                value={draft.boardId ?? boards[0]?.id ?? ''}
+                onChange={(event) => onChange({ ...draft, boardId: event.target.value })}
+              >
+                {boards.map((board) => (
+                  <option key={board.id} value={board.id}>
+                    {board.locked ? 'PIN ' : ''}{board.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <label>
             <span>Due</span>
             <input
@@ -58,14 +74,6 @@ export function TodoEditor({ draft, statuses, onChange, onCancel, onSave }: Todo
             />
           </label>
         </div>
-        <label className="check-control switch-control">
-          <input
-            type="checkbox"
-            checked={draft.showOnTimeline}
-            onChange={(event) => onChange({ ...draft, showOnTimeline: event.target.checked })}
-          />
-          <span>Show subtle marker on timeline</span>
-        </label>
         <label>
           <span>Markdown note</span>
           <textarea

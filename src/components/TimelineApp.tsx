@@ -13,8 +13,9 @@ import { fetchProject, importProjectFile, LockedProjectError, persistProject } f
 import { formatShortGermanDateRange } from '@/lib/dateFormat';
 import { createDefaultProject, normalizeHash } from '@/lib/project';
 import { ensureProjectHash } from '@/lib/storage';
+import { moveTodoBetweenBoards, normalizeTodoBoards, syncProjectTodoBoard } from '@/lib/todoBoards';
 import { normalizeCompletedTodoStatus, normalizeTodoStatuses, renameTodoStatus } from '@/lib/todos';
-import type { TimelineEvent, TimelineMode, TimelineProject, TimelineTodo } from '@/lib/types';
+import type { TimelineEvent, TimelineMode, TimelineProject, TimelineTodo, TimelineTodoBoard as TimelineTodoBoardData } from '@/lib/types';
 
 type PinDialogConfig = {
   title: string;
@@ -45,8 +46,11 @@ export function TimelineApp() {
   const [pinDialogPin, setPinDialogPin] = useState('');
   const [pinDialogRepeat, setPinDialogRepeat] = useState('');
   const [selectedPopoverMinimized, setSelectedPopoverMinimized] = useState(false);
+  const [unlockedTodoBoardIds, setUnlockedTodoBoardIds] = useState<string[]>([]);
   const lastSavedJsonRef = useRef('');
   const canSaveRef = useRef(false);
+  const latestProjectRef = useRef(project);
+  const loadSequenceRef = useRef(0);
   const projectPinRef = useRef<string | undefined>(undefined);
   const pinDialogResolverRef = useRef<((result: PinDialogResult | null) => void) | null>(null);
   const topRef = useRef<HTMLElement | null>(null);
@@ -65,15 +69,33 @@ export function TimelineApp() {
   } | null>(null);
 
   useEffect(() => {
+    latestProjectRef.current = project;
+  }, [project]);
+
+  useEffect(() => {
+    function warnBeforeUnload(event: BeforeUnloadEvent) {
+      if (!canSaveRef.current) return;
+      if (JSON.stringify(latestProjectRef.current) === lastSavedJsonRef.current) return;
+
+      event.preventDefault();
+      event.returnValue = '';
+    }
+
+    window.addEventListener('beforeunload', warnBeforeUnload);
+    return () => window.removeEventListener('beforeunload', warnBeforeUnload);
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
     const activeHash = ensureProjectHash(window.location);
 
     async function load(hash: string, projectPin?: string) {
+      const loadId = ++loadSequenceRef.current;
       canSaveRef.current = false;
       setSaveState('loading');
       try {
         const loadedProject = await fetchProject(hash, projectPin);
-        if (!cancelled) {
+        if (!cancelled && loadId === loadSequenceRef.current) {
           projectPinRef.current = projectPin;
           lastSavedJsonRef.current = JSON.stringify(loadedProject);
           canSaveRef.current = true;
@@ -84,7 +106,7 @@ export function TimelineApp() {
           setSaveState('saved');
         }
       } catch (error) {
-        if (!cancelled) {
+        if (!cancelled && loadId === loadSequenceRef.current) {
           if (error instanceof LockedProjectError) {
             projectPinRef.current = undefined;
             setLockedHash(hash);
@@ -108,11 +130,11 @@ export function TimelineApp() {
       setLockedHash(null);
       setUnlockPin('');
       setLockError('');
-      setProject(createDefaultProject(hash));
       setSelectedEventId(undefined);
       setPopoverPosition(null);
       popoverDragRef.current = null;
       setDraftEvent(null);
+      void load(hash);
     }
 
     window.addEventListener('hashchange', handleHashChange);
@@ -123,7 +145,7 @@ export function TimelineApp() {
   }, [project.hash]);
 
   useEffect(() => {
-    if (!canSaveRef.current || saveState === 'loading' || lockedHash) return;
+    if (!canSaveRef.current || saveState === 'loading' || saveState === 'saving' || lockedHash) return;
 
     const projectJson = JSON.stringify(project);
     if (projectJson === lastSavedJsonRef.current) return;
@@ -131,8 +153,12 @@ export function TimelineApp() {
     const timeout = window.setTimeout(() => {
       setSaveState('saving');
       persistProject(project, projectPinRef.current)
-        .then(() => {
-          lastSavedJsonRef.current = projectJson;
+        .then((savedProject) => {
+          const savedJson = JSON.stringify(savedProject);
+          lastSavedJsonRef.current = savedJson;
+          if (JSON.stringify(latestProjectRef.current) === projectJson) {
+            setProject(savedProject);
+          }
           setSaveState('saved');
         })
         .catch(() => setSaveState('error'));
@@ -143,8 +169,20 @@ export function TimelineApp() {
 
   const selectedEvent = project.events.find((event) => event.id === selectedEventId);
   const canEdit = project.settings.mode === 'edit';
-  const todoStatuses = normalizeTodoStatuses(project.settings.todoStatuses, project.todos);
-  const completedTodoStatus = normalizeCompletedTodoStatus(todoStatuses, project.settings.completedTodoStatus);
+  const todoBoards = normalizeTodoBoards(project);
+  const activeBoard = todoBoards.find((board) => board.id === project.settings.activeTodoBoardId) ?? todoBoards[0];
+  const todoStatuses = normalizeTodoStatuses(activeBoard.statuses, activeBoard.todos);
+  const completedTodoStatus = normalizeCompletedTodoStatus(todoStatuses, activeBoard.completedTodoStatus);
+  const isActiveBoardLocked = Boolean(activeBoard.pinHash && !unlockedTodoBoardIds.includes(activeBoard.id));
+  const timelineProject = {
+    ...project,
+    todos: isActiveBoardLocked ? [] : activeBoard.todos,
+    settings: {
+      ...project.settings,
+      todoStatuses,
+      completedTodoStatus,
+    },
+  };
 
   function updateProject(nextProject: TimelineProject) {
     if (nextProject.settings.mode !== 'edit') {
@@ -166,6 +204,90 @@ export function TimelineApp() {
   function selectTodo(todo: TimelineTodo) {
     setSelectedTodoId(todo.id);
     scrollToElement(todoRef.current);
+  }
+
+  function updateTodoBoards(boards: TimelineTodoBoardData[], activeBoardId = activeBoard.id) {
+    updateProject(syncProjectTodoBoard(project, boards, activeBoardId));
+  }
+
+  function updateActiveTodoBoard(nextBoard: TimelineTodoBoardData) {
+    updateTodoBoards(
+      todoBoards.map((board) => (board.id === nextBoard.id ? nextBoard : board)),
+      nextBoard.id,
+    );
+  }
+
+  function moveTodoToBoard(todo: TimelineTodo, sourceBoardId: string, targetBoardId: string) {
+    updateTodoBoards(moveTodoBetweenBoards(todoBoards, todo, sourceBoardId, targetBoardId), targetBoardId);
+    setSelectedTodoId(undefined);
+  }
+
+  function switchTodoBoard(boardId: string) {
+    updateProject(syncProjectTodoBoard(project, todoBoards, boardId));
+    setSelectedTodoId(undefined);
+  }
+
+  function addTodoBoard() {
+    const name = window.prompt('Board name')?.trim();
+    if (!name) return;
+
+    const board: TimelineTodoBoardData = {
+      id: crypto.randomUUID(),
+      name,
+      todos: [],
+      statuses: ['open', 'doing', 'done'],
+      completedTodoStatus: 'done',
+    };
+    updateTodoBoards([...todoBoards, board], board.id);
+    setUnlockedTodoBoardIds((ids) => [...ids, board.id]);
+  }
+
+  function renameTodoBoard(board: TimelineTodoBoardData) {
+    const name = window.prompt('Board name', board.name)?.trim();
+    if (!name) return;
+    updateActiveTodoBoard({ ...board, name });
+  }
+
+  function deleteTodoBoard(board: TimelineTodoBoardData) {
+    if (todoBoards.length <= 1) return;
+    if (!window.confirm(`Delete board "${board.name}" and all its todos?`)) return;
+
+    const nextBoards = todoBoards.filter((item) => item.id !== board.id);
+    updateTodoBoards(nextBoards, nextBoards[0].id);
+    setUnlockedTodoBoardIds((ids) => ids.filter((id) => id !== board.id));
+  }
+
+  async function changeTodoBoardPin(board: TimelineTodoBoardData) {
+    if (board.pinHash && !(await verifyTodoBoardPin(board, 'Change board PIN', 'Enter the current board PIN before setting a new one.'))) {
+      return;
+    }
+
+    const result = await requestPinDialog({
+      title: board.pinHash ? 'New board PIN' : 'Add board PIN',
+      description: `This PIN is required before viewing "${board.name}".`,
+      confirmLabel: board.pinHash ? 'Change PIN' : 'Add PIN',
+      requireRepeat: true,
+      inputLabel: 'Board PIN',
+      repeatLabel: 'Repeat board PIN',
+    });
+    if (!result) return;
+
+    updateActiveTodoBoard({ ...board, pinHash: await hashTodoBoardPin(project.hash, board.id, result.pin) });
+    setUnlockedTodoBoardIds((ids) => (ids.includes(board.id) ? ids : [...ids, board.id]));
+  }
+
+  async function removeTodoBoardPin(board: TimelineTodoBoardData) {
+    if (!board.pinHash) return;
+    if (!(await verifyTodoBoardPin(board, 'Remove board PIN', 'Enter the current board PIN to remove this board lock.'))) return;
+
+    updateActiveTodoBoard({ ...board, pinHash: undefined });
+    setUnlockedTodoBoardIds((ids) => ids.filter((id) => id !== board.id));
+  }
+
+  async function unlockTodoBoard(board: TimelineTodoBoardData) {
+    if (await verifyTodoBoardPin(board, 'Unlock board', `Enter the board PIN for "${board.name}".`)) {
+      setUnlockedTodoBoardIds((ids) => (ids.includes(board.id) ? ids : [...ids, board.id]));
+    }
   }
 
   function createEvent(moment: { date: string; time: string }) {
@@ -346,6 +468,25 @@ export function TimelineApp() {
       if (!result) return false;
 
       if ((await hashEditPin(project.hash, result.pin)) === editPinHash) return true;
+
+      wrongAttempt = true;
+    }
+  }
+
+  async function verifyTodoBoardPin(board: TimelineTodoBoardData, title: string, description: string) {
+    if (!board.pinHash) return true;
+
+    let wrongAttempt = false;
+    while (true) {
+      const result = await requestPinDialog({
+        title,
+        description: wrongAttempt ? 'That board PIN was wrong. Try again.' : description,
+        confirmLabel: 'Continue',
+        inputLabel: 'Board PIN',
+      });
+      if (!result) return false;
+
+      if ((await hashTodoBoardPin(project.hash, board.id, result.pin)) === board.pinHash) return true;
 
       wrongAttempt = true;
     }
@@ -570,7 +711,7 @@ export function TimelineApp() {
 
       <div ref={timelineRef}>
         <TimelineCanvas
-          project={project}
+          project={timelineProject}
           completedTodoStatus={completedTodoStatus}
           selectedEventId={selectedEventId}
           canEdit={canEdit}
@@ -697,53 +838,120 @@ export function TimelineApp() {
       </section>
 
       <div ref={todoRef}>
-        <TodoBoard
-          todos={project.todos}
-          statuses={todoStatuses}
-          completedTodoStatus={completedTodoStatus}
-          selectedTodoId={selectedTodoId}
-          onTodoOpened={() => setSelectedTodoId(undefined)}
-          onChange={(todos) =>
-            updateProject({
-              ...project,
-              todos,
-              settings: {
-                ...project.settings,
-                todoStatuses: normalizeTodoStatuses(project.settings.todoStatuses, todos),
-                completedTodoStatus: normalizeCompletedTodoStatus(project.settings.todoStatuses, project.settings.completedTodoStatus),
-              },
-            })
-          }
-          onStatusesChange={(todoStatuses) =>
-            updateProject({
-              ...project,
-              settings: {
-                ...project.settings,
-                todoStatuses: normalizeTodoStatuses(todoStatuses, project.todos),
-                completedTodoStatus: normalizeCompletedTodoStatus(todoStatuses, project.settings.completedTodoStatus),
-              },
-            })
-          }
-          onRenameStatus={(fromStatus, toStatus) => {
-            const renamed = renameTodoStatus(
-              todoStatuses,
-              project.todos,
-              fromStatus,
-              toStatus,
-              completedTodoStatus,
-            );
+        <section className="todo-board-frame">
+          <div className="todo-board-tabs">
+            {todoBoards.map((board) => (
+              <button
+                type="button"
+                className={board.id === activeBoard.id ? 'active' : ''}
+                key={board.id}
+                onClick={() => switchTodoBoard(board.id)}
+              >
+                {board.pinHash ? 'PIN ' : ''}{board.name}
+              </button>
+            ))}
+            {canEdit ? (
+              <button type="button" className="secondary" onClick={addTodoBoard}>
+                Add board
+              </button>
+            ) : null}
+          </div>
+          <div className="todo-board-mobile-switcher">
+            <label>
+              <span>Board</span>
+              <select value={activeBoard.id} onChange={(event) => switchTodoBoard(event.target.value)}>
+                {todoBoards.map((board) => (
+                  <option value={board.id} key={board.id}>
+                    {board.pinHash ? 'PIN ' : ''}{board.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {canEdit ? (
+              <button type="button" className="secondary" onClick={addTodoBoard} aria-label="Add todo board">
+                +
+              </button>
+            ) : null}
+          </div>
+          <div className="todo-board-tools">
+            <b>{activeBoard.name}</b>
+            {canEdit ? (
+              <>
+                <button type="button" className="secondary" onClick={() => renameTodoBoard(activeBoard)}>
+                  Rename
+                </button>
+                <button type="button" className="secondary" onClick={() => void changeTodoBoardPin(activeBoard)}>
+                  {activeBoard.pinHash ? 'Change board PIN' : 'Add board PIN'}
+                </button>
+                {activeBoard.pinHash ? (
+                  <button type="button" className="secondary" onClick={() => void removeTodoBoardPin(activeBoard)}>
+                    Remove board PIN
+                  </button>
+                ) : null}
+                {todoBoards.length > 1 ? (
+                  <button type="button" className="secondary" onClick={() => deleteTodoBoard(activeBoard)}>
+                    Delete board
+                  </button>
+                ) : null}
+              </>
+            ) : null}
+          </div>
+          {isActiveBoardLocked ? (
+            <section className="todo-board-locked">
+              <h2>{activeBoard.name}</h2>
+              <p>This todo board is PIN protected.</p>
+              <button type="button" onClick={() => void unlockTodoBoard(activeBoard)}>
+                Unlock board
+              </button>
+            </section>
+          ) : (
+            <TodoBoard
+              todos={activeBoard.todos}
+              statuses={todoStatuses}
+              completedTodoStatus={completedTodoStatus}
+              boardId={activeBoard.id}
+              boards={todoBoards.map((board) => ({
+                id: board.id,
+                name: board.name,
+                locked: Boolean(board.pinHash && !unlockedTodoBoardIds.includes(board.id)),
+              }))}
+              selectedTodoId={selectedTodoId}
+              onTodoOpened={() => setSelectedTodoId(undefined)}
+              onChange={(todos) =>
+                updateActiveTodoBoard({
+                  ...activeBoard,
+                  todos,
+                  statuses: normalizeTodoStatuses(activeBoard.statuses, todos),
+                  completedTodoStatus: normalizeCompletedTodoStatus(activeBoard.statuses, activeBoard.completedTodoStatus),
+                })
+              }
+              onMoveTodoToBoard={(todo, targetBoardId) => moveTodoToBoard(todo, activeBoard.id, targetBoardId)}
+              onStatusesChange={(todoStatuses) =>
+                updateActiveTodoBoard({
+                  ...activeBoard,
+                  statuses: normalizeTodoStatuses(todoStatuses, activeBoard.todos),
+                  completedTodoStatus: normalizeCompletedTodoStatus(todoStatuses, activeBoard.completedTodoStatus),
+                })
+              }
+              onRenameStatus={(fromStatus, toStatus) => {
+                const renamed = renameTodoStatus(
+                  todoStatuses,
+                  activeBoard.todos,
+                  fromStatus,
+                  toStatus,
+                  completedTodoStatus,
+                );
 
-            updateProject({
-              ...project,
-              todos: renamed.todos,
-              settings: {
-                ...project.settings,
-                todoStatuses: renamed.statuses,
-                completedTodoStatus: renamed.completedStatus,
-              },
-            });
-          }}
-        />
+                updateActiveTodoBoard({
+                  ...activeBoard,
+                  todos: renamed.todos,
+                  statuses: renamed.statuses,
+                  completedTodoStatus: renamed.completedStatus,
+                });
+              }}
+            />
+          )}
+        </section>
       </div>
 
       <footer className="footer-line">
@@ -752,11 +960,7 @@ export function TimelineApp() {
           type="button"
           className="secondary"
           onClick={() => {
-            const next = createDefaultProject(normalizeHash(window.prompt('New timeline hash') || ''));
-            window.location.hash = next.hash;
-            lastSavedJsonRef.current = '';
-            canSaveRef.current = true;
-            setProject(next);
+            window.location.hash = normalizeHash(window.prompt('New timeline hash') || '');
           }}
         >
           New project
@@ -832,6 +1036,10 @@ function PinDialog({
 
 async function hashEditPin(projectHash: string, pin: string) {
   return hashProjectPin(projectHash, pin);
+}
+
+async function hashTodoBoardPin(projectHash: string, boardId: string, pin: string) {
+  return hashProjectPin(`${projectHash}:todo-board:${boardId}`, pin);
 }
 
 async function hashProjectPin(projectHash: string, pin: string) {

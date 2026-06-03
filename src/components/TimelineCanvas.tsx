@@ -189,7 +189,7 @@ export function TimelineCanvas({
       </div>
       <div className="timeline-filters">
         {eventTypes.length > 1 ? (
-          <div className="filter-group">
+          <div className="filter-group desktop-filter-group">
             <span>Types</span>
             {eventTypes.map((type) => (
               <button
@@ -204,7 +204,7 @@ export function TimelineCanvas({
           </div>
         ) : null}
         {eventCategories.length > 1 ? (
-          <div className="filter-group">
+          <div className="filter-group desktop-filter-group">
             <span>Categories</span>
             {eventCategories.map((category) => (
               <button
@@ -217,6 +217,40 @@ export function TimelineCanvas({
               </button>
             ))}
           </div>
+        ) : null}
+        {eventTypes.length > 1 ? (
+          <details className="mobile-control-menu timeline-filter-menu">
+            <summary>Types {eventTypes.length - hiddenTypes.length}/{eventTypes.length}</summary>
+            <div className="mobile-control-panel filter-menu-panel">
+              {eventTypes.map((type) => (
+                <button
+                  type="button"
+                  className={hiddenTypes.includes(type) ? 'filter-chip' : 'filter-chip active'}
+                  key={type}
+                  onClick={() => setHiddenTypes((current) => toggleValue(current, type))}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+          </details>
+        ) : null}
+        {eventCategories.length > 1 ? (
+          <details className="mobile-control-menu timeline-filter-menu">
+            <summary>Categories {eventCategories.length - hiddenCategories.length}/{eventCategories.length}</summary>
+            <div className="mobile-control-panel filter-menu-panel">
+              {eventCategories.map((category) => (
+                <button
+                  type="button"
+                  className={hiddenCategories.includes(category) ? 'filter-chip' : 'filter-chip active'}
+                  key={category}
+                  onClick={() => setHiddenCategories((current) => toggleValue(current, category))}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+          </details>
         ) : null}
         <div className="filter-group">
           <span>Todos</span>

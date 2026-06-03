@@ -12,9 +12,12 @@ type TodoBoardProps = {
   todos: TimelineTodo[];
   statuses: TodoStatus[];
   completedTodoStatus: TodoStatus;
+  boardId: string;
+  boards: Array<{ id: string; name: string; locked?: boolean }>;
   selectedTodoId?: string;
   onTodoOpened?: () => void;
   onChange: (todos: TimelineTodo[]) => void;
+  onMoveTodoToBoard: (todo: TimelineTodo, targetBoardId: string) => void;
   onStatusesChange: (statuses: TodoStatus[]) => void;
   onRenameStatus: (fromStatus: TodoStatus, toStatus: TodoStatus) => void;
 };
@@ -23,9 +26,12 @@ export function TodoBoard({
   todos,
   statuses,
   completedTodoStatus,
+  boardId,
+  boards,
   selectedTodoId,
   onTodoOpened,
   onChange,
+  onMoveTodoToBoard,
   onStatusesChange,
   onRenameStatus,
 }: TodoBoardProps) {
@@ -39,24 +45,36 @@ export function TodoBoard({
   const [search, setSearch] = useState('');
   const selectedTodo = selectedTodoId ? todos.find((todo) => todo.id === selectedTodoId) ?? null : null;
   const activeDraftTodo = selectedTodo && selectedTodo.id !== draftTodo?.id ? selectedTodo : draftTodo;
+  const editorDraftTodo = activeDraftTodo ? { ...activeDraftTodo, boardId: activeDraftTodo.boardId ?? boardId } : null;
 
-  function addTodo() {
+  function addTodo(status: TodoStatus = visibleStatuses[0] ?? 'open') {
     setDraftTodo({
       id: crypto.randomUUID(),
+      boardId,
       title: 'New todo',
       who: '',
       body: '- Add details',
-      status: 'open',
+      status,
       dueDate: '',
       showOnTimeline: true,
-      order: nextTodoOrder(todos, 'open'),
+      order: nextTodoOrder(todos, status),
     });
   }
 
   function saveTodo(todoToSave: TimelineTodo | null) {
     if (!todoToSave) return;
+    const targetBoardId = todoToSave.boardId ?? boardId;
+    const todoForSave = { ...todoToSave, boardId: undefined };
+
+    if (targetBoardId !== boardId) {
+      onMoveTodoToBoard(todoForSave, targetBoardId);
+      setDraftTodo(null);
+      onTodoOpened?.();
+      return;
+    }
+
     const exists = todos.some((todo) => todo.id === todoToSave.id);
-    onChange(exists ? todos.map((todo) => (todo.id === todoToSave.id ? todoToSave : todo)) : [...todos, todoToSave]);
+    onChange(exists ? todos.map((todo) => (todo.id === todoForSave.id ? todoForSave : todo)) : [...todos, todoForSave]);
     setDraftTodo(null);
     onTodoOpened?.();
   }
@@ -174,7 +192,7 @@ export function TodoBoard({
                 onNewStatusChange={setNewStatus}
                 onAddStatus={addStatus}
               />
-              <button type="button" onClick={addTodo}>
+              <button type="button" onClick={() => addTodo()}>
                 Add todo
               </button>
             </div>
@@ -185,22 +203,23 @@ export function TodoBoard({
               onNewStatusChange={setNewStatus}
               onAddStatus={addStatus}
             />
-            <button type="button" onClick={addTodo}>
+            <button type="button" onClick={() => addTodo()}>
               Add todo
             </button>
           </div>
         </div>
       </div>
-      {activeDraftTodo ? (
+      {editorDraftTodo ? (
         <TodoEditor
-          draft={activeDraftTodo}
+          draft={editorDraftTodo}
           statuses={visibleStatuses}
+          boards={boards}
           onChange={setDraftTodo}
           onCancel={() => {
             setDraftTodo(null);
             onTodoOpened?.();
           }}
-          onSave={() => saveTodo(activeDraftTodo)}
+          onSave={() => saveTodo(editorDraftTodo)}
         />
       ) : null}
       <div className="todo-columns">
@@ -271,6 +290,17 @@ export function TodoBoard({
                     >
                       edit
                     </button>
+                    <button
+                      type="button"
+                      className="column-add"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        addTodo(status);
+                      }}
+                      aria-label={`Add todo to ${formatTodoStatus(status)}`}
+                    >
+                      +
+                    </button>
                   </>
                 )}
                 <button
@@ -328,7 +358,7 @@ export function TodoBoard({
                       setDraggedTodoId(null);
                       setDropStatus(null);
                     }}
-                    onClick={() => setDraftTodo(todo)}
+                    onClick={() => setDraftTodo({ ...todo, boardId })}
                   >
                     <div className="todo-card-topline">
                       <span className="todo-drag-grip" aria-hidden="true">drag</span>
@@ -379,7 +409,7 @@ export function TodoBoard({
                         className="mini-button secondary"
                         onClick={(event) => {
                           event.stopPropagation();
-                          setDraftTodo(todo);
+                          setDraftTodo({ ...todo, boardId });
                         }}
                       >
                         Edit

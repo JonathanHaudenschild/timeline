@@ -83,12 +83,14 @@ export function EventList({
             {isMinimized ? 'Expand' : 'Minimize'}
           </button>
           {canEdit ? (
-            <details className="mobile-control-menu event-mobile-menu">
-              <summary>Actions</summary>
+            <button type="button" onClick={onAdd}>
+              Add event
+            </button>
+          ) : null}
+          {canEdit ? (
+            <details className="mobile-control-menu inline-control-menu event-mobile-menu">
+              <summary>Timeline visibility</summary>
               <div className="mobile-control-panel">
-                <button type="button" onClick={onAdd}>
-                  Add event
-                </button>
                 <button type="button" className="secondary" onClick={() => onSetAllTimeline(true)}>
                   Show all
                 </button>
@@ -99,10 +101,7 @@ export function EventList({
             </details>
           ) : null}
           {canEdit ? (
-            <div className="desktop-control-group">
-              <button type="button" onClick={onAdd}>
-                Add event
-              </button>
+            <div className="desktop-control-group bulk-event-actions">
               <button type="button" className="secondary" onClick={() => onSetAllTimeline(true)}>
                 Show all
               </button>

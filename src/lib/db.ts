@@ -1,6 +1,7 @@
 import { Pool } from 'pg';
 import { createDefaultProject, normalizeHash } from './project';
 import { buildTypeColors } from './colors';
+import { activeTodoBoard, normalizeTodoBoards, syncProjectTodoBoard } from './todoBoards';
 import { normalizeCompletedTodoStatus, normalizeTodoStatuses } from './todos';
 import type { TimelineProject } from './types';
 
@@ -87,18 +88,29 @@ export async function saveProjectToDb(project: TimelineProject) {
 }
 
 function normalizeProject(project: TimelineProject): TimelineProject {
-  return {
+  const boards = normalizeTodoBoards(project);
+  const activeBoard = activeTodoBoard({
     ...project,
+    todoBoards: boards,
+  });
+  const syncedProject = syncProjectTodoBoard(project, boards, activeBoard.id);
+
+  return {
+    ...syncedProject,
+    ...project,
+    todos: syncedProject.todos,
+    todoBoards: syncedProject.todoBoards,
     settings: {
       ...project.settings,
+      ...syncedProject.settings,
       typeColors: {
         ...buildTypeColors(project.events.map((event) => event.type), project.settings.typeColors),
         ...project.settings.typeColors,
       },
-      todoStatuses: normalizeTodoStatuses(project.settings.todoStatuses, project.todos),
+      todoStatuses: normalizeTodoStatuses(activeBoard.statuses, activeBoard.todos),
       completedTodoStatus: normalizeCompletedTodoStatus(
-        project.settings.todoStatuses,
-        project.settings.completedTodoStatus,
+        activeBoard.statuses,
+        activeBoard.completedTodoStatus,
       ),
     },
   };

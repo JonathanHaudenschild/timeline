@@ -18,6 +18,7 @@ export type TimelineEvent = {
 
 export type TimelineTodo = {
   id: string;
+  boardId?: string;
   title: string;
   who: string;
   body: string;
@@ -25,6 +26,15 @@ export type TimelineTodo = {
   dueDate?: string;
   showOnTimeline: boolean;
   order?: number;
+};
+
+export type TimelineTodoBoard = {
+  id: string;
+  name: string;
+  todos: TimelineTodo[];
+  statuses?: TodoStatus[];
+  completedTodoStatus?: TodoStatus;
+  pinHash?: string;
 };
 
 export type StickyLink = {
@@ -43,6 +53,7 @@ export type TimelineProject = {
   infoMarkdown: string;
   events: TimelineEvent[];
   todos: TimelineTodo[];
+  todoBoards?: TimelineTodoBoard[];
   settings: {
     mode: TimelineMode;
     showTodosOnTimeline: boolean;
@@ -51,6 +62,7 @@ export type TimelineProject = {
     viewPinHash?: string;
     todoStatuses?: TodoStatus[];
     completedTodoStatus?: TodoStatus;
+    activeTodoBoardId?: string;
     stickyLinks?: StickyLink[];
   };
 };
