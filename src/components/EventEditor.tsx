@@ -119,13 +119,13 @@ export function EventEditor({ draft, events, typeColors, onChange, onCancel, onS
           />
         </label>
       </div>
-      <label className="check-control">
+      <label className="check-control switch-control">
         <input
           type="checkbox"
           checked={draft.showOnTimeline !== false}
           onChange={(event) => onChange({ ...draft, showOnTimeline: event.target.checked })}
         />
-        Show on timeline
+        <span>Show on timeline</span>
       </label>
       <label>
         <span>Note</span>

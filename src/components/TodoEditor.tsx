@@ -58,13 +58,13 @@ export function TodoEditor({ draft, statuses, onChange, onCancel, onSave }: Todo
             />
           </label>
         </div>
-        <label className="check-control">
+        <label className="check-control switch-control">
           <input
             type="checkbox"
             checked={draft.showOnTimeline}
             onChange={(event) => onChange({ ...draft, showOnTimeline: event.target.checked })}
           />
-          Show subtle marker on timeline
+          <span>Show subtle marker on timeline</span>
         </label>
         <label>
           <span>Markdown note</span>

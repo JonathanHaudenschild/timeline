@@ -13,18 +13,24 @@ import {
   totalDays,
 } from '@/lib/timeline';
 import { colorForType } from '@/lib/colors';
+import { formatShortGermanDate } from '@/lib/dateFormat';
+import { isTodoCompleted } from '@/lib/todos';
 import type { TimelineEvent, TimelineProject, TimelineTodo } from '@/lib/types';
 
 type TimelineCanvasProps = {
   project: TimelineProject;
+  completedTodoStatus: string;
   selectedEventId?: string;
   canEdit: boolean;
   onCreateEvent: (moment: { date: string; time: string }) => void;
   onSelectEvent: (event: TimelineEvent) => void;
+  onSelectTodo: (todo: TimelineTodo) => void;
+  onToggleTodoOverlay: (visible: boolean) => void;
 };
 
 type HitBox = {
-  event: TimelineEvent;
+  event?: TimelineEvent;
+  todo?: TimelineTodo;
   x: number;
   y: number;
   width: number;
@@ -33,10 +39,13 @@ type HitBox = {
 
 export function TimelineCanvas({
   project,
+  completedTodoStatus,
   selectedEventId,
   canEdit,
   onCreateEvent,
   onSelectEvent,
+  onSelectTodo,
+  onToggleTodoOverlay,
 }: TimelineCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hitBoxesRef = useRef<HitBox[]>([]);
@@ -95,8 +104,8 @@ export function TimelineCanvas({
     if (!ctx) return;
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    drawTimeline(ctx, rect.width, rect.height, project, zoom, pan, selectedEventId, hiddenTypes, hiddenCategories, now, hitBoxesRef);
-  }, [project, zoom, pan, selectedEventId, hiddenTypes, hiddenCategories, now]);
+    drawTimeline(ctx, rect.width, rect.height, project, completedTodoStatus, zoom, pan, selectedEventId, hiddenTypes, hiddenCategories, now, hitBoxesRef);
+  }, [project, completedTodoStatus, zoom, pan, selectedEventId, hiddenTypes, hiddenCategories, now]);
 
   function clientXToMoment(clientX: number) {
     const canvas = canvasRef.current;
@@ -171,6 +180,17 @@ export function TimelineCanvas({
             ))}
           </div>
         ) : null}
+        <div className="filter-group">
+          <span>Todos</span>
+          <label className="check-control compact switch-control timeline-overlay-control">
+            <input
+              type="checkbox"
+              checked={project.settings.showTodosOnTimeline}
+              onChange={(event) => onToggleTodoOverlay(event.target.checked)}
+            />
+            <span>Overlay</span>
+          </label>
+        </div>
       </div>
       <canvas
         ref={canvasRef}
@@ -190,7 +210,8 @@ export function TimelineCanvas({
           );
 
           if (hit) {
-            onSelectEvent(hit.event);
+            if (hit.event) onSelectEvent(hit.event);
+            if (hit.todo) onSelectTodo(hit.todo);
             return;
           }
 
@@ -219,6 +240,7 @@ function drawTimeline(
   width: number,
   height: number,
   project: TimelineProject,
+  completedTodoStatus: string,
   zoom: number,
   pan: number,
   selectedEventId: string | undefined,
@@ -261,7 +283,7 @@ function drawTimeline(
     ctx.fillRect(x + 4, 16, 58, 22);
     ctx.fillStyle = '#d7ff2f';
     ctx.font = '900 12px system-ui, sans-serif';
-    ctx.fillText(date.slice(5), x + 9, 21);
+    ctx.fillText(formatShortGermanDate(date), x + 9, 21);
 
     if (showHours && day < days) {
       [6, 12, 18].forEach((hour) => {
@@ -407,20 +429,90 @@ function drawTimeline(
   });
 
   if (project.settings.showTodosOnTimeline) {
-    project.todos.filter(shouldDrawTodo).forEach((todo) => {
-      const x = timeToPixel(todo.dueDate as string, project, rangeWidth, pan);
-      ctx.fillStyle = '#11181622';
-      ctx.beginPath();
-      ctx.rect(x - 3, timelineY + 22, 6, 6);
-      ctx.fill();
-    });
+    drawTodoMarkers(
+      ctx,
+      project.todos.filter((todo) => shouldDrawTodo(todo, completedTodoStatus)),
+      project,
+      rangeWidth,
+      pan,
+      timelineY,
+      width,
+      height,
+      hitBoxes,
+    );
   }
 
   hitBoxesRef.current = hitBoxes;
 }
 
-function shouldDrawTodo(todo: TimelineTodo) {
-  return Boolean(todo.showOnTimeline && todo.dueDate && todo.status !== 'done');
+function shouldDrawTodo(todo: TimelineTodo, completedTodoStatus: string) {
+  return Boolean(todo.showOnTimeline && todo.dueDate && !isTodoCompleted(todo, completedTodoStatus));
+}
+
+function drawTodoMarkers(
+  ctx: CanvasRenderingContext2D,
+  todos: TimelineTodo[],
+  project: TimelineProject,
+  rangeWidth: number,
+  pan: number,
+  timelineY: number,
+  width: number,
+  height: number,
+  hitBoxes: HitBox[],
+) {
+  const todosByDate = new Map<string, TimelineTodo[]>();
+
+  todos.forEach((todo) => {
+    if (!todo.dueDate) return;
+    todosByDate.set(todo.dueDate, [...(todosByDate.get(todo.dueDate) ?? []), todo]);
+  });
+
+  const occupiedLanes: Array<Array<{ left: number; right: number }>> = [[], [], []];
+  const baseY = Math.min(height - 104, timelineY + 92);
+
+  [...todosByDate.entries()]
+    .map(([date, dateTodos]) => ({
+      date,
+      dateTodos,
+      x: momentToPixel(date, '12:00', project, rangeWidth, pan),
+    }))
+    .filter(({ x }) => x > -120 && x < width + 120)
+    .sort((a, b) => a.x - b.x)
+    .forEach(({ dateTodos, x }) => {
+      const firstTitle = dateTodos[0]?.title ?? 'Todo';
+      const label = dateTodos.length > 1 ? `${dateTodos.length}x ${firstTitle}` : firstTitle;
+      const markerWidth = Math.min(180, Math.max(86, ctx.measureText(label).width + 18));
+      const markerX = Math.max(8, Math.min(width - markerWidth - 8, x - markerWidth / 2));
+      const laneIndex = findAvailableLane(occupiedLanes, markerX, markerWidth);
+
+      if (laneIndex === -1) return;
+
+      const y = baseY + laneIndex * 28;
+      occupiedLanes[laneIndex].push({ left: markerX - 8, right: markerX + markerWidth + 8 });
+
+      ctx.strokeStyle = '#111111';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x, timelineY);
+      ctx.lineTo(x, y);
+      ctx.lineTo(markerX + markerWidth / 2, y);
+      ctx.stroke();
+
+      ctx.fillStyle = '#e8fbff';
+      ctx.strokeStyle = '#111111';
+      ctx.setLineDash([5, 4]);
+      roundRect(ctx, markerX, y, markerWidth, 22, 0);
+      ctx.fill();
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.fillStyle = '#111111';
+      ctx.font = '900 11px system-ui, sans-serif';
+      ctx.fillText(truncateToWidth(ctx, label, markerWidth - 16), markerX + 8, y + 6);
+      if (dateTodos[0]) {
+        hitBoxes.push({ todo: dateTodos[0], x: markerX, y, width: markerWidth, height: 22 });
+      }
+    });
 }
 
 function createCalloutLanes(timelineY: number, height: number, boxHeight: number) {

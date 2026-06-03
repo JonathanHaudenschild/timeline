@@ -6,13 +6,15 @@ import { EventEditor } from './EventEditor';
 import { EventList } from './EventList';
 import { MarkdownBlock } from './MarkdownBlock';
 import { ProjectHeader } from './ProjectHeader';
+import { StickyLinks } from './StickyLinks';
 import { TimelineCanvas } from './TimelineCanvas';
 import { TodoBoard } from './TodoBoard';
 import { fetchProject, importProjectFile, LockedProjectError, persistProject } from '@/lib/api';
+import { formatShortGermanDateRange } from '@/lib/dateFormat';
 import { createDefaultProject, normalizeHash } from '@/lib/project';
 import { ensureProjectHash } from '@/lib/storage';
-import { normalizeTodoStatuses } from '@/lib/todos';
-import type { TimelineEvent, TimelineMode, TimelineProject } from '@/lib/types';
+import { normalizeCompletedTodoStatus, normalizeTodoStatuses, renameTodoStatus } from '@/lib/todos';
+import type { TimelineEvent, TimelineMode, TimelineProject, TimelineTodo } from '@/lib/types';
 
 type PinDialogConfig = {
   title: string;
@@ -31,6 +33,7 @@ type PinDialogResult = {
 export function TimelineApp() {
   const [project, setProject] = useState<TimelineProject>(() => createDefaultProject('timeline'));
   const [selectedEventId, setSelectedEventId] = useState<string>();
+  const [selectedTodoId, setSelectedTodoId] = useState<string>();
   const [draftEvent, setDraftEvent] = useState<TimelineEvent | null>(null);
   const [editingInfo, setEditingInfo] = useState(false);
   const [saveState, setSaveState] = useState<'loading' | 'saved' | 'saving' | 'error'>('loading');
@@ -41,6 +44,7 @@ export function TimelineApp() {
   const [pinDialog, setPinDialog] = useState<(PinDialogConfig & { error?: string }) | null>(null);
   const [pinDialogPin, setPinDialogPin] = useState('');
   const [pinDialogRepeat, setPinDialogRepeat] = useState('');
+  const [selectedPopoverMinimized, setSelectedPopoverMinimized] = useState(false);
   const lastSavedJsonRef = useRef('');
   const canSaveRef = useRef(false);
   const projectPinRef = useRef<string | undefined>(undefined);
@@ -94,7 +98,12 @@ export function TimelineApp() {
     void load(activeHash);
 
     function handleHashChange() {
-      const hash = normalizeHash(window.location.hash);
+      const hash = window.location.hash ? normalizeHash(window.location.hash) : 'timeline';
+      if (window.location.hash !== `#${hash}`) {
+        window.location.hash = hash;
+        return;
+      }
+
       projectPinRef.current = undefined;
       setLockedHash(null);
       setUnlockPin('');
@@ -134,6 +143,8 @@ export function TimelineApp() {
 
   const selectedEvent = project.events.find((event) => event.id === selectedEventId);
   const canEdit = project.settings.mode === 'edit';
+  const todoStatuses = normalizeTodoStatuses(project.settings.todoStatuses, project.todos);
+  const completedTodoStatus = normalizeCompletedTodoStatus(todoStatuses, project.settings.completedTodoStatus);
 
   function updateProject(nextProject: TimelineProject) {
     if (nextProject.settings.mode !== 'edit') {
@@ -145,8 +156,14 @@ export function TimelineApp() {
 
   function selectEvent(eventId: string | undefined) {
     setSelectedEventId(eventId);
+    setSelectedPopoverMinimized(false);
     setPopoverPosition(null);
     popoverDragRef.current = null;
+  }
+
+  function selectTodo(todo: TimelineTodo) {
+    setSelectedTodoId(todo.id);
+    scrollToElement(todoRef.current);
   }
 
   function createEvent(moment: { date: string; time: string }) {
@@ -431,6 +448,20 @@ export function TimelineApp() {
         </button>
       </nav>
 
+      <StickyLinks
+        links={project.settings.stickyLinks ?? []}
+        canEdit={canEdit}
+        onChange={(stickyLinks) =>
+          updateProject({
+            ...project,
+            settings: {
+              ...project.settings,
+              stickyLinks,
+            },
+          })
+        }
+      />
+
       <ProjectHeader
         project={project}
         onChange={updateProject}
@@ -479,12 +510,23 @@ export function TimelineApp() {
       <div ref={timelineRef}>
         <TimelineCanvas
           project={project}
+          completedTodoStatus={completedTodoStatus}
           selectedEventId={selectedEventId}
           canEdit={canEdit}
           onCreateEvent={createEvent}
           onSelectEvent={(event) => {
             selectEvent(event.id);
           }}
+          onSelectTodo={selectTodo}
+          onToggleTodoOverlay={(showTodosOnTimeline) =>
+            updateProject({
+              ...project,
+              settings: {
+                ...project.settings,
+                showTodosOnTimeline,
+              },
+            })
+          }
         />
       </div>
 
@@ -502,7 +544,7 @@ export function TimelineApp() {
 
       {selectedEvent && !draftEvent ? (
         <aside
-          className="selected-popover"
+          className={`selected-popover ${selectedPopoverMinimized ? 'minimized' : ''}`}
           ref={selectedPopoverRef}
           style={popoverPosition ? { left: `${popoverPosition.x}px`, top: `${popoverPosition.y}px` } : undefined}
         >
@@ -521,6 +563,14 @@ export function TimelineApp() {
               <button
                 type="button"
                 className="icon-button secondary popover-close"
+                aria-label={selectedPopoverMinimized ? 'Expand selected event' : 'Minimize selected event'}
+                onClick={() => setSelectedPopoverMinimized((minimized) => !minimized)}
+              >
+                {selectedPopoverMinimized ? '+' : '-'}
+              </button>
+              <button
+                type="button"
+                className="icon-button secondary popover-close"
                 aria-label="Close selected event"
                 onClick={() => selectEvent(undefined)}
               >
@@ -528,23 +578,27 @@ export function TimelineApp() {
               </button>
             </div>
           </div>
-          <dl>
-            <dt>Date</dt>
-            <dd>{selectedEvent.endDate ? `${selectedEvent.date} - ${selectedEvent.endDate}` : selectedEvent.date}</dd>
-            <dt>Time</dt>
-            <dd>{selectedEvent.time}</dd>
-            <dt>Who</dt>
-            <dd>{selectedEvent.who || '-'}</dd>
-            <dt>Type</dt>
-            <dd>{selectedEvent.type}</dd>
-            <dt>Note</dt>
-            <dd>{selectedEvent.note || '-'}</dd>
-          </dl>
-          {canEdit ? (
-            <button type="button" className="popover-edit" onClick={() => setDraftEvent({ ...selectedEvent })}>
-              Edit event
-            </button>
-          ) : null}
+          {selectedPopoverMinimized ? null : (
+            <>
+              <dl>
+                <dt>Date</dt>
+                <dd>{formatShortGermanDateRange(selectedEvent.date, selectedEvent.endDate)}</dd>
+                <dt>Time</dt>
+                <dd>{selectedEvent.time}</dd>
+                <dt>Who</dt>
+                <dd>{selectedEvent.who || '-'}</dd>
+                <dt>Type</dt>
+                <dd>{selectedEvent.type}</dd>
+                <dt>Note</dt>
+                <dd>{selectedEvent.note || '-'}</dd>
+              </dl>
+              {canEdit ? (
+                <button type="button" className="popover-edit" onClick={() => setDraftEvent({ ...selectedEvent })}>
+                  Edit event
+                </button>
+              ) : null}
+            </>
+          )}
         </aside>
       ) : null}
 
@@ -582,7 +636,10 @@ export function TimelineApp() {
       <div ref={todoRef}>
         <TodoBoard
           todos={project.todos}
-          statuses={normalizeTodoStatuses(project.settings.todoStatuses, project.todos)}
+          statuses={todoStatuses}
+          completedTodoStatus={completedTodoStatus}
+          selectedTodoId={selectedTodoId}
+          onTodoOpened={() => setSelectedTodoId(undefined)}
           onChange={(todos) =>
             updateProject({
               ...project,
@@ -590,6 +647,7 @@ export function TimelineApp() {
               settings: {
                 ...project.settings,
                 todoStatuses: normalizeTodoStatuses(project.settings.todoStatuses, todos),
+                completedTodoStatus: normalizeCompletedTodoStatus(project.settings.todoStatuses, project.settings.completedTodoStatus),
               },
             })
           }
@@ -599,9 +657,29 @@ export function TimelineApp() {
               settings: {
                 ...project.settings,
                 todoStatuses: normalizeTodoStatuses(todoStatuses, project.todos),
+                completedTodoStatus: normalizeCompletedTodoStatus(todoStatuses, project.settings.completedTodoStatus),
               },
             })
           }
+          onRenameStatus={(fromStatus, toStatus) => {
+            const renamed = renameTodoStatus(
+              todoStatuses,
+              project.todos,
+              fromStatus,
+              toStatus,
+              completedTodoStatus,
+            );
+
+            updateProject({
+              ...project,
+              todos: renamed.todos,
+              settings: {
+                ...project.settings,
+                todoStatuses: renamed.statuses,
+                completedTodoStatus: renamed.completedStatus,
+              },
+            });
+          }}
         />
       </div>
 

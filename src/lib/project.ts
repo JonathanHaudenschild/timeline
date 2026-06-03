@@ -83,6 +83,8 @@ export function createDefaultProject(hash: string): TimelineProject {
       showTodosOnTimeline: true,
       typeColors: defaultTypeColors,
       todoStatuses: defaultTodoStatuses,
+      completedTodoStatus: 'done',
+      stickyLinks: [],
     },
   };
 }

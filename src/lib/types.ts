@@ -26,6 +26,13 @@ export type TimelineTodo = {
   showOnTimeline: boolean;
 };
 
+export type StickyLink = {
+  id: string;
+  icon: string;
+  label: string;
+  url: string;
+};
+
 export type TimelineProject = {
   version: 1;
   hash: string;
@@ -42,6 +49,8 @@ export type TimelineProject = {
     editPinHash?: string;
     viewPinHash?: string;
     todoStatuses?: TodoStatus[];
+    completedTodoStatus?: TodoStatus;
+    stickyLinks?: StickyLink[];
   };
 };
 

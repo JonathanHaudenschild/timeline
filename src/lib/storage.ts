@@ -21,7 +21,7 @@ export function saveProject(project: TimelineProject, storage: Storage = window.
 }
 
 export function ensureProjectHash(location: Location) {
-  const hash = normalizeHash(location.hash);
+  const hash = location.hash ? normalizeHash(location.hash) : 'timeline';
   if (location.hash !== `#${hash}`) {
     location.hash = hash;
   }

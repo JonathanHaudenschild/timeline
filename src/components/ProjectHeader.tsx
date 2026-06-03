@@ -71,19 +71,6 @@ export function ProjectHeader({
             Edit
           </button>
         </div>
-        <label className="check-control">
-          <input
-            type="checkbox"
-            checked={project.settings.showTodosOnTimeline}
-            onChange={(event) =>
-              onChange({
-                ...project,
-                settings: { ...project.settings, showTodosOnTimeline: event.target.checked },
-              })
-            }
-          />
-          Todo overlay
-        </label>
         {project.settings.mode === 'edit' ? (
           <>
             <button type="button" className="secondary" onClick={onProjectPinChange}>
