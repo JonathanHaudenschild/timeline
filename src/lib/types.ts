@@ -39,6 +39,7 @@ export type TimelineProject = {
     mode: TimelineMode;
     showTodosOnTimeline: boolean;
     typeColors: Record<string, string>;
+    editPinHash?: string;
   };
 };
 

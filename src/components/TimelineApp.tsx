@@ -11,7 +11,7 @@ import { TodoBoard } from './TodoBoard';
 import { fetchProject, importProjectFile, persistProject } from '@/lib/api';
 import { createDefaultProject, normalizeHash } from '@/lib/project';
 import { ensureProjectHash } from '@/lib/storage';
-import type { TimelineEvent, TimelineProject } from '@/lib/types';
+import type { TimelineEvent, TimelineMode, TimelineProject } from '@/lib/types';
 
 export function TimelineApp() {
   const [project, setProject] = useState<TimelineProject>(() => createDefaultProject('timeline'));
@@ -140,6 +140,52 @@ export function TimelineApp() {
     setDraftEvent(null);
   }
 
+  async function changeMode(mode: TimelineMode) {
+    if (mode === 'view') {
+      updateProject({ ...project, settings: { ...project.settings, mode: 'view' } });
+      return;
+    }
+
+    if (project.settings.mode === 'edit') return;
+
+    const existingPinHash = project.settings.editPinHash;
+    if (!existingPinHash) {
+      const pin = window.prompt('Create an edit PIN for this timeline');
+      if (!pin?.trim()) return;
+
+      if (pin.trim().length < 4) {
+        window.alert('Use at least 4 characters for the edit PIN.');
+        return;
+      }
+
+      const repeatedPin = window.prompt('Repeat the edit PIN');
+      if (pin !== repeatedPin) {
+        window.alert('PINs do not match.');
+        return;
+      }
+
+      updateProject({
+        ...project,
+        settings: {
+          ...project.settings,
+          mode: 'edit',
+          editPinHash: await hashEditPin(project.hash, pin),
+        },
+      });
+      return;
+    }
+
+    const pin = window.prompt('Enter edit PIN');
+    if (!pin) return;
+
+    if ((await hashEditPin(project.hash, pin)) !== existingPinHash) {
+      window.alert('Wrong edit PIN.');
+      return;
+    }
+
+    updateProject({ ...project, settings: { ...project.settings, mode: 'edit' } });
+  }
+
   function clampPopoverPosition(x: number, y: number, width: number, height: number) {
     const margin = 14;
     const halfWidth = width / 2;
@@ -214,6 +260,9 @@ export function TimelineApp() {
       <ProjectHeader
         project={project}
         onChange={updateProject}
+        onModeChange={(mode) => {
+          void changeMode(mode);
+        }}
         onImport={(file) => {
           setSaveState('saving');
           importProjectFile(project.hash, file)
@@ -374,4 +423,10 @@ export function TimelineApp() {
       </footer>
     </main>
   );
+}
+
+async function hashEditPin(projectHash: string, pin: string) {
+  const bytes = new TextEncoder().encode(`${projectHash}:${pin}`);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }

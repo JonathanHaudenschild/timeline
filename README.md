@@ -7,6 +7,7 @@ Next.js app for project timelines. Each project is addressed by the URL hash, fo
 - Hash-addressed projects with name, share hash, start date, and end date.
 - Postgres-backed project persistence through Next.js API routes.
 - Canvas timeline with view mode pan/zoom and edit mode click-to-create modal.
+- Edit mode is protected by a project-level PIN. The first switch to edit mode creates the PIN; later switches require it.
 - Time-aware event placement inside each day.
 - Events include date, optional end date, time, what, who, type, and note.
 - Markdown important-info header.

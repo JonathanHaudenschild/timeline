@@ -1,14 +1,15 @@
 'use client';
 
-import type { TimelineProject } from '@/lib/types';
+import type { TimelineMode, TimelineProject } from '@/lib/types';
 
 type ProjectHeaderProps = {
   project: TimelineProject;
   onChange: (project: TimelineProject) => void;
+  onModeChange: (mode: TimelineMode) => void;
   onImport: (file: File) => void;
 };
 
-export function ProjectHeader({ project, onChange, onImport }: ProjectHeaderProps) {
+export function ProjectHeader({ project, onChange, onModeChange, onImport }: ProjectHeaderProps) {
   return (
     <header className="project-header">
       <div className="project-title">
@@ -49,18 +50,14 @@ export function ProjectHeader({ project, onChange, onImport }: ProjectHeaderProp
           <button
             type="button"
             className={project.settings.mode === 'view' ? 'active' : ''}
-            onClick={() =>
-              onChange({ ...project, settings: { ...project.settings, mode: 'view' } })
-            }
+            onClick={() => onModeChange('view')}
           >
             View
           </button>
           <button
             type="button"
             className={project.settings.mode === 'edit' ? 'active' : ''}
-            onClick={() =>
-              onChange({ ...project, settings: { ...project.settings, mode: 'edit' } })
-            }
+            onClick={() => onModeChange('edit')}
           >
             Edit
           </button>
