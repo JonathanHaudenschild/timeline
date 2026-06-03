@@ -1,5 +1,5 @@
 {
-  "last_turn_at": "2026-06-03T17:16:53.349Z",
-  "turn_count": 44,
-  "last_agent_output": "Right now we know a task is done via the project’s `completedTodoStatus`.\n\nDefault:\n- New projects u"
+  "last_turn_at": "2026-06-03T17:25:57.484Z",
+  "turn_count": 47,
+  "last_agent_output": "Added PIN editing after setup.\n\nWhat changed:\n- In edit mode, the header now has `Change edit PIN` /"
 }

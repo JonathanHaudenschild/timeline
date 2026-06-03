@@ -8,6 +8,7 @@ type ProjectHeaderProps = {
   onModeChange: (mode: TimelineMode) => void;
   onProjectPinChange: () => void;
   onProjectPinRemove: () => void;
+  onEditPinChange: () => void;
   onImport: (file: File) => void;
 };
 
@@ -17,6 +18,7 @@ export function ProjectHeader({
   onModeChange,
   onProjectPinChange,
   onProjectPinRemove,
+  onEditPinChange,
   onImport,
 }: ProjectHeaderProps) {
   return (
@@ -75,6 +77,9 @@ export function ProjectHeader({
           <>
             <button type="button" className="secondary" onClick={onProjectPinChange}>
               {project.settings.viewPinHash ? 'Change project PIN' : 'Add project PIN'}
+            </button>
+            <button type="button" className="secondary" onClick={onEditPinChange}>
+              {project.settings.editPinHash ? 'Change edit PIN' : 'Add edit PIN'}
             </button>
             {project.settings.viewPinHash ? (
               <button type="button" className="secondary" onClick={onProjectPinRemove}>

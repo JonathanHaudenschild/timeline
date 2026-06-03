@@ -243,8 +243,12 @@ export function TimelineApp() {
   }
 
   async function changeProjectPin() {
+    if (project.settings.viewPinHash && !(await verifyCurrentProjectPin('Change project PIN', 'Enter the current project PIN before setting a new one.'))) {
+      return;
+    }
+
     const result = await requestPinDialog({
-      title: project.settings.viewPinHash ? 'Change project PIN' : 'Add project PIN',
+      title: project.settings.viewPinHash ? 'New project PIN' : 'Add project PIN',
       description: 'This PIN is required before anyone can view this project.',
       confirmLabel: project.settings.viewPinHash ? 'Change PIN' : 'Add PIN',
       requireRepeat: true,
@@ -263,33 +267,85 @@ export function TimelineApp() {
     });
   }
 
+  async function changeEditPin() {
+    if (project.settings.editPinHash && !(await verifyCurrentEditPin('Change edit PIN', 'Enter the current edit PIN before setting a new one.'))) {
+      return;
+    }
+
+    const result = await requestPinDialog({
+      title: project.settings.editPinHash ? 'New edit PIN' : 'Add edit PIN',
+      description: 'This PIN is required when switching this project into edit mode.',
+      confirmLabel: project.settings.editPinHash ? 'Change PIN' : 'Add PIN',
+      requireRepeat: true,
+      inputLabel: 'Edit PIN',
+      repeatLabel: 'Repeat edit PIN',
+    });
+    if (!result) return;
+
+    updateProject({
+      ...project,
+      settings: {
+        ...project.settings,
+        editPinHash: await hashEditPin(project.hash, result.pin),
+      },
+    });
+  }
+
   async function removeProjectPin() {
     if (!project.settings.viewPinHash) return;
+
+    if (!(await verifyCurrentProjectPin('Remove project PIN', 'Enter the current project PIN to remove the view lock.'))) {
+      return;
+    }
+
+    projectPinRef.current = undefined;
+    updateProject({
+      ...project,
+      settings: {
+        ...project.settings,
+        viewPinHash: undefined,
+      },
+    });
+  }
+
+  async function verifyCurrentProjectPin(title: string, description: string) {
+    const viewPinHash = project.settings.viewPinHash;
+    if (!viewPinHash) return true;
 
     let wrongAttempt = false;
     while (true) {
       const result = await requestPinDialog({
-        title: 'Remove project PIN',
-        description: wrongAttempt ? 'That project PIN was wrong. Try again.' : 'Enter the current project PIN to remove the view lock.',
-        confirmLabel: 'Remove PIN',
-        inputLabel: 'Project PIN',
+        title,
+        description: wrongAttempt ? 'That project PIN was wrong. Try again.' : description,
+        confirmLabel: 'Continue',
+        inputLabel: 'Current project PIN',
       });
-      if (!result) return;
+      if (!result) return false;
 
       const pinHash = await hashProjectPin(project.hash, result.pin);
-      if (pinHash !== project.settings.viewPinHash) {
-        wrongAttempt = true;
-        continue;
-      }
+      if (pinHash === viewPinHash) return true;
 
-      updateProject({
-        ...project,
-        settings: {
-          ...project.settings,
-          viewPinHash: undefined,
-        },
+      wrongAttempt = true;
+    }
+  }
+
+  async function verifyCurrentEditPin(title: string, description: string) {
+    const editPinHash = project.settings.editPinHash;
+    if (!editPinHash) return true;
+
+    let wrongAttempt = false;
+    while (true) {
+      const result = await requestPinDialog({
+        title,
+        description: wrongAttempt ? 'That edit PIN was wrong. Try again.' : description,
+        confirmLabel: 'Continue',
+        inputLabel: 'Current edit PIN',
       });
-      return;
+      if (!result) return false;
+
+      if ((await hashEditPin(project.hash, result.pin)) === editPinHash) return true;
+
+      wrongAttempt = true;
     }
   }
 
@@ -472,6 +528,9 @@ export function TimelineApp() {
           void changeProjectPin();
         }}
         onProjectPinRemove={removeProjectPin}
+        onEditPinChange={() => {
+          void changeEditPin();
+        }}
         onImport={(file) => {
           setSaveState('saving');
           importProjectFile(project.hash, file, projectPinRef.current)
