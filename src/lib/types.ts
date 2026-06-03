@@ -1,6 +1,6 @@
 export type TimelineMode = 'view' | 'edit';
 
-export type TodoStatus = 'open' | 'doing' | 'done';
+export type TodoStatus = string;
 
 export type TimelineEvent = {
   id: string;
@@ -40,6 +40,8 @@ export type TimelineProject = {
     showTodosOnTimeline: boolean;
     typeColors: Record<string, string>;
     editPinHash?: string;
+    viewPinHash?: string;
+    todoStatuses?: TodoStatus[];
   };
 };
 

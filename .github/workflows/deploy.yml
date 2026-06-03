@@ -62,7 +62,7 @@ jobs:
       - name: Image metadata
         id: meta
         run: |
-          IMAGE="${REGISTRY}/${IMAGE_NAME}"
+          IMAGE="$(printf '%s/%s' "$REGISTRY" "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')"
           echo "image=${IMAGE}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
           echo "IMAGE=${IMAGE}" >> "$GITHUB_ENV"
 

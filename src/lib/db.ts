@@ -1,6 +1,7 @@
 import { Pool } from 'pg';
 import { createDefaultProject, normalizeHash } from './project';
 import { buildTypeColors } from './colors';
+import { normalizeTodoStatuses } from './todos';
 import type { TimelineProject } from './types';
 
 let pool: Pool | undefined;
@@ -94,6 +95,7 @@ function normalizeProject(project: TimelineProject): TimelineProject {
         ...buildTypeColors(project.events.map((event) => event.type), project.settings.typeColors),
         ...project.settings.typeColors,
       },
+      todoStatuses: normalizeTodoStatuses(project.settings.todoStatuses, project.todos),
     },
   };
 }

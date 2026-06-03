@@ -8,10 +8,25 @@ import { MarkdownBlock } from './MarkdownBlock';
 import { ProjectHeader } from './ProjectHeader';
 import { TimelineCanvas } from './TimelineCanvas';
 import { TodoBoard } from './TodoBoard';
-import { fetchProject, importProjectFile, persistProject } from '@/lib/api';
+import { fetchProject, importProjectFile, LockedProjectError, persistProject } from '@/lib/api';
 import { createDefaultProject, normalizeHash } from '@/lib/project';
 import { ensureProjectHash } from '@/lib/storage';
+import { normalizeTodoStatuses } from '@/lib/todos';
 import type { TimelineEvent, TimelineMode, TimelineProject } from '@/lib/types';
+
+type PinDialogConfig = {
+  title: string;
+  description: string;
+  confirmLabel: string;
+  requireRepeat?: boolean;
+  inputLabel?: string;
+  repeatLabel?: string;
+};
+
+type PinDialogResult = {
+  pin: string;
+  repeatedPin?: string;
+};
 
 export function TimelineApp() {
   const [project, setProject] = useState<TimelineProject>(() => createDefaultProject('timeline'));
@@ -20,8 +35,16 @@ export function TimelineApp() {
   const [editingInfo, setEditingInfo] = useState(false);
   const [saveState, setSaveState] = useState<'loading' | 'saved' | 'saving' | 'error'>('loading');
   const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
+  const [lockedHash, setLockedHash] = useState<string | null>(null);
+  const [unlockPin, setUnlockPin] = useState('');
+  const [lockError, setLockError] = useState('');
+  const [pinDialog, setPinDialog] = useState<(PinDialogConfig & { error?: string }) | null>(null);
+  const [pinDialogPin, setPinDialogPin] = useState('');
+  const [pinDialogRepeat, setPinDialogRepeat] = useState('');
   const lastSavedJsonRef = useRef('');
   const canSaveRef = useRef(false);
+  const projectPinRef = useRef<string | undefined>(undefined);
+  const pinDialogResolverRef = useRef<((result: PinDialogResult | null) => void) | null>(null);
   const topRef = useRef<HTMLElement | null>(null);
   const timelineRef = useRef<HTMLDivElement | null>(null);
   const eventsRef = useRef<HTMLElement | null>(null);
@@ -41,19 +64,27 @@ export function TimelineApp() {
     let cancelled = false;
     const activeHash = ensureProjectHash(window.location);
 
-    async function load(hash: string) {
+    async function load(hash: string, projectPin?: string) {
       canSaveRef.current = false;
       setSaveState('loading');
       try {
-        const loadedProject = await fetchProject(hash);
+        const loadedProject = await fetchProject(hash, projectPin);
         if (!cancelled) {
+          projectPinRef.current = projectPin;
           lastSavedJsonRef.current = JSON.stringify(loadedProject);
           canSaveRef.current = true;
+          setLockedHash(null);
+          setUnlockPin('');
+          setLockError('');
           setProject(loadedProject);
           setSaveState('saved');
         }
-      } catch {
+      } catch (error) {
         if (!cancelled) {
+          if (error instanceof LockedProjectError) {
+            projectPinRef.current = undefined;
+            setLockedHash(hash);
+          }
           canSaveRef.current = false;
           setSaveState('error');
         }
@@ -64,6 +95,10 @@ export function TimelineApp() {
 
     function handleHashChange() {
       const hash = normalizeHash(window.location.hash);
+      projectPinRef.current = undefined;
+      setLockedHash(null);
+      setUnlockPin('');
+      setLockError('');
       setProject(createDefaultProject(hash));
       setSelectedEventId(undefined);
       setPopoverPosition(null);
@@ -79,14 +114,14 @@ export function TimelineApp() {
   }, [project.hash]);
 
   useEffect(() => {
-    if (!canSaveRef.current || saveState === 'loading') return;
+    if (!canSaveRef.current || saveState === 'loading' || lockedHash) return;
 
     const projectJson = JSON.stringify(project);
     if (projectJson === lastSavedJsonRef.current) return;
 
     const timeout = window.setTimeout(() => {
       setSaveState('saving');
-      persistProject(project)
+      persistProject(project, projectPinRef.current)
         .then(() => {
           lastSavedJsonRef.current = projectJson;
           setSaveState('saved');
@@ -95,7 +130,7 @@ export function TimelineApp() {
     }, 350);
 
     return () => window.clearTimeout(timeout);
-  }, [project, saveState]);
+  }, [project, saveState, lockedHash]);
 
   const selectedEvent = project.events.find((event) => event.id === selectedEventId);
   const canEdit = project.settings.mode === 'edit';
@@ -150,40 +185,131 @@ export function TimelineApp() {
 
     const existingPinHash = project.settings.editPinHash;
     if (!existingPinHash) {
-      const pin = window.prompt('Create an edit PIN for this timeline');
-      if (!pin?.trim()) return;
-
-      if (pin.trim().length < 4) {
-        window.alert('Use at least 4 characters for the edit PIN.');
-        return;
-      }
-
-      const repeatedPin = window.prompt('Repeat the edit PIN');
-      if (pin !== repeatedPin) {
-        window.alert('PINs do not match.');
-        return;
-      }
+      const result = await requestPinDialog({
+        title: 'Create edit PIN',
+        description: 'This PIN is required when switching this project into edit mode.',
+        confirmLabel: 'Enable edit',
+        requireRepeat: true,
+        inputLabel: 'Edit PIN',
+        repeatLabel: 'Repeat edit PIN',
+      });
+      if (!result) return;
 
       updateProject({
         ...project,
         settings: {
           ...project.settings,
           mode: 'edit',
-          editPinHash: await hashEditPin(project.hash, pin),
+          editPinHash: await hashEditPin(project.hash, result.pin),
         },
       });
       return;
     }
 
-    const pin = window.prompt('Enter edit PIN');
-    if (!pin) return;
+    let wrongAttempt = false;
+    while (true) {
+      const result = await requestPinDialog({
+        title: 'Unlock edit mode',
+        description: wrongAttempt ? 'That edit PIN was wrong. Try again.' : 'Enter the edit PIN to modify this timeline.',
+        confirmLabel: 'Unlock edit',
+        inputLabel: 'Edit PIN',
+      });
+      if (!result) return;
 
-    if ((await hashEditPin(project.hash, pin)) !== existingPinHash) {
-      window.alert('Wrong edit PIN.');
+      if ((await hashEditPin(project.hash, result.pin)) === existingPinHash) {
+        updateProject({ ...project, settings: { ...project.settings, mode: 'edit' } });
+        return;
+      }
+
+      wrongAttempt = true;
+    }
+  }
+
+  async function changeProjectPin() {
+    const result = await requestPinDialog({
+      title: project.settings.viewPinHash ? 'Change project PIN' : 'Add project PIN',
+      description: 'This PIN is required before anyone can view this project.',
+      confirmLabel: project.settings.viewPinHash ? 'Change PIN' : 'Add PIN',
+      requireRepeat: true,
+      inputLabel: 'Project PIN',
+      repeatLabel: 'Repeat project PIN',
+    });
+    if (!result) return;
+
+    projectPinRef.current = result.pin;
+    updateProject({
+      ...project,
+      settings: {
+        ...project.settings,
+        viewPinHash: await hashProjectPin(project.hash, result.pin),
+      },
+    });
+  }
+
+  async function removeProjectPin() {
+    if (!project.settings.viewPinHash) return;
+
+    let wrongAttempt = false;
+    while (true) {
+      const result = await requestPinDialog({
+        title: 'Remove project PIN',
+        description: wrongAttempt ? 'That project PIN was wrong. Try again.' : 'Enter the current project PIN to remove the view lock.',
+        confirmLabel: 'Remove PIN',
+        inputLabel: 'Project PIN',
+      });
+      if (!result) return;
+
+      const pinHash = await hashProjectPin(project.hash, result.pin);
+      if (pinHash !== project.settings.viewPinHash) {
+        wrongAttempt = true;
+        continue;
+      }
+
+      updateProject({
+        ...project,
+        settings: {
+          ...project.settings,
+          viewPinHash: undefined,
+        },
+      });
+      return;
+    }
+  }
+
+  function requestPinDialog(config: PinDialogConfig) {
+    setPinDialogPin('');
+    setPinDialogRepeat('');
+    setPinDialog({ ...config });
+
+    return new Promise<PinDialogResult | null>((resolve) => {
+      pinDialogResolverRef.current = resolve;
+    });
+  }
+
+  function closePinDialog(result: PinDialogResult | null) {
+    pinDialogResolverRef.current?.(result);
+    pinDialogResolverRef.current = null;
+    setPinDialog(null);
+    setPinDialogPin('');
+    setPinDialogRepeat('');
+  }
+
+  function submitPinDialog() {
+    if (!pinDialog) return;
+
+    const pin = pinDialogPin.trim();
+    const repeatedPin = pinDialogRepeat.trim();
+    if (pin.length < 4) {
+      setPinDialog({ ...pinDialog, error: 'Use at least 4 characters.' });
       return;
     }
 
-    updateProject({ ...project, settings: { ...project.settings, mode: 'edit' } });
+    if (pinDialog.requireRepeat && pin !== repeatedPin) {
+      setPinDialog({ ...pinDialog, error: 'PINs do not match.' });
+      return;
+    }
+
+    closePinDialog({ pin, repeatedPin: pinDialog.requireRepeat ? repeatedPin : undefined });
   }
 
   function clampPopoverPosition(x: number, y: number, width: number, height: number) {
@@ -240,6 +366,54 @@ export function TimelineApp() {
     element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  if (lockedHash) {
+    return (
+      <main className="app-shell locked-shell">
+        <section className="lock-panel">
+          <div>
+            <h1>Project locked</h1>
+            <p>
+              <code>#{lockedHash}</code> needs a project PIN before it can be viewed.
+            </p>
+          </div>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void fetchProject(lockedHash, unlockPin)
+                .then((loadedProject) => {
+                  projectPinRef.current = unlockPin;
+                  lastSavedJsonRef.current = JSON.stringify(loadedProject);
+                  canSaveRef.current = true;
+                  setProject(loadedProject);
+                  setLockedHash(null);
+                  setUnlockPin('');
+                  setLockError('');
+                  setSaveState('saved');
+                })
+                .catch(() => {
+                  projectPinRef.current = undefined;
+                  setSaveState('error');
+                  setLockError('Wrong project PIN.');
+                });
+            }}
+          >
+            <label>
+              <span>Project PIN</span>
+              <input
+                type="password"
+                value={unlockPin}
+                onChange={(event) => setUnlockPin(event.target.value)}
+                autoFocus
+              />
+            </label>
+            {lockError ? <div className="form-error">{lockError}</div> : null}
+            <button type="submit">Unlock project</button>
+          </form>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="app-shell" ref={topRef}>
       <nav className="quick-jump" aria-label="Quick navigation">
@@ -263,9 +437,13 @@ export function TimelineApp() {
         onModeChange={(mode) => {
           void changeMode(mode);
         }}
+        onProjectPinChange={() => {
+          void changeProjectPin();
+        }}
+        onProjectPinRemove={removeProjectPin}
         onImport={(file) => {
           setSaveState('saving');
-          importProjectFile(project.hash, file)
+          importProjectFile(project.hash, file, projectPinRef.current)
             .then((result) => {
               lastSavedJsonRef.current = JSON.stringify(result.project);
               canSaveRef.current = true;
@@ -402,7 +580,29 @@ export function TimelineApp() {
       </section>
 
       <div ref={todoRef}>
-        <TodoBoard todos={project.todos} onChange={(todos) => updateProject({ ...project, todos })} />
+        <TodoBoard
+          todos={project.todos}
+          statuses={normalizeTodoStatuses(project.settings.todoStatuses, project.todos)}
+          onChange={(todos) =>
+            updateProject({
+              ...project,
+              todos,
+              settings: {
+                ...project.settings,
+                todoStatuses: normalizeTodoStatuses(project.settings.todoStatuses, todos),
+              },
+            })
+          }
+          onStatusesChange={(todoStatuses) =>
+            updateProject({
+              ...project,
+              settings: {
+                ...project.settings,
+                todoStatuses: normalizeTodoStatuses(todoStatuses, project.todos),
+              },
+            })
+          }
+        />
       </div>
 
       <footer className="footer-line">
@@ -421,11 +621,79 @@ export function TimelineApp() {
           New project
         </button>
       </footer>
+
+      {pinDialog ? (
+        <PinDialog
+          config={pinDialog}
+          pin={pinDialogPin}
+          repeatedPin={pinDialogRepeat}
+          onPinChange={setPinDialogPin}
+          onRepeatedPinChange={setPinDialogRepeat}
+          onCancel={() => closePinDialog(null)}
+          onSubmit={submitPinDialog}
+        />
+      ) : null}
     </main>
   );
 }
 
+function PinDialog({
+  config,
+  pin,
+  repeatedPin,
+  onPinChange,
+  onRepeatedPinChange,
+  onCancel,
+  onSubmit,
+}: {
+  config: PinDialogConfig & { error?: string };
+  pin: string;
+  repeatedPin: string;
+  onPinChange: (pin: string) => void;
+  onRepeatedPinChange: (pin: string) => void;
+  onCancel: () => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={config.title}>
+      <form
+        className="editor-panel modal-panel pin-dialog"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit();
+        }}
+      >
+        <div>
+          <div className="panel-title">{config.title}</div>
+          <p>{config.description}</p>
+        </div>
+        <label>
+          <span>{config.inputLabel ?? 'PIN'}</span>
+          <input type="password" value={pin} onChange={(event) => onPinChange(event.target.value)} autoFocus />
+        </label>
+        {config.requireRepeat ? (
+          <label>
+            <span>{config.repeatLabel ?? 'Repeat PIN'}</span>
+            <input type="password" value={repeatedPin} onChange={(event) => onRepeatedPinChange(event.target.value)} />
+          </label>
+        ) : null}
+        {config.error ? <div className="form-error">{config.error}</div> : null}
+        <div className="action-row">
+          <button type="submit">{config.confirmLabel}</button>
+          <button type="button" className="secondary" onClick={onCancel}>
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 async function hashEditPin(projectHash: string, pin: string) {
+  return hashProjectPin(projectHash, pin);
+}
+
+async function hashProjectPin(projectHash: string, pin: string) {
   const bytes = new TextEncoder().encode(`${projectHash}:${pin}`);
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');

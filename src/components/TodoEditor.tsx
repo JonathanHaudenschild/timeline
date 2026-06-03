@@ -2,17 +2,17 @@
 
 import { MarkdownBlock } from './MarkdownBlock';
 import type { TimelineTodo, TodoStatus } from '@/lib/types';
+import { formatTodoStatus } from '@/lib/todos';
 
 type TodoEditorProps = {
   draft: TimelineTodo;
+  statuses: TodoStatus[];
   onChange: (todo: TimelineTodo) => void;
   onCancel: () => void;
   onSave: () => void;
 };
 
-const statuses: TodoStatus[] = ['open', 'doing', 'done'];
-
-export function TodoEditor({ draft, onChange, onCancel, onSave }: TodoEditorProps) {
+export function TodoEditor({ draft, statuses, onChange, onCancel, onSave }: TodoEditorProps) {
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Edit todo">
       <form
@@ -44,7 +44,7 @@ export function TodoEditor({ draft, onChange, onCancel, onSave }: TodoEditorProp
             >
               {statuses.map((status) => (
                 <option key={status} value={status}>
-                  {status}
+                  {formatTodoStatus(status)}
                 </option>
               ))}
             </select>

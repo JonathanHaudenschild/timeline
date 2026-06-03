@@ -5,6 +5,7 @@ import {
   normalizeHash,
   projectStorageKey,
 } from './project';
+import { normalizeTodoStatuses } from './todos';
 
 describe('project helpers', () => {
   it('normalizes hashes from url fragments and plain strings', () => {
@@ -27,9 +28,14 @@ describe('project helpers', () => {
     expect(project.name).toBe('Launch Plan');
     expect(project.events.length).toBeGreaterThan(0);
     expect(project.todos.length).toBeGreaterThan(0);
+    expect(project.settings.todoStatuses).toEqual(['open', 'doing', 'done']);
   });
 
   it('creates short random hashes', () => {
     expect(createHash()).toMatch(/^tl-[a-z0-9]{6}$/);
+  });
+
+  it('preserves reordered default todo statuses', () => {
+    expect(normalizeTodoStatuses(['done', 'open', 'doing'])).toEqual(['done', 'open', 'doing']);
   });
 });

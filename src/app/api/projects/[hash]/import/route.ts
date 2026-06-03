@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getProject, saveProjectToDb } from '@/lib/db';
 import { importProjectWorkbook } from '@/lib/importExcel';
+import { canAccessProject } from '@/lib/projectAccess';
 
 type RouteContext = {
   params: Promise<{
@@ -19,6 +20,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     const existingProject = await getProject(hash);
+    if (!canAccessProject(existingProject, request)) {
+      return NextResponse.json({ locked: true, hash: existingProject.hash }, { status: 423 });
+    }
+
     const result = await importProjectWorkbook(hash, await file.arrayBuffer(), existingProject);
     const project = await saveProjectToDb(result.project);
 

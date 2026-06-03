@@ -3,23 +3,20 @@
 import { useState } from 'react';
 import { TodoEditor } from './TodoEditor';
 import type { TimelineTodo, TodoStatus } from '@/lib/types';
+import { defaultTodoStatuses, formatTodoStatus, normalizeTodoStatus } from '@/lib/todos';
 
 type TodoBoardProps = {
   todos: TimelineTodo[];
+  statuses: TodoStatus[];
   onChange: (todos: TimelineTodo[]) => void;
+  onStatusesChange: (statuses: TodoStatus[]) => void;
 };
 
-const statuses: TodoStatus[] = ['open', 'doing', 'done'];
-const statusLabels: Record<TodoStatus, string> = {
-  open: 'Open',
-  doing: 'Doing',
-  done: 'Done',
-};
-
-export function TodoBoard({ todos, onChange }: TodoBoardProps) {
+export function TodoBoard({ todos, statuses, onChange, onStatusesChange }: TodoBoardProps) {
   const [draftTodo, setDraftTodo] = useState<TimelineTodo | null>(null);
   const [draggedTodoId, setDraggedTodoId] = useState<string | null>(null);
   const [dropStatus, setDropStatus] = useState<TodoStatus | null>(null);
+  const [newStatus, setNewStatus] = useState('');
 
   function addTodo() {
     setDraftTodo({
@@ -49,6 +46,41 @@ export function TodoBoard({ todos, onChange }: TodoBoardProps) {
   }
 
   const totalOpen = todos.filter((todo) => todo.status !== 'done').length;
+  const visibleStatuses = statuses.length ? statuses : defaultTodoStatuses;
+
+  function addStatus() {
+    const status = normalizeTodoStatus(newStatus);
+    if (!status || visibleStatuses.includes(status)) return;
+    onStatusesChange([...visibleStatuses, status]);
+    setNewStatus('');
+  }
+
+  function removeStatus(status: TodoStatus) {
+    if (defaultTodoStatuses.includes(status)) return;
+    if (todos.some((todo) => todo.status === status)) return;
+    onStatusesChange(visibleStatuses.filter((item) => item !== status));
+  }
+
+  function moveStatus(status: TodoStatus, targetStatus: TodoStatus) {
+    if (status === targetStatus) return;
+
+    const withoutDragged = visibleStatuses.filter((item) => item !== status);
+    const targetIndex = withoutDragged.indexOf(targetStatus);
+    if (targetIndex === -1) return;
+
+    onStatusesChange([
+      ...withoutDragged.slice(0, targetIndex),
+      status,
+      ...withoutDragged.slice(targetIndex),
+    ]);
+  }
+
+  function nudgeStatus(status: TodoStatus, direction: -1 | 1) {
+    const index = visibleStatuses.indexOf(status);
+    const targetStatus = visibleStatuses[index + direction];
+    if (!targetStatus) return;
+    moveStatus(status, targetStatus);
+  }
 
   return (
     <section className="todo-board">
@@ -57,23 +89,42 @@ export function TodoBoard({ todos, onChange }: TodoBoardProps) {
           <h2>Todos</h2>
           <div className="todo-board-summary">{totalOpen} open / {todos.length} total</div>
         </div>
-        <button type="button" onClick={addTodo}>
-          Add todo
-        </button>
+        <div className="todo-board-actions">
+          <form
+            className="add-status-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              addStatus();
+            }}
+          >
+            <input
+              value={newStatus}
+              onChange={(event) => setNewStatus(event.target.value)}
+              placeholder="New status"
+              aria-label="New todo status"
+            />
+            <button type="submit" className="secondary">Add column</button>
+          </form>
+          <button type="button" onClick={addTodo}>
+            Add todo
+          </button>
+        </div>
       </div>
       {draftTodo ? (
         <TodoEditor
           draft={draftTodo}
+          statuses={visibleStatuses}
           onChange={setDraftTodo}
           onCancel={() => setDraftTodo(null)}
           onSave={saveTodo}
         />
       ) : null}
       <div className="todo-columns">
-        {statuses.map((status) => {
+        {visibleStatuses.map((status) => {
           const columnTodos = todos
             .filter((todo) => todo.status === status)
             .sort(compareTodos);
+          const canRemoveStatus = !defaultTodoStatuses.includes(status) && columnTodos.length === 0;
 
           return (
             <div
@@ -84,15 +135,55 @@ export function TodoBoard({ todos, onChange }: TodoBoardProps) {
                 setDropStatus(status);
               }}
               onDragLeave={() => setDropStatus(null)}
-              onDrop={() => {
+              onDrop={(event) => {
+                event.preventDefault();
                 if (draggedTodoId) moveTodo(draggedTodoId, status);
                 setDraggedTodoId(null);
                 setDropStatus(null);
               }}
             >
-              <div className="column-title">
-                <span>{statusLabels[status]}</span>
+              <div
+                className="column-title"
+              >
+                <span>{formatTodoStatus(status)}</span>
                 <b>{columnTodos.length}</b>
+                <button
+                  type="button"
+                  className="column-move"
+                  disabled={visibleStatuses[0] === status}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    nudgeStatus(status, -1);
+                  }}
+                  aria-label={`Move ${formatTodoStatus(status)} left`}
+                >
+                  &lt;
+                </button>
+                <button
+                  type="button"
+                  className="column-move"
+                  disabled={visibleStatuses.at(-1) === status}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    nudgeStatus(status, 1);
+                  }}
+                  aria-label={`Move ${formatTodoStatus(status)} right`}
+                >
+                  &gt;
+                </button>
+                {canRemoveStatus ? (
+                  <button
+                    type="button"
+                    className="column-remove"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      removeStatus(status);
+                    }}
+                    aria-label={`Remove ${formatTodoStatus(status)} column`}
+                  >
+                    x
+                  </button>
+                ) : null}
               </div>
               {columnTodos.length ? (
                 columnTodos.map((todo) => (
@@ -100,7 +191,11 @@ export function TodoBoard({ todos, onChange }: TodoBoardProps) {
                     className={`todo-item ${draggedTodoId === todo.id ? 'dragging' : ''}`}
                     key={todo.id}
                     draggable
-                    onDragStart={() => setDraggedTodoId(todo.id)}
+                    onDragStart={(event) => {
+                      event.stopPropagation();
+                      setDraggedTodoId(todo.id);
+                      event.dataTransfer.effectAllowed = 'move';
+                    }}
                     onDragEnd={() => {
                       setDraggedTodoId(null);
                       setDropStatus(null);

@@ -6,10 +6,19 @@ type ProjectHeaderProps = {
   project: TimelineProject;
   onChange: (project: TimelineProject) => void;
   onModeChange: (mode: TimelineMode) => void;
+  onProjectPinChange: () => void;
+  onProjectPinRemove: () => void;
   onImport: (file: File) => void;
 };
 
-export function ProjectHeader({ project, onChange, onModeChange, onImport }: ProjectHeaderProps) {
+export function ProjectHeader({
+  project,
+  onChange,
+  onModeChange,
+  onProjectPinChange,
+  onProjectPinRemove,
+  onImport,
+}: ProjectHeaderProps) {
   return (
     <header className="project-header">
       <div className="project-title">
@@ -75,6 +84,18 @@ export function ProjectHeader({ project, onChange, onModeChange, onImport }: Pro
           />
           Todo overlay
         </label>
+        {project.settings.mode === 'edit' ? (
+          <>
+            <button type="button" className="secondary" onClick={onProjectPinChange}>
+              {project.settings.viewPinHash ? 'Change project PIN' : 'Add project PIN'}
+            </button>
+            {project.settings.viewPinHash ? (
+              <button type="button" className="secondary" onClick={onProjectPinRemove}>
+                Remove project PIN
+              </button>
+            ) : null}
+          </>
+        ) : null}
         <label className="import-button">
           Import Excel
           <input

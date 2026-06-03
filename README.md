@@ -8,10 +8,11 @@ Next.js app for project timelines. Each project is addressed by the URL hash, fo
 - Postgres-backed project persistence through Next.js API routes.
 - Canvas timeline with view mode pan/zoom and edit mode click-to-create modal.
 - Edit mode is protected by a project-level PIN. The first switch to edit mode creates the PIN; later switches require it.
+- Projects can also have a view PIN. When configured, the API returns a locked response until the PIN is supplied.
 - Time-aware event placement inside each day.
 - Events include date, optional end date, time, what, who, type, and note.
 - Markdown important-info header.
-- Todo board with open/doing/done status, markdown body, due dates, and optional subtle timeline markers.
+- Todo board with custom draggable status columns, markdown body, due dates, and optional subtle timeline markers.
 - Docker-ready Next.js standalone build.
 
 ## Local Development
@@ -44,6 +45,12 @@ docker compose up --build
 ```
 
 This starts both Postgres and the app. Open `http://localhost:3002`.
+
+pgAdmin is also available at `http://localhost:5050` by default.
+
+- Login: `admin@example.com` / `admin`
+- The `Timeline Postgres` server is pre-registered with host `postgres`, port `5432`, database `timeline`, user `timeline`.
+- If pgAdmin asks for the database password, use `timeline` unless you changed `POSTGRES_PASSWORD`.
 
 ## VPS Deployment With Traefik
 

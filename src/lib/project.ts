@@ -1,5 +1,6 @@
 import type { TimelineProject } from './types';
 import { defaultTypeColors } from './colors';
+import { defaultTodoStatuses } from './todos';
 
 export function createHash() {
   return `tl-${Math.random().toString(36).slice(2, 8)}`;
@@ -81,6 +82,7 @@ export function createDefaultProject(hash: string): TimelineProject {
       mode: 'view',
       showTodosOnTimeline: true,
       typeColors: defaultTypeColors,
+      todoStatuses: defaultTodoStatuses,
     },
   };
 }
