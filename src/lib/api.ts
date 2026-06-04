@@ -7,6 +7,13 @@ export class LockedProjectError extends Error {
   }
 }
 
+export class ProjectConflictError extends Error {
+  constructor() {
+    super('Project changed on the server');
+    this.name = 'ProjectConflictError';
+  }
+}
+
 function projectPinHeaders(projectPin?: string): Record<string, string> {
   return projectPin
     ? {
@@ -22,6 +29,7 @@ export async function fetchProject(hash: string, projectPin?: string) {
   });
 
   if (response.status === 423) throw new LockedProjectError();
+  if (response.status === 409) throw new ProjectConflictError();
 
   if (!response.ok) {
     throw new Error(`Unable to load project (${response.status})`);
@@ -41,6 +49,7 @@ export async function persistProject(project: TimelineProject, projectPin?: stri
   });
 
   if (response.status === 423) throw new LockedProjectError();
+  if (response.status === 409) throw new ProjectConflictError();
 
   if (!response.ok) {
     throw new Error(`Unable to save project (${response.status})`);
@@ -60,6 +69,7 @@ export async function importProjectFile(hash: string, file: File, projectPin?: s
   });
 
   if (response.status === 423) throw new LockedProjectError();
+  if (response.status === 409) throw new ProjectConflictError();
 
   if (!response.ok) {
     throw new Error(`Unable to import project (${response.status})`);

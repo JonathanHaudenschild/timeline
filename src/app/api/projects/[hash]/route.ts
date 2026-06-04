@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getProject, saveProjectToDb } from '@/lib/db';
+import { getProject, ProjectConflictError, saveProjectToDb } from '@/lib/db';
 import { canAccessProject } from '@/lib/projectAccess';
 import { normalizeHash } from '@/lib/project';
 import type { TimelineProject } from '@/lib/types';
@@ -39,6 +39,10 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     const project = await saveProjectToDb({ ...body, hash: normalizeHash(hash) });
     return NextResponse.json(project);
   } catch (error) {
+    if (error instanceof ProjectConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unable to save project' },
       { status: 500 },

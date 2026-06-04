@@ -368,7 +368,6 @@ export function TodoBoard({
                     onClick={() => setDraftTodo({ ...todo, boardId })}
                   >
                     <div className="todo-card-topline">
-                      <span className="todo-drag-grip" aria-hidden="true">drag</span>
                       <div className="todo-card-title">{todo.title}</div>
                       <div className="todo-card-order">
                         <button

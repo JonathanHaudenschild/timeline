@@ -46,6 +46,7 @@ export type StickyLink = {
 
 export type TimelineProject = {
   version: 1;
+  revision?: number;
   hash: string;
   name: string;
   startDate: string;

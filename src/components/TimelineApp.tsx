@@ -9,7 +9,7 @@ import { ProjectHeader } from './ProjectHeader';
 import { StickyLinks } from './StickyLinks';
 import { TimelineCanvas } from './TimelineCanvas';
 import { TodoBoard } from './TodoBoard';
-import { fetchProject, importProjectFile, LockedProjectError, persistProject } from '@/lib/api';
+import { fetchProject, importProjectFile, LockedProjectError, persistProject, ProjectConflictError } from '@/lib/api';
 import { formatShortGermanDateRange } from '@/lib/dateFormat';
 import { createDefaultProject, normalizeHash } from '@/lib/project';
 import { ensureProjectHash } from '@/lib/storage';
@@ -37,7 +37,8 @@ export function TimelineApp() {
   const [selectedTodoId, setSelectedTodoId] = useState<string>();
   const [draftEvent, setDraftEvent] = useState<TimelineEvent | null>(null);
   const [editingInfo, setEditingInfo] = useState(false);
-  const [saveState, setSaveState] = useState<'loading' | 'saved' | 'saving' | 'error'>('loading');
+  const [saveState, setSaveState] = useState<'loading' | 'saved' | 'saving' | 'error' | 'conflict'>('loading');
+  const [collaborationNotice, setCollaborationNotice] = useState('');
   const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
   const [lockedHash, setLockedHash] = useState<string | null>(null);
   const [unlockPin, setUnlockPin] = useState('');
@@ -70,6 +71,9 @@ export function TimelineApp() {
 
   useEffect(() => {
     latestProjectRef.current = project;
+    if (canSaveRef.current && JSON.stringify(project) !== lastSavedJsonRef.current) {
+      saveUnsavedProjectBackup(project, parseProjectJson(lastSavedJsonRef.current));
+    }
   }, [project]);
 
   useEffect(() => {
@@ -96,14 +100,22 @@ export function TimelineApp() {
       try {
         const loadedProject = await fetchProject(hash, projectPin);
         if (!cancelled && loadId === loadSequenceRef.current) {
+          const backup = getUnsavedProjectBackup(loadedProject.hash);
+          const projectToDisplay =
+            backup &&
+            JSON.stringify(backup.project) !== JSON.stringify(loadedProject) &&
+            window.confirm('Found unsaved edits from this browser. Restore them now?')
+              ? mergeProjectChanges(backup.baseProject, backup.project, loadedProject)
+              : loadedProject;
           projectPinRef.current = projectPin;
           if (projectPin) saveProjectPinSession(hash, projectPin);
           lastSavedJsonRef.current = JSON.stringify(loadedProject);
+          if (projectToDisplay === loadedProject) clearUnsavedProjectBackup(loadedProject.hash);
           canSaveRef.current = true;
           setLockedHash(null);
           setUnlockPin('');
           setLockError('');
-          setProject(loadedProject);
+          setProject(projectToDisplay);
           setSaveState('saved');
         }
       } catch (error) {
@@ -146,6 +158,25 @@ export function TimelineApp() {
     };
   }, []);
 
+  async function rebaseUnsavedChanges() {
+    try {
+      const localProject = latestProjectRef.current;
+      const baseProject = parseProjectJson(lastSavedJsonRef.current) ?? localProject;
+      const remoteProject = await fetchProject(localProject.hash, projectPinRef.current);
+      const mergedProject = mergeProjectChanges(baseProject, localProject, remoteProject);
+
+      lastSavedJsonRef.current = JSON.stringify(remoteProject);
+      canSaveRef.current = true;
+      setProject(mergedProject);
+      setSaveState('conflict');
+      setCollaborationNotice('Merged newer server changes with your local edits. Saving again now.');
+    } catch {
+      canSaveRef.current = false;
+      setSaveState('conflict');
+      setCollaborationNotice('Could not merge newer server changes. Your unsaved edits are kept in this browser.');
+    }
+  }
+
   useEffect(() => {
     if (!canSaveRef.current || saveState === 'loading' || saveState === 'saving' || lockedHash) return;
 
@@ -161,14 +192,58 @@ export function TimelineApp() {
           lastSavedJsonRef.current = savedJson;
           if (JSON.stringify(latestProjectRef.current) === projectJson) {
             setProject(savedProject);
+            clearUnsavedProjectBackup(savedProject.hash);
+          } else {
+            setProject((currentProject) =>
+              currentProject.hash === savedProject.hash
+                ? { ...currentProject, revision: savedProject.revision }
+                : currentProject,
+            );
           }
           setSaveState('saved');
         })
-        .catch(() => setSaveState('error'));
+        .catch((error) => {
+          saveUnsavedProjectBackup(latestProjectRef.current, parseProjectJson(lastSavedJsonRef.current));
+          setSaveState('error');
+          if (error instanceof ProjectConflictError) {
+            void rebaseUnsavedChanges();
+          }
+        });
     }, 350);
 
     return () => window.clearTimeout(timeout);
   }, [project, saveState, lockedHash]);
+
+  useEffect(() => {
+    if (!canSaveRef.current || lockedHash) return;
+
+    const interval = window.setInterval(() => {
+      if (document.hidden || !canSaveRef.current || lockedHash) return;
+
+      const currentProject = latestProjectRef.current;
+      fetchProject(currentProject.hash, projectPinRef.current)
+        .then((remoteProject) => {
+          const remoteJson = JSON.stringify(remoteProject);
+          if (remoteJson === lastSavedJsonRef.current) return;
+
+          if (JSON.stringify(latestProjectRef.current) === lastSavedJsonRef.current) {
+            lastSavedJsonRef.current = remoteJson;
+            setProject(remoteProject);
+            clearUnsavedProjectBackup(remoteProject.hash);
+            setCollaborationNotice('Updated from another device.');
+            setSaveState('saved');
+            return;
+          }
+
+          setCollaborationNotice('Newer changes exist on another device. Your local edits will be merged on save.');
+        })
+        .catch(() => {
+          // Polling should never interrupt local editing.
+        });
+    }, 10_000);
+
+    return () => window.clearInterval(interval);
+  }, [lockedHash]);
 
   const selectedEvent = project.events.find((event) => event.id === selectedEventId);
   const canEdit = project.settings.mode === 'edit';
@@ -188,6 +263,7 @@ export function TimelineApp() {
   };
 
   function updateProject(nextProject: TimelineProject) {
+    setCollaborationNotice('');
     if (nextProject.settings.mode !== 'edit') {
       setDraftEvent(null);
       setEditingInfo(false);
@@ -660,11 +736,19 @@ export function TimelineApp() {
               event.preventDefault();
               void fetchProject(lockedHash, unlockPin)
                 .then((loadedProject) => {
+                  const backup = getUnsavedProjectBackup(loadedProject.hash);
+                  const projectToDisplay =
+                    backup &&
+                    JSON.stringify(backup.project) !== JSON.stringify(loadedProject) &&
+                    window.confirm('Found unsaved edits from this browser. Restore them now?')
+                      ? mergeProjectChanges(backup.baseProject, backup.project, loadedProject)
+                      : loadedProject;
                   projectPinRef.current = unlockPin;
                   saveProjectPinSession(lockedHash, unlockPin);
                   lastSavedJsonRef.current = JSON.stringify(loadedProject);
+                  if (projectToDisplay === loadedProject) clearUnsavedProjectBackup(loadedProject.hash);
                   canSaveRef.current = true;
-                  setProject(loadedProject);
+                  setProject(projectToDisplay);
                   setLockedHash(null);
                   setUnlockPin('');
                   setLockError('');
@@ -745,13 +829,30 @@ export function TimelineApp() {
             .then((result) => {
               if (projectPinRef.current) saveProjectPinSession(project.hash, projectPinRef.current);
               lastSavedJsonRef.current = JSON.stringify(result.project);
+              clearUnsavedProjectBackup(result.project.hash);
               canSaveRef.current = true;
               setProject(result.project);
               setSaveState('saved');
             })
-            .catch(() => setSaveState('error'));
+            .catch((error) => {
+              saveUnsavedProjectBackup(latestProjectRef.current, parseProjectJson(lastSavedJsonRef.current));
+              setSaveState('error');
+              if (error instanceof ProjectConflictError) {
+                canSaveRef.current = false;
+                window.alert('This project changed somewhere else. Import was not saved over newer data.');
+              }
+            });
         }}
       />
+
+      {collaborationNotice ? (
+        <div className={`collaboration-banner ${saveState === 'conflict' ? 'conflict' : ''}`}>
+          <span>{collaborationNotice}</span>
+          <button type="button" className="secondary" onClick={() => setCollaborationNotice('')}>
+            Dismiss
+          </button>
+        </div>
+      ) : null}
 
       <section className="info-section">
         <div className="section-heading">
@@ -1106,6 +1207,156 @@ function nextTodoOrder(todos: readonly TimelineTodo[], status: string) {
   return todos
     .filter((todo) => todo.status === status)
     .reduce((max, todo) => Math.max(max, todo.order ?? 0), 0) + 1;
+}
+
+function unsavedProjectBackupKey(projectHash: string) {
+  return `timeline:unsaved-project:${normalizeHash(projectHash)}`;
+}
+
+function getUnsavedProjectBackup(projectHash: string) {
+  try {
+    const rawValue = window.localStorage.getItem(unsavedProjectBackupKey(projectHash));
+    if (!rawValue) return undefined;
+
+    const backup = JSON.parse(rawValue) as { project?: TimelineProject; baseProject?: TimelineProject };
+    if (backup.project?.hash !== normalizeHash(projectHash) || backup.baseProject?.hash !== normalizeHash(projectHash)) {
+      clearUnsavedProjectBackup(projectHash);
+      return undefined;
+    }
+
+    return {
+      project: backup.project,
+      baseProject: backup.baseProject,
+    };
+  } catch {
+    clearUnsavedProjectBackup(projectHash);
+    return undefined;
+  }
+}
+
+function saveUnsavedProjectBackup(project: TimelineProject, baseProject?: TimelineProject) {
+  if (!baseProject) return;
+
+  window.localStorage.setItem(
+    unsavedProjectBackupKey(project.hash),
+    JSON.stringify({ savedAt: Date.now(), baseProject, project }),
+  );
+}
+
+function clearUnsavedProjectBackup(projectHash: string) {
+  window.localStorage.removeItem(unsavedProjectBackupKey(projectHash));
+}
+
+function parseProjectJson(json: string) {
+  try {
+    return JSON.parse(json) as TimelineProject;
+  } catch {
+    return undefined;
+  }
+}
+
+function mergeProjectChanges(baseProject: TimelineProject, localProject: TimelineProject, remoteProject: TimelineProject) {
+  const mergedProject: TimelineProject = {
+    ...remoteProject,
+    name: changed(baseProject.name, localProject.name) ? localProject.name : remoteProject.name,
+    startDate: changed(baseProject.startDate, localProject.startDate) ? localProject.startDate : remoteProject.startDate,
+    endDate: changed(baseProject.endDate, localProject.endDate) ? localProject.endDate : remoteProject.endDate,
+    infoMarkdown: changed(baseProject.infoMarkdown, localProject.infoMarkdown)
+      ? localProject.infoMarkdown
+      : remoteProject.infoMarkdown,
+    events: mergeById(baseProject.events, localProject.events, remoteProject.events),
+    settings: mergeSettings(baseProject, localProject, remoteProject),
+  };
+  const boards = mergeTodoBoards(
+    normalizeTodoBoards(baseProject),
+    normalizeTodoBoards(localProject),
+    normalizeTodoBoards(remoteProject),
+  );
+  const activeBoardId =
+    changed(baseProject.settings.activeTodoBoardId, localProject.settings.activeTodoBoardId)
+      ? localProject.settings.activeTodoBoardId
+      : remoteProject.settings.activeTodoBoardId;
+
+  return syncProjectTodoBoard(mergedProject, boards, activeBoardId ?? boards[0]?.id ?? 'board-main');
+}
+
+function mergeSettings(baseProject: TimelineProject, localProject: TimelineProject, remoteProject: TimelineProject) {
+  const remoteSettings = remoteProject.settings;
+  const localSettings = localProject.settings;
+  const baseSettings = baseProject.settings;
+  const typeColors = { ...remoteSettings.typeColors };
+
+  for (const [type, color] of Object.entries(localSettings.typeColors)) {
+    if (changed(baseSettings.typeColors[type], color)) typeColors[type] = color;
+  }
+
+  return {
+    ...remoteSettings,
+    mode: localSettings.mode,
+    showTodosOnTimeline: changed(baseSettings.showTodosOnTimeline, localSettings.showTodosOnTimeline)
+      ? localSettings.showTodosOnTimeline
+      : remoteSettings.showTodosOnTimeline,
+    typeColors,
+    editPinHash: changed(baseSettings.editPinHash, localSettings.editPinHash)
+      ? localSettings.editPinHash
+      : remoteSettings.editPinHash,
+    viewPinHash: changed(baseSettings.viewPinHash, localSettings.viewPinHash)
+      ? localSettings.viewPinHash
+      : remoteSettings.viewPinHash,
+    activeTodoBoardId: changed(baseSettings.activeTodoBoardId, localSettings.activeTodoBoardId)
+      ? localSettings.activeTodoBoardId
+      : remoteSettings.activeTodoBoardId,
+    stickyLinks: mergeById(baseSettings.stickyLinks ?? [], localSettings.stickyLinks ?? [], remoteSettings.stickyLinks ?? []),
+  };
+}
+
+function mergeTodoBoards(
+  baseBoards: TimelineTodoBoardData[],
+  localBoards: TimelineTodoBoardData[],
+  remoteBoards: TimelineTodoBoardData[],
+) {
+  const mergedBoards = mergeById(baseBoards, localBoards, remoteBoards);
+
+  return mergedBoards.map((board) => {
+    const baseBoard = baseBoards.find((item) => item.id === board.id);
+    const localBoard = localBoards.find((item) => item.id === board.id);
+    const remoteBoard = remoteBoards.find((item) => item.id === board.id);
+    if (!baseBoard || !localBoard || !remoteBoard) return board;
+
+    return {
+      ...board,
+      todos: mergeById(baseBoard.todos, localBoard.todos, remoteBoard.todos),
+      statuses: changed(baseBoard.statuses, localBoard.statuses) ? localBoard.statuses : remoteBoard.statuses,
+      completedTodoStatus: changed(baseBoard.completedTodoStatus, localBoard.completedTodoStatus)
+        ? localBoard.completedTodoStatus
+        : remoteBoard.completedTodoStatus,
+    };
+  });
+}
+
+function mergeById<T extends { id: string }>(baseItems: readonly T[], localItems: readonly T[], remoteItems: readonly T[]) {
+  const result = new Map(remoteItems.map((item) => [item.id, item]));
+  const baseById = new Map(baseItems.map((item) => [item.id, item]));
+  const localById = new Map(localItems.map((item) => [item.id, item]));
+
+  for (const [id, localItem] of localById) {
+    const baseItem = baseById.get(id);
+    if (!baseItem || changed(baseItem, localItem)) {
+      result.set(id, localItem);
+    }
+  }
+
+  for (const [id, baseItem] of baseById) {
+    if (localById.has(id)) continue;
+    const remoteItem = result.get(id);
+    if (!remoteItem || !changed(baseItem, remoteItem)) result.delete(id);
+  }
+
+  return [...result.values()];
+}
+
+function changed(left: unknown, right: unknown) {
+  return JSON.stringify(left) !== JSON.stringify(right);
 }
 
 const projectPinSessionTtlMs = 30 * 60 * 1000;

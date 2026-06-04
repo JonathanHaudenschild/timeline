@@ -9,6 +9,13 @@ let pool: Pool | undefined;
 let initialized = false;
 const defaultLocalDatabaseUrl = 'postgres://timeline:timeline@localhost:5433/timeline';
 
+export class ProjectConflictError extends Error {
+  constructor() {
+    super('Project changed on the server. Reload before saving again.');
+    this.name = 'ProjectConflictError';
+  }
+}
+
 function getPool() {
   if (!pool) {
     pool = new Pool({ ...databaseConfig(), max: 5 });
@@ -46,9 +53,15 @@ async function ensureSchema() {
     CREATE TABLE IF NOT EXISTS timeline_projects (
       hash TEXT PRIMARY KEY,
       data JSONB NOT NULL,
+      revision BIGINT NOT NULL DEFAULT 0,
       created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )
+  `);
+
+  await getPool().query(`
+    ALTER TABLE timeline_projects
+    ADD COLUMN IF NOT EXISTS revision BIGINT NOT NULL DEFAULT 0
   `);
 
   initialized = true;
@@ -58,13 +71,18 @@ export async function getProject(hash: string) {
   await ensureSchema();
 
   const normalizedHash = normalizeHash(hash);
-  const result = await getPool().query<{ data: TimelineProject }>(
-    'SELECT data FROM timeline_projects WHERE hash = $1',
+  const result = await getPool().query<{ data: TimelineProject; revision: string }>(
+    'SELECT data, revision FROM timeline_projects WHERE hash = $1',
     [normalizedHash],
   );
 
   if (result.rowCount) {
-    return normalizeProject({ ...createDefaultProject(normalizedHash), ...result.rows[0].data, hash: normalizedHash });
+    return normalizeProject({
+      ...createDefaultProject(normalizedHash),
+      ...result.rows[0].data,
+      hash: normalizedHash,
+      revision: Number(result.rows[0].revision),
+    });
   }
 
   const project = createDefaultProject(normalizedHash);
@@ -75,14 +93,40 @@ export async function getProject(hash: string) {
 export async function saveProjectToDb(project: TimelineProject) {
   await ensureSchema();
 
-  const normalizedProject = normalizeProject({ ...project, hash: normalizeHash(project.hash) });
-  await getPool().query(
-    `INSERT INTO timeline_projects (hash, data, updated_at)
-     VALUES ($1, $2, now())
-     ON CONFLICT (hash)
-     DO UPDATE SET data = EXCLUDED.data, updated_at = now()`,
-    [normalizedProject.hash, JSON.stringify(normalizedProject)],
+  const normalizedHash = normalizeHash(project.hash);
+  const existing = await getPool().query<{ revision: string }>(
+    'SELECT revision FROM timeline_projects WHERE hash = $1',
+    [normalizedHash],
   );
+
+  if (existing.rowCount) {
+    const currentRevision = Number(existing.rows[0].revision);
+    if (project.revision !== currentRevision) {
+      throw new ProjectConflictError();
+    }
+
+    const nextRevision = currentRevision + 1;
+    const normalizedProject = normalizeProject({ ...project, hash: normalizedHash, revision: nextRevision });
+    const update = await getPool().query(
+      `UPDATE timeline_projects
+       SET data = $2, revision = $3, updated_at = now()
+       WHERE hash = $1 AND revision = $4`,
+      [normalizedProject.hash, JSON.stringify(normalizedProject), nextRevision, currentRevision],
+    );
+    if (!update.rowCount) throw new ProjectConflictError();
+    return normalizedProject;
+  }
+
+  const normalizedProject = normalizeProject({ ...project, hash: normalizedHash, revision: 1 });
+  try {
+    await getPool().query(
+      `INSERT INTO timeline_projects (hash, data, revision, updated_at)
+       VALUES ($1, $2, $3, now())`,
+      [normalizedProject.hash, JSON.stringify(normalizedProject), normalizedProject.revision],
+    );
+  } catch {
+    throw new ProjectConflictError();
+  }
 
   return normalizedProject;
 }

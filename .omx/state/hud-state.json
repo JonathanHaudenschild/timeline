@@ -1,5 +1,5 @@
 {
-  "last_turn_at": "2026-06-04T07:35:26.638Z",
-  "turn_count": 67,
-  "last_agent_output": "Yes. Simply waiting is a valid option.\n\nYour DNS records have a 24-hour TTL (`86400` seconds). Since"
+  "last_turn_at": "2026-06-04T10:10:22.153Z",
+  "turn_count": 71,
+  "last_agent_output": "Fixed that. Restoration no longer restores the entire old project blob.\n\nNow local unsaved backup st"
 }

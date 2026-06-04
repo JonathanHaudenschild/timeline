@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getProject, saveProjectToDb } from '@/lib/db';
+import { getProject, ProjectConflictError, saveProjectToDb } from '@/lib/db';
 import { importProjectWorkbook } from '@/lib/importExcel';
 import { canAccessProject } from '@/lib/projectAccess';
 
@@ -33,6 +33,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       importedLinks: result.importedLinks,
     });
   } catch (error) {
+    if (error instanceof ProjectConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unable to import workbook' },
       { status: 500 },
