@@ -1,6 +1,6 @@
 import type { TimelineProject } from './types';
 import { defaultTypeColors } from './colors';
-import { normalizeMeetingProtocols } from './meetingProtocols';
+import { defaultProtocolInstructionTemplate, normalizeMeetingProtocols } from './meetingProtocols';
 import { defaultTodoStatuses } from './todos';
 
 export function createHash() {
@@ -41,6 +41,7 @@ export function createDefaultProject(hash: string): TimelineProject {
     endDate: '2026-06-30',
     infoMarkdown:
       '# Important info\n\nUse this section for context, decisions, links, and facts that should stay visible while reviewing the timeline.',
+    protocolInstructionTemplate: defaultProtocolInstructionTemplate,
     events: [
       {
         id: 'event-kickoff',

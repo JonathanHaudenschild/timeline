@@ -19,6 +19,7 @@ export type TimelineEvent = {
 export type TimelineTodo = {
   id: string;
   boardId?: string;
+  protocolId?: string;
   title: string;
   who: string;
   body: string;
@@ -79,6 +80,7 @@ export type TimelineProject = {
   startDate: string;
   endDate: string;
   infoMarkdown: string;
+  protocolInstructionTemplate: string;
   events: TimelineEvent[];
   todos: TimelineTodo[];
   todoBoards?: TimelineTodoBoard[];

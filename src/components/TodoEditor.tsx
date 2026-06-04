@@ -1,5 +1,6 @@
 'use client';
 
+import { MarkdownEditor } from './MarkdownEditor';
 import { MarkdownBlock } from './MarkdownBlock';
 import type { TimelineTodo, TodoStatus } from '@/lib/types';
 import { formatTodoStatus } from '@/lib/todos';
@@ -8,6 +9,7 @@ type TodoEditorProps = {
   draft: TimelineTodo;
   statuses: TodoStatus[];
   boards?: Array<{ id: string; name: string; locked?: boolean }>;
+  protocolOptions?: Array<{ id: string; title: string }>;
   title?: string;
   saveLabel?: string;
   forceBoardSelect?: boolean;
@@ -21,6 +23,7 @@ export function TodoEditor({
   draft,
   statuses,
   boards = [],
+  protocolOptions = [],
   title = 'Todo',
   saveLabel = 'Save todo',
   forceBoardSelect = false,
@@ -80,6 +83,22 @@ export function TodoEditor({
               </select>
             </label>
           ) : null}
+          {protocolOptions.length ? (
+            <label>
+              <span>Protocol</span>
+              <select
+                value={draft.protocolId ?? ''}
+                onChange={(event) => onChange({ ...draft, protocolId: event.target.value || undefined })}
+              >
+                <option value="">No protocol</option>
+                {protocolOptions.map((protocol) => (
+                  <option key={protocol.id} value={protocol.id}>
+                    {protocol.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <label>
             <span>Due</span>
             <input
@@ -91,9 +110,9 @@ export function TodoEditor({
         </div>
         <label>
           <span>Markdown note</span>
-          <textarea
+          <MarkdownEditor
             value={draft.body}
-            onChange={(event) => onChange({ ...draft, body: event.target.value })}
+            onChange={(body) => onChange({ ...draft, body })}
             rows={7}
           />
         </label>

@@ -4,6 +4,31 @@ const weekdayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag',
 const shortWeekdayNames = ['So.', 'Mo.', 'Di.', 'Mi.', 'Do.', 'Fr.', 'Sa.'];
 const defaultProtocolTitle = 'Tägliches Platz-Plenum';
 
+export const defaultProtocolInstructionTemplate = `{title}
+---------------------------------------------------------------------------------------------------------------------
+📋 Tägliches Platz-Plenum 📅 Datum: {date} · ⏱️ Dauer: {duration}
+🎤 Moderation: NAME | 📝 Protokoll: NAME | 📌 To-Dos-Beauftragte:r: NAME
+
+👋 Begrüßung & Rahmen
+Guten Morgen, ich moderiere heute das Plenum möglichst zügig & strukturiert.
+Wer schreibt heute Protokoll? Wer ist Heute To-Dos-Beauftragte:r:?
+Optional: kurze Vorstellungsrunde mit Name, Pronomen & Stress-/Laune-Barometer
+Ich stelle kurz Ablauf & Struktur vor: 🎯 Ziel: Plenum max. 1 Stunde
+Bitte lasst einander ausreden & bleibt beim Thema
+Bei Bedarf nutzen wir eine Redner:innen-Liste
+Den Link zum Protokoll findet ihr im SCC-Wiki: Themen fürs nächste Plenum bitte möglichst früh dort eintragen
+
+🔄 Struktur des Plenums
+1. Updates: Kurze relevante Infos ohne Diskussion ⏱️ Richtwert: max. 15 Minuten
+📌 Falls Redebedarf entsteht → in den Themen-Block schieben
+2. Themen: Gemeinsame Themen & Diskussionen 🎯 Richtwert: max. 10 Minuten pro Thema
+📌 Beim Thema bleiben 📌 Lange Diskussionen ggf. auslagern 📌 Entstehende To-Dos direkt mitschreiben
+3. To-Dos: Gemeinsame Sichtung & Planung 🔗 Decks: https://cloud.kuko-crews.org/apps/deck/board/433/
+Erst Alte To-Dos vorlesen: Wie ist der Stand? Wer kümmert sich? Wird Unterstützung gebraucht?
+Danach Neue To-Dos sammeln & verteilen: Verantwortlichkeiten klären & Deadlines festlegen
+
+——————————————           END Plenum {endDate}.       —————————————`;
+
 export type ProtocolHeadline = {
   id: string;
   lineIndex: number;
@@ -93,35 +118,20 @@ export function protocolTitle(date: string, time = '') {
   return [weekdayName(date), formatProtocolDate(date), normalizeProtocolTime(time)].filter(Boolean).join(' ');
 }
 
-export function createMeetingProtocolInstruction(date: string, durationSeconds = 0) {
+export function createMeetingProtocolInstruction(
+  date: string,
+  durationSeconds = 0,
+  template = defaultProtocolInstructionTemplate,
+) {
   const longDate = formatProtocolDate(date);
   const shortDate = `${shortWeekdayName(date)} ${longDate}`;
   const displayDuration = formatProtocolDuration(durationSeconds);
 
-  return `${defaultProtocolTitle}
----------------------------------------------------------------------------------------------------------------------
-📋 Tägliches Platz-Plenum 📅 Datum: ${shortDate} · ⏱️ Dauer: ${displayDuration}
-🎤 Moderation: NAME | 📝 Protokoll: NAME | 📌 To-Dos-Beauftragte:r: NAME
-
-👋 Begrüßung & Rahmen
-Guten Morgen, ich moderiere heute das Plenum möglichst zügig & strukturiert.
-Wer schreibt heute Protokoll? Wer ist Heute To-Dos-Beauftragte:r:?
-Optional: kurze Vorstellungsrunde mit Name, Pronomen & Stress-/Laune-Barometer
-Ich stelle kurz Ablauf & Struktur vor: 🎯 Ziel: Plenum max. 1 Stunde
-Bitte lasst einander ausreden & bleibt beim Thema
-Bei Bedarf nutzen wir eine Redner:innen-Liste
-Den Link zum Protokoll findet ihr im SCC-Wiki: Themen fürs nächste Plenum bitte möglichst früh dort eintragen
-
-🔄 Struktur des Plenums
-1. Updates: Kurze relevante Infos ohne Diskussion ⏱️ Richtwert: max. 15 Minuten
-📌 Falls Redebedarf entsteht → in den Themen-Block schieben
-2. Themen: Gemeinsame Themen & Diskussionen 🎯 Richtwert: max. 10 Minuten pro Thema
-📌 Beim Thema bleiben 📌 Lange Diskussionen ggf. auslagern 📌 Entstehende To-Dos direkt mitschreiben
-3. To-Dos: Gemeinsame Sichtung & Planung 🔗 Decks: https://cloud.kuko-crews.org/apps/deck/board/433/
-Erst Alte To-Dos vorlesen: Wie ist der Stand? Wer kümmert sich? Wird Unterstützung gebraucht?
-Danach Neue To-Dos sammeln & verteilen: Verantwortlichkeiten klären & Deadlines festlegen
-
-——————————————           END Plenum ${longDate}.       —————————————`;
+  return (template.trim() ? template : defaultProtocolInstructionTemplate)
+    .replaceAll('{title}', defaultProtocolTitle)
+    .replaceAll('{date}', shortDate)
+    .replaceAll('{duration}', displayDuration)
+    .replaceAll('{endDate}', longDate);
 }
 
 export const createMeetingProtocolTemplate = createMeetingProtocolInstruction;

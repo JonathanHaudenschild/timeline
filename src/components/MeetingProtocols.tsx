@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { MarkdownEditor } from './MarkdownEditor';
 import { MarkdownBlock } from './MarkdownBlock';
 import {
   createMeetingProtocol,
@@ -18,9 +19,12 @@ import { usePersistentState } from '@/lib/usePersistentState';
 
 type MeetingProtocolsProps = {
   projectHash: string;
+  canEdit: boolean;
   protocols: MeetingProtocol[];
+  instructionTemplate: string;
   onChange: (protocols: MeetingProtocol[]) => void;
-  onCreateTodo: (source: { title: string; body: string; date: string }) => void;
+  onInstructionTemplateChange: (template: string) => void;
+  onCreateTodo: (source: { title: string; body: string; date: string; who?: string; protocolId?: string }) => void;
   onCreateEvent: (source: { title: string; body: string; date: string }) => void;
 };
 
@@ -41,14 +45,18 @@ const sectionConfig: Array<{ kind: ProtocolItemKind; title: string; addLabel: st
 
 export function MeetingProtocols({
   projectHash,
+  canEdit,
   protocols,
+  instructionTemplate,
   onChange,
+  onInstructionTemplateChange,
   onCreateTodo,
   onCreateEvent,
 }: MeetingProtocolsProps) {
   const [isMinimized, setIsMinimized] = usePersistentState(`timeline:ui:meeting-protocols-minimized:${projectHash}`, false);
   const [showInstruction, setShowInstruction] = usePersistentState(`timeline:ui:meeting-protocols-instruction:${projectHash}`, true);
   const [isPreviewingNotes, setIsPreviewingNotes] = usePersistentState(`timeline:ui:meeting-protocols-preview:${projectHash}`, false);
+  const [isEditingInstruction, setIsEditingInstruction] = usePersistentState(`timeline:ui:meeting-protocols-edit-instruction:${projectHash}`, false);
   const [showProtocolEntries, setShowProtocolEntries] = usePersistentState(`timeline:ui:meeting-protocols-left-entries:${projectHash}`, false);
   const [selectedProtocolId, setSelectedProtocolId] = useState(protocols[0]?.id ?? '');
   const [editingItem, setEditingItem] = useState<{
@@ -211,7 +219,9 @@ export function MeetingProtocols({
 
     onCreateTodo({
       title: selectedProtocol.title,
-      body: protocolConversionBody(withCurrentDuration(selectedProtocol, timerTick)),
+      body: selectedProtocol.body,
+      who: selectedProtocol.todoOwner,
+      protocolId: selectedProtocol.id,
       date: selectedProtocol.date,
     });
   }
@@ -226,12 +236,14 @@ export function MeetingProtocols({
     });
   }
 
-  function createTodoFromItem(kind: ProtocolItemKind, item: MeetingProtocolItem) {
+  function createTodoFromItem(_kind: ProtocolItemKind, item: MeetingProtocolItem) {
     if (!selectedProtocol) return;
 
     onCreateTodo({
       title: item.title,
-      body: protocolItemConversionBody(selectedProtocol, kind, item),
+      body: item.body,
+      who: item.owner,
+      protocolId: selectedProtocol.id,
       date: selectedProtocol.date,
     });
   }
@@ -409,6 +421,11 @@ export function MeetingProtocols({
                 <button type="button" className="secondary" onClick={() => setShowInstruction((visible) => !visible)}>
                   {showInstruction ? 'Hide instruction' : 'Show instruction'}
                 </button>
+                {canEdit ? (
+                  <button type="button" className="secondary" onClick={() => setIsEditingInstruction((editing) => !editing)}>
+                    {isEditingInstruction ? 'Preview instruction' : 'Edit instruction'}
+                  </button>
+                ) : null}
                 <button type="button" className="secondary" onClick={createTodoFromProtocol}>
                   Todo from protocol
                 </button>
@@ -422,7 +439,16 @@ export function MeetingProtocols({
               {showInstruction ? (
                 <details className="protocol-instruction" open>
                   <summary>Instruction</summary>
-                  <pre>{createMeetingProtocolInstruction(selectedProtocol.date, selectedProtocolDuration)}</pre>
+                  {canEdit && isEditingInstruction ? (
+                    <MarkdownEditor
+                      className="protocol-editor protocol-instruction-editor"
+                      value={instructionTemplate}
+                      onChange={onInstructionTemplateChange}
+                      rows={13}
+                    />
+                  ) : (
+                    <pre>{createMeetingProtocolInstruction(selectedProtocol.date, selectedProtocolDuration, instructionTemplate)}</pre>
+                  )}
                 </details>
               ) : null}
               <div className="protocol-sections">
@@ -450,10 +476,10 @@ export function MeetingProtocols({
                     </button>
                   </div>
                   {!isPreviewingNotes ? (
-                    <textarea
+                    <MarkdownEditor
                       className="protocol-editor protocol-notes-editor"
                       value={selectedProtocol.body}
-                      onChange={(event) => updateProtocol({ body: event.target.value })}
+                      onChange={(body) => updateProtocol({ body })}
                       placeholder="Optional markdown notes that do not fit into updates, topics, or to-dos."
                       rows={8}
                     />
@@ -500,9 +526,9 @@ export function MeetingProtocols({
             </div>
             <label>
               <span>Markdown details</span>
-              <textarea
+              <MarkdownEditor
                 value={editingItem.item.body}
-                onChange={(event) => updateEditingItem({ body: event.target.value })}
+                onChange={(body) => updateEditingItem({ body })}
                 rows={8}
               />
             </label>

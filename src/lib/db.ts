@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 import { createDefaultProject, normalizeHash } from './project';
 import { buildTypeColors } from './colors';
-import { normalizeMeetingProtocols } from './meetingProtocols';
+import { defaultProtocolInstructionTemplate, normalizeMeetingProtocols } from './meetingProtocols';
 import { activeTodoBoard, normalizeTodoBoards, syncProjectTodoBoard } from './todoBoards';
 import { normalizeCompletedTodoStatus, normalizeTodoStatuses } from './todos';
 import type { TimelineProject } from './types';
@@ -145,6 +145,7 @@ function normalizeProject(project: TimelineProject): TimelineProject {
     ...project,
     todos: syncedProject.todos,
     todoBoards: syncedProject.todoBoards,
+    protocolInstructionTemplate: project.protocolInstructionTemplate || defaultProtocolInstructionTemplate,
     meetingProtocols: normalizeMeetingProtocols(project.meetingProtocols),
     settings: {
       ...project.settings,

@@ -368,13 +368,14 @@ export function TimelineApp() {
     selectEvent(event.id);
   }
 
-  function createTodoFromProtocol(source: { title: string; body: string; date: string }) {
+  function createTodoFromProtocol(source: { title: string; body: string; date: string; who?: string; protocolId?: string }) {
     const targetStatus = todoStatuses[0] ?? 'open';
     setDraftProtocolTodo({
       id: crypto.randomUUID(),
       boardId: activeBoard.id,
+      protocolId: source.protocolId,
       title: source.title || 'Protocol todo',
-      who: '',
+      who: source.who ?? '',
       body: source.body,
       status: targetStatus,
       dueDate: source.date,
@@ -961,8 +962,13 @@ export function TimelineApp() {
       <div ref={protocolsRef}>
         <MeetingProtocols
           projectHash={project.hash}
+          canEdit={canEdit}
           protocols={meetingProtocols}
+          instructionTemplate={project.protocolInstructionTemplate}
           onChange={(protocols) => updateProject({ ...project, meetingProtocols: protocols })}
+          onInstructionTemplateChange={(protocolInstructionTemplate) =>
+            updateProject({ ...project, protocolInstructionTemplate })
+          }
           onCreateTodo={createTodoFromProtocol}
           onCreateEvent={createEventFromProtocol}
         />
@@ -1015,6 +1021,7 @@ export function TimelineApp() {
             name: board.name,
             locked: Boolean(board.pinHash && !unlockedTodoBoardIds.includes(board.id)),
           }))}
+          protocolOptions={meetingProtocols.map((protocol) => ({ id: protocol.id, title: protocol.title }))}
           onChange={(todo) => {
             const targetBoard = todoBoards.find((board) => board.id === (todo.boardId ?? activeBoard.id)) ?? activeBoard;
             const targetStatuses = normalizeTodoStatuses(targetBoard.statuses, targetBoard.todos);
@@ -1379,6 +1386,9 @@ function mergeProjectChanges(baseProject: TimelineProject, localProject: Timelin
     infoMarkdown: changed(baseProject.infoMarkdown, localProject.infoMarkdown)
       ? localProject.infoMarkdown
       : remoteProject.infoMarkdown,
+    protocolInstructionTemplate: changed(baseProject.protocolInstructionTemplate, localProject.protocolInstructionTemplate)
+      ? localProject.protocolInstructionTemplate
+      : remoteProject.protocolInstructionTemplate,
     events: mergeById(baseProject.events, localProject.events, remoteProject.events, copyRemoteEventConflict),
     meetingProtocols: mergeMeetingProtocols(
       normalizeMeetingProtocols(baseProject.meetingProtocols),

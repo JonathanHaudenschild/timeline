@@ -330,6 +330,23 @@ textarea {
   resize: vertical;
 }
 
+.markdown-editor {
+  display: grid;
+  gap: 6px;
+}
+
+.markdown-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.markdown-toolbar button {
+  min-height: 28px;
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
 .color-row {
   display: grid;
   grid-template-columns: 48px minmax(0, 1fr);
