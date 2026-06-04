@@ -18,6 +18,7 @@ type TodoBoardProps = {
   onTodoOpened?: () => void;
   onChange: (todos: TimelineTodo[]) => void;
   onMoveTodoToBoard: (todo: TimelineTodo, targetBoardId: string) => void;
+  onConvertTodoToEvent: (todo: TimelineTodo) => void;
   onStatusesChange: (statuses: TodoStatus[]) => void;
   onRenameStatus: (fromStatus: TodoStatus, toStatus: TodoStatus) => void;
 };
@@ -32,6 +33,7 @@ export function TodoBoard({
   onTodoOpened,
   onChange,
   onMoveTodoToBoard,
+  onConvertTodoToEvent,
   onStatusesChange,
   onRenameStatus,
 }: TodoBoardProps) {
@@ -220,6 +222,11 @@ export function TodoBoard({
             onTodoOpened?.();
           }}
           onSave={() => saveTodo(editorDraftTodo)}
+          onConvertToEvent={() => {
+            onConvertTodoToEvent(editorDraftTodo);
+            setDraftTodo(null);
+            onTodoOpened?.();
+          }}
         />
       ) : null}
       <div className="todo-columns">

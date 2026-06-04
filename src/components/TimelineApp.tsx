@@ -97,6 +97,7 @@ export function TimelineApp() {
         const loadedProject = await fetchProject(hash, projectPin);
         if (!cancelled && loadId === loadSequenceRef.current) {
           projectPinRef.current = projectPin;
+          if (projectPin) saveProjectPinSession(hash, projectPin);
           lastSavedJsonRef.current = JSON.stringify(loadedProject);
           canSaveRef.current = true;
           setLockedHash(null);
@@ -109,6 +110,7 @@ export function TimelineApp() {
         if (!cancelled && loadId === loadSequenceRef.current) {
           if (error instanceof LockedProjectError) {
             projectPinRef.current = undefined;
+            if (projectPin) clearProjectPinSession(hash);
             setLockedHash(hash);
           }
           canSaveRef.current = false;
@@ -117,7 +119,7 @@ export function TimelineApp() {
       }
     }
 
-    void load(activeHash);
+    void load(activeHash, getProjectPinSession(activeHash));
 
     function handleHashChange() {
       const hash = window.location.hash ? normalizeHash(window.location.hash) : 'timeline';
@@ -134,7 +136,7 @@ export function TimelineApp() {
       setPopoverPosition(null);
       popoverDragRef.current = null;
       setDraftEvent(null);
-      void load(hash);
+      void load(hash, getProjectPinSession(hash));
     }
 
     window.addEventListener('hashchange', handleHashChange);
@@ -142,7 +144,7 @@ export function TimelineApp() {
       cancelled = true;
       window.removeEventListener('hashchange', handleHashChange);
     };
-  }, [project.hash]);
+  }, []);
 
   useEffect(() => {
     if (!canSaveRef.current || saveState === 'loading' || saveState === 'saving' || lockedHash) return;
@@ -154,6 +156,7 @@ export function TimelineApp() {
       setSaveState('saving');
       persistProject(project, projectPinRef.current)
         .then((savedProject) => {
+          if (projectPinRef.current) saveProjectPinSession(project.hash, projectPinRef.current);
           const savedJson = JSON.stringify(savedProject);
           lastSavedJsonRef.current = savedJson;
           if (JSON.stringify(latestProjectRef.current) === projectJson) {
@@ -220,6 +223,64 @@ export function TimelineApp() {
   function moveTodoToBoard(todo: TimelineTodo, sourceBoardId: string, targetBoardId: string) {
     updateTodoBoards(moveTodoBetweenBoards(todoBoards, todo, sourceBoardId, targetBoardId), targetBoardId);
     setSelectedTodoId(undefined);
+  }
+
+  function convertEventToTodo(event: TimelineEvent) {
+    const targetStatus = todoStatuses[0] ?? 'open';
+    const todo: TimelineTodo = {
+      id: crypto.randomUUID(),
+      title: event.what || 'New todo',
+      who: event.who,
+      body: event.note,
+      status: targetStatus,
+      dueDate: event.date,
+      showOnTimeline: true,
+      order: nextTodoOrder(activeBoard.todos, targetStatus),
+    };
+    const nextBoard = {
+      ...activeBoard,
+      todos: [...activeBoard.todos, todo],
+      statuses: normalizeTodoStatuses(activeBoard.statuses, [...activeBoard.todos, todo]),
+    };
+
+    updateProject(
+      syncProjectTodoBoard(
+        { ...project, events: project.events.filter((item) => item.id !== event.id) },
+        todoBoards.map((board) => (board.id === activeBoard.id ? nextBoard : board)),
+        activeBoard.id,
+      ),
+    );
+    selectEvent(undefined);
+    setSelectedTodoId(todo.id);
+  }
+
+  function convertTodoToEvent(todo: TimelineTodo) {
+    const event: TimelineEvent = {
+      id: crypto.randomUUID(),
+      date: todo.dueDate || project.startDate,
+      time: '09:00',
+      what: todo.title || 'New event',
+      who: todo.who,
+      type: 'todo',
+      category: 'event',
+      color: project.settings.typeColors.todo ?? '#d7ff2f',
+      showOnTimeline: true,
+      note: todo.body,
+    };
+    const nextBoard = {
+      ...activeBoard,
+      todos: activeBoard.todos.filter((item) => item.id !== todo.id),
+    };
+
+    updateProject(
+      syncProjectTodoBoard(
+        { ...project, events: [...project.events, event] },
+        todoBoards.map((board) => (board.id === activeBoard.id ? nextBoard : board)),
+        activeBoard.id,
+      ),
+    );
+    setSelectedTodoId(undefined);
+    selectEvent(event.id);
   }
 
   function switchTodoBoard(boardId: string) {
@@ -382,6 +443,7 @@ export function TimelineApp() {
     if (!result) return;
 
     projectPinRef.current = result.pin;
+    saveProjectPinSession(project.hash, result.pin);
     updateProject({
       ...project,
       settings: {
@@ -423,6 +485,7 @@ export function TimelineApp() {
     }
 
     projectPinRef.current = undefined;
+    clearProjectPinSession(project.hash);
     updateProject({
       ...project,
       settings: {
@@ -598,6 +661,7 @@ export function TimelineApp() {
               void fetchProject(lockedHash, unlockPin)
                 .then((loadedProject) => {
                   projectPinRef.current = unlockPin;
+                  saveProjectPinSession(lockedHash, unlockPin);
                   lastSavedJsonRef.current = JSON.stringify(loadedProject);
                   canSaveRef.current = true;
                   setProject(loadedProject);
@@ -608,6 +672,7 @@ export function TimelineApp() {
                 })
                 .catch(() => {
                   projectPinRef.current = undefined;
+                  clearProjectPinSession(lockedHash);
                   setSaveState('error');
                   setLockError('Wrong project PIN.');
                 });
@@ -678,6 +743,7 @@ export function TimelineApp() {
           setSaveState('saving');
           importProjectFile(project.hash, file, projectPinRef.current)
             .then((result) => {
+              if (projectPinRef.current) saveProjectPinSession(project.hash, projectPinRef.current);
               lastSavedJsonRef.current = JSON.stringify(result.project);
               canSaveRef.current = true;
               setProject(result.project);
@@ -830,6 +896,7 @@ export function TimelineApp() {
               events: project.events.map((event) => ({ ...event, showOnTimeline: visible })),
             });
           }}
+          onConvertToTodo={convertEventToTodo}
           onDelete={(eventId) => {
             updateProject({ ...project, events: project.events.filter((event) => event.id !== eventId) });
             if (selectedEventId === eventId) selectEvent(undefined);
@@ -926,6 +993,7 @@ export function TimelineApp() {
                 })
               }
               onMoveTodoToBoard={(todo, targetBoardId) => moveTodoToBoard(todo, activeBoard.id, targetBoardId)}
+              onConvertTodoToEvent={convertTodoToEvent}
               onStatusesChange={(todoStatuses) =>
                 updateActiveTodoBoard({
                   ...activeBoard,
@@ -1032,6 +1100,48 @@ function PinDialog({
       </form>
     </div>
   );
+}
+
+function nextTodoOrder(todos: readonly TimelineTodo[], status: string) {
+  return todos
+    .filter((todo) => todo.status === status)
+    .reduce((max, todo) => Math.max(max, todo.order ?? 0), 0) + 1;
+}
+
+const projectPinSessionTtlMs = 30 * 60 * 1000;
+
+function projectPinSessionKey(projectHash: string) {
+  return `timeline:project-pin:${normalizeHash(projectHash)}`;
+}
+
+function getProjectPinSession(projectHash: string) {
+  try {
+    const rawValue = window.localStorage.getItem(projectPinSessionKey(projectHash));
+    if (!rawValue) return undefined;
+
+    const session = JSON.parse(rawValue) as { pin?: string; expiresAt?: number };
+    if (!session.pin || !session.expiresAt || session.expiresAt <= Date.now()) {
+      clearProjectPinSession(projectHash);
+      return undefined;
+    }
+
+    saveProjectPinSession(projectHash, session.pin);
+    return session.pin;
+  } catch {
+    clearProjectPinSession(projectHash);
+    return undefined;
+  }
+}
+
+function saveProjectPinSession(projectHash: string, pin: string) {
+  window.localStorage.setItem(
+    projectPinSessionKey(projectHash),
+    JSON.stringify({ pin, expiresAt: Date.now() + projectPinSessionTtlMs }),
+  );
+}
+
+function clearProjectPinSession(projectHash: string) {
+  window.localStorage.removeItem(projectPinSessionKey(projectHash));
 }
 
 async function hashEditPin(projectHash: string, pin: string) {

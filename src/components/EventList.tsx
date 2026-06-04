@@ -14,6 +14,7 @@ type EventListProps = {
   onEdit: (event: TimelineEvent) => void;
   onToggleTimeline: (event: TimelineEvent) => void;
   onSetAllTimeline: (visible: boolean) => void;
+  onConvertToTodo: (event: TimelineEvent) => void;
   onDelete: (eventId: string) => void;
 };
 
@@ -40,6 +41,7 @@ export function EventList({
   onEdit,
   onToggleTimeline,
   onSetAllTimeline,
+  onConvertToTodo,
   onDelete,
 }: EventListProps) {
   const [sortKey, setSortKey] = useState<SortKey>('date');
@@ -185,6 +187,17 @@ export function EventList({
                         aria-label={`Edit ${event.what}`}
                       >
                         edit
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-button"
+                        onClick={(click) => {
+                          click.stopPropagation();
+                          onConvertToTodo(event);
+                        }}
+                        aria-label={`Convert ${event.what} to todo`}
+                      >
+                        todo
                       </button>
                       <button
                         type="button"

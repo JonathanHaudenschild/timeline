@@ -11,9 +11,10 @@ type TodoEditorProps = {
   onChange: (todo: TimelineTodo) => void;
   onCancel: () => void;
   onSave: () => void;
+  onConvertToEvent?: () => void;
 };
 
-export function TodoEditor({ draft, statuses, boards = [], onChange, onCancel, onSave }: TodoEditorProps) {
+export function TodoEditor({ draft, statuses, boards = [], onChange, onCancel, onSave, onConvertToEvent }: TodoEditorProps) {
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Edit todo">
       <form
@@ -90,6 +91,11 @@ export function TodoEditor({ draft, statuses, boards = [], onChange, onCancel, o
           <button type="button" className="secondary" onClick={onCancel}>
             Cancel
           </button>
+          {onConvertToEvent ? (
+            <button type="button" className="secondary" onClick={onConvertToEvent}>
+              Convert to event
+            </button>
+          ) : null}
         </div>
       </form>
     </div>
