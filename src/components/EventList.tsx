@@ -78,13 +78,6 @@ export function EventList({
               placeholder="Event, person, note"
             />
           </label>
-          <button
-            type="button"
-            className={`event-table-toggle ${isMinimized ? 'collapsed' : 'expanded'}`}
-            onClick={() => setIsMinimized((minimized) => !minimized)}
-          >
-            {isMinimized ? 'Show event table' : 'Hide event table'}
-          </button>
           {canEdit ? (
             <button type="button" onClick={onAdd}>
               Add event
@@ -113,6 +106,13 @@ export function EventList({
               </button>
             </div>
           ) : null}
+          <button
+            type="button"
+            className={`event-table-toggle ${isMinimized ? 'collapsed' : 'expanded'}`}
+            onClick={() => setIsMinimized((minimized) => !minimized)}
+          >
+            {isMinimized ? 'Show event table' : 'Hide event table'}
+          </button>
         </div>
       </div>
       <div className={`table-wrap ${isMinimized ? 'minimized-table' : ''}`}>

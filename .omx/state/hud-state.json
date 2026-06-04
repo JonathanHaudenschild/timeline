@@ -1,5 +1,5 @@
 {
-  "last_turn_at": "2026-06-04T22:36:03.331Z",
-  "turn_count": 110,
-  "last_agent_output": "Fixed. In the Entries overview, the metadata no longer repeats the protocol title/date context.\n\nNow"
+  "last_turn_at": "2026-06-04T23:30:01.458Z",
+  "turn_count": 132,
+  "last_agent_output": "Updated the todo cards so they don’t look like mini columns anymore.\n\nWhat changed:\n- Cards now use "
 }

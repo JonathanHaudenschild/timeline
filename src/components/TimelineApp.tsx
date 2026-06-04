@@ -1178,10 +1178,12 @@ export function TimelineApp() {
 
       <div className="ordered-section ordered-section-todos" ref={todoRef}>
         <section className="todo-board-frame">
-          <div className="section-heading">
-            <h2>Todos</h2>
-            <div className="heading-actions">
+          <div className="section-heading todo-section-heading">
+            <div className="todo-section-title">
+              <h2>Todos</h2>
               <span>{activeBoard.todos.length} cards</span>
+            </div>
+            <div className="heading-actions">
               <button
                 type="button"
                 className={`event-table-toggle ${isTodoSectionMinimized ? 'collapsed' : 'expanded'}`}
@@ -1442,18 +1444,18 @@ function parseProjectJson(json: string) {
   }
 }
 
-function mergeProjectChanges(baseProject: TimelineProject, localProject: TimelineProject, remoteProject: TimelineProject) {
+export function mergeProjectChanges(baseProject: TimelineProject, localProject: TimelineProject, remoteProject: TimelineProject) {
   const mergedProject: TimelineProject = {
     ...remoteProject,
     name: changed(baseProject.name, localProject.name) ? localProject.name : remoteProject.name,
     startDate: changed(baseProject.startDate, localProject.startDate) ? localProject.startDate : remoteProject.startDate,
     endDate: changed(baseProject.endDate, localProject.endDate) ? localProject.endDate : remoteProject.endDate,
-    infoMarkdown: changed(baseProject.infoMarkdown, localProject.infoMarkdown)
-      ? localProject.infoMarkdown
-      : remoteProject.infoMarkdown,
-    protocolInstructionTemplate: changed(baseProject.protocolInstructionTemplate, localProject.protocolInstructionTemplate)
-      ? localProject.protocolInstructionTemplate
-      : remoteProject.protocolInstructionTemplate,
+    infoMarkdown: mergeTextField(baseProject.infoMarkdown, localProject.infoMarkdown, remoteProject.infoMarkdown),
+    protocolInstructionTemplate: mergeTextField(
+      baseProject.protocolInstructionTemplate,
+      localProject.protocolInstructionTemplate,
+      remoteProject.protocolInstructionTemplate,
+    ),
     events: mergeById(baseProject.events, localProject.events, remoteProject.events, copyRemoteEventConflict),
     meetingProtocols: mergeMeetingProtocols(
       normalizeMeetingProtocols(baseProject.meetingProtocols),
@@ -1526,7 +1528,7 @@ function mergeTodoBoards(
     return {
       ...board,
       todos: mergeById(baseBoard.todos, localBoard.todos, remoteBoard.todos, copyRemoteTodoConflict),
-      statuses: changed(baseBoard.statuses, localBoard.statuses) ? localBoard.statuses : remoteBoard.statuses,
+      statuses: mergeStringList(baseBoard.statuses ?? [], localBoard.statuses ?? [], remoteBoard.statuses ?? []),
       completedTodoStatus: changed(baseBoard.completedTodoStatus, localBoard.completedTodoStatus)
         ? localBoard.completedTodoStatus
         : remoteBoard.completedTodoStatus,
@@ -1570,6 +1572,35 @@ function mergeById<T extends { id: string }>(
   }
 
   return [...result.values()];
+}
+
+function mergeStringList(baseItems: readonly string[], localItems: readonly string[], remoteItems: readonly string[]) {
+  const result = new Set(remoteItems);
+
+  for (const item of localItems) {
+    if (!baseItems.includes(item) || remoteItems.includes(item)) result.add(item);
+  }
+
+  for (const item of baseItems) {
+    if (localItems.includes(item)) continue;
+    if (remoteItems.includes(item)) result.delete(item);
+  }
+
+  return [...result];
+}
+
+function mergeTextField(baseText: string | undefined, localText: string | undefined, remoteText: string | undefined) {
+  const baseValue = baseText ?? '';
+  const localValue = localText ?? '';
+  const remoteValue = remoteText ?? '';
+  const localChanged = changed(baseValue, localValue);
+  const remoteChanged = changed(baseValue, remoteValue);
+
+  if (localChanged && remoteChanged && localValue !== remoteValue) {
+    return `${localValue}\n\n--- Version from another device ---\n\n${remoteValue}`;
+  }
+
+  return localChanged ? localValue : remoteValue;
 }
 
 function copyRemoteEventConflict(event: TimelineEvent, id: string): TimelineEvent {

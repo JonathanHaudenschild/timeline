@@ -1,7 +1,6 @@
 'use client';
 
 import { MarkdownEditor } from './MarkdownEditor';
-import { MarkdownBlock } from './MarkdownBlock';
 import type { TimelineTodo, TodoStatus } from '@/lib/types';
 import { formatTodoStatus } from '@/lib/todos';
 
@@ -116,9 +115,6 @@ export function TodoEditor({
             rows={7}
           />
         </label>
-        <div className="todo-preview">
-          <MarkdownBlock markdown={draft.body} />
-        </div>
         <div className="action-row">
           <button type="submit">{saveLabel}</button>
           <button type="button" className="secondary" onClick={onCancel}>

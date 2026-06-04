@@ -1,6 +1,8 @@
 'use client';
 
 import { useRef } from 'react';
+import type { KeyboardEvent } from 'react';
+import { MarkdownBlock } from './MarkdownBlock';
 
 type MarkdownEditorProps = {
   value: string;
@@ -10,20 +12,34 @@ type MarkdownEditorProps = {
   rows?: number;
 };
 
-type MarkdownAction = 'bold' | 'italic' | 'underline' | 'strike' | 'code' | 'heading' | 'list' | 'numbered' | 'task' | 'quote' | 'link';
+type MarkdownAction =
+  | 'bold'
+  | 'italic'
+  | 'underline'
+  | 'strike'
+  | 'code'
+  | 'heading'
+  | 'list'
+  | 'numbered'
+  | 'task'
+  | 'quote'
+  | 'link';
 
-const actions: Array<{ action: MarkdownAction; label: string; title: string }> = [
+const textActions: Array<{ action: MarkdownAction; label: string; title: string }> = [
   { action: 'bold', label: 'B', title: 'Bold' },
   { action: 'italic', label: 'I', title: 'Italic' },
   { action: 'underline', label: 'U', title: 'Underline' },
   { action: 'strike', label: 'S', title: 'Strikethrough' },
   { action: 'code', label: '`', title: 'Inline code' },
-  { action: 'heading', label: 'H2', title: 'Heading' },
-  { action: 'list', label: '• List', title: 'Bullet list' },
-  { action: 'numbered', label: '1. List', title: 'Numbered list' },
-  { action: 'task', label: '☐', title: 'Task list' },
-  { action: 'quote', label: 'Quote', title: 'Quote' },
   { action: 'link', label: 'Link', title: 'Link' },
+];
+
+const blockActions: Array<{ action: MarkdownAction; label: string; title: string }> = [
+  { action: 'heading', label: 'Title', title: 'Heading' },
+  { action: 'list', label: 'Bullets', title: 'Bullet list' },
+  { action: 'numbered', label: 'Numbers', title: 'Numbered list' },
+  { action: 'task', label: 'Tasks', title: 'Task list' },
+  { action: 'quote', label: 'Quote', title: 'Quote' },
 ];
 
 const colorSwatches = ['#e53935', '#d81b60', '#8e24aa', '#3949ab', '#00897b', '#43a047', '#f9a825', '#fb8c00'];
@@ -61,10 +77,32 @@ export function MarkdownEditor({
     });
   }
 
-  return (
-    <div className="markdown-editor">
-      <div className="markdown-toolbar" aria-label="Markdown formatting">
-        {actions.map((item) => (
+  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (!event.metaKey && !event.ctrlKey) return;
+
+    const key = event.key.toLowerCase();
+    if (key === 'b') {
+      event.preventDefault();
+      applyAction('bold');
+    }
+    if (key === 'i') {
+      event.preventDefault();
+      applyAction('italic');
+    }
+    if (key === 'u') {
+      event.preventDefault();
+      applyAction('underline');
+    }
+    if (key === 'k') {
+      event.preventDefault();
+      applyAction('link');
+    }
+  }
+
+  function renderToolbarGroup(items: Array<{ action: MarkdownAction; label: string; title: string }>) {
+    return (
+      <div className="markdown-toolbar-group">
+        {items.map((item) => (
           <button
             type="button"
             className="mini-button secondary"
@@ -75,6 +113,15 @@ export function MarkdownEditor({
             {item.label}
           </button>
         ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="markdown-editor">
+      <div className="markdown-toolbar" aria-label="Markdown formatting">
+        {renderToolbarGroup(textActions)}
+        {renderToolbarGroup(blockActions)}
         <div className="markdown-color-tools" aria-label="Text color">
           {colorSwatches.map((color) => (
             <button
@@ -92,14 +139,20 @@ export function MarkdownEditor({
           </label>
         </div>
       </div>
-      <textarea
-        ref={textareaRef}
-        className={className}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        rows={rows}
-      />
+      <div className="markdown-live-layout">
+        <textarea
+          ref={textareaRef}
+          className={['markdown-compose-field', className].filter(Boolean).join(' ')}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          rows={rows}
+        />
+        <div className="markdown-editor-preview">
+          <MarkdownBlock markdown={value || '_Nothing written yet._'} />
+        </div>
+      </div>
     </div>
   );
 }

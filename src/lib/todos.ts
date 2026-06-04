@@ -65,10 +65,60 @@ export function renameTodoStatus(
   };
 }
 
+export function moveTodoWithinBoard(
+  todos: readonly TimelineTodo[],
+  todoId: string,
+  targetStatus: TodoStatus,
+  targetTodoId?: string,
+) {
+  const movingTodo = todos.find((todo) => todo.id === todoId);
+  if (!movingTodo) return [...todos];
+  if (todoId === targetTodoId) return [...todos];
+
+  const remainingTodos = todos.filter((todo) => todo.id !== todoId);
+  const targetTodoIds = remainingTodos
+    .filter((todo) => todo.status === targetStatus)
+    .sort(compareTodoOrder)
+    .map((todo) => todo.id);
+  const targetIndex = targetTodoId ? targetTodoIds.indexOf(targetTodoId) : -1;
+  const insertIndex = targetIndex >= 0 ? targetIndex : targetTodoIds.length;
+  const orderedTargetIds = [
+    ...targetTodoIds.slice(0, insertIndex),
+    todoId,
+    ...targetTodoIds.slice(insertIndex),
+  ];
+  const nextOrders = new Map(orderedTargetIds.map((id, index) => [id, index + 1]));
+
+  if (movingTodo.status !== targetStatus) {
+    remainingTodos
+      .filter((todo) => todo.status === movingTodo.status)
+      .sort(compareTodoOrder)
+      .forEach((todo, index) => nextOrders.set(todo.id, index + 1));
+  }
+
+  return todos.map((todo) => {
+    if (todo.id === todoId) {
+      return {
+        ...todo,
+        status: targetStatus,
+        order: nextOrders.get(todo.id),
+      };
+    }
+
+    const nextOrder = nextOrders.get(todo.id);
+    return nextOrder ? { ...todo, order: nextOrder } : todo;
+  });
+}
+
 export function formatTodoStatus(status: string) {
   return normalizeTodoStatus(status)
     .split('-')
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
+}
+
+function compareTodoOrder(a: TimelineTodo, b: TimelineTodo) {
+  const orderCompare = (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER);
+  return orderCompare || a.id.localeCompare(b.id);
 }

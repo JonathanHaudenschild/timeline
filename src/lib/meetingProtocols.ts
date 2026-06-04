@@ -6,24 +6,24 @@ const defaultProtocolTitle = 'Tägliches Platz-Plenum';
 
 export const defaultProtocolInstructionTemplate = `{title}
 ---------------------------------------------------------------------------------------------------------------------
-📋 Tägliches Platz-Plenum 📅 Datum: {date} · ⏱️ Dauer: {duration}
-🎤 Moderation: NAME | 📝 Protokoll: NAME | 📌 To-Dos-Beauftragte:r: NAME
+Tägliches Platz-Plenum | Datum: {date} | Dauer: {duration}
+Moderation: NAME | Protokoll: NAME | Todo-person: NAME
 
-👋 Begrüßung & Rahmen
+Begrüßung & Rahmen
 Guten Morgen, ich moderiere heute das Plenum möglichst zügig & strukturiert.
-Wer schreibt heute Protokoll? Wer ist Heute To-Dos-Beauftragte:r:?
+Wer schreibt heute Protokoll? Wer ist heute Todo-person?
 Optional: kurze Vorstellungsrunde mit Name, Pronomen & Stress-/Laune-Barometer
-Ich stelle kurz Ablauf & Struktur vor: 🎯 Ziel: Plenum max. 1 Stunde
+Ich stelle kurz Ablauf & Struktur vor: Ziel: Plenum max. 1 Stunde
 Bitte lasst einander ausreden & bleibt beim Thema
 Bei Bedarf nutzen wir eine Redner:innen-Liste
 Den Link zum Protokoll findet ihr im SCC-Wiki: Themen fürs nächste Plenum bitte möglichst früh dort eintragen
 
-🔄 Struktur des Plenums
-1. Updates: Kurze relevante Infos ohne Diskussion ⏱️ Richtwert: max. 15 Minuten
-📌 Falls Redebedarf entsteht → in den Themen-Block schieben
-2. Themen: Gemeinsame Themen & Diskussionen 🎯 Richtwert: max. 10 Minuten pro Thema
-📌 Beim Thema bleiben 📌 Lange Diskussionen ggf. auslagern 📌 Entstehende To-Dos direkt mitschreiben
-3. To-Dos: Gemeinsame Sichtung & Planung 🔗 Decks: https://cloud.kuko-crews.org/apps/deck/board/433/
+Struktur des Plenums
+1. Updates: Kurze relevante Infos ohne Diskussion | Richtwert: max. 15 Minuten
+Falls Redebedarf entsteht → in den Themen-Block schieben
+2. Themen: Gemeinsame Themen & Diskussionen | Richtwert: max. 10 Minuten pro Thema
+Beim Thema bleiben | Lange Diskussionen ggf. auslagern | Entstehende To-Dos direkt mitschreiben
+3. To-Dos: Gemeinsame Sichtung & Planung | Decks: https://cloud.kuko-crews.org/apps/deck/board/433/
 Erst Alte To-Dos vorlesen: Wie ist der Stand? Wer kümmert sich? Wird Unterstützung gebraucht?
 Danach Neue To-Dos sammeln & verteilen: Verantwortlichkeiten klären & Deadlines festlegen
 
@@ -111,6 +111,40 @@ export function createProtocolItem(kind: ProtocolItemKind, index: number): Meeti
     body: '',
     createdAt: now,
     updatedAt: now,
+  };
+}
+
+export function moveProtocolItem(
+  protocol: MeetingProtocol,
+  fromKind: ProtocolItemKind,
+  itemId: string,
+  toKind: ProtocolItemKind,
+  targetItemId?: string,
+  updatedAt = new Date().toISOString(),
+) {
+  const movingItem = protocol[fromKind].find((item) => item.id === itemId);
+  if (!movingItem) return protocol;
+  if (fromKind === toKind && itemId === targetItemId) return protocol;
+
+  const movedItem = {
+    ...movingItem,
+    updatedAt,
+  };
+  const nextFromItems = protocol[fromKind].filter((item) => item.id !== itemId);
+  const targetItems = fromKind === toKind ? nextFromItems : protocol[toKind];
+  const targetIndex = targetItemId ? targetItems.findIndex((item) => item.id === targetItemId) : -1;
+  const insertIndex = targetIndex >= 0 ? targetIndex : targetItems.length;
+  const nextTargetItems = [
+    ...targetItems.slice(0, insertIndex),
+    movedItem,
+    ...targetItems.slice(insertIndex),
+  ];
+
+  return {
+    ...protocol,
+    [fromKind]: fromKind === toKind ? nextTargetItems : nextFromItems,
+    [toKind]: nextTargetItems,
+    updatedAt,
   };
 }
 
@@ -294,7 +328,7 @@ function isProtocolHeadline(line: string) {
 
   return (
     /^#{1,6}\s+\S/.test(line) ||
-    /^(📋|👋|🔄)/.test(line) ||
+    /^(Tägliches Platz-Plenum|Begrüßung & Rahmen|Struktur des Plenums)/.test(line) ||
     /^\d+\.\s+(Updates|Themen|To-Dos)\b/i.test(line) ||
     /^(Update|Thema)\s+\d+\b/i.test(line) ||
     /^(Alte|Neue)\s+To-Dos\b/i.test(line) ||
@@ -383,6 +417,7 @@ function mergeById<T extends { id: string }>(
   const result = new Map(remoteItems.map((item) => [item.id, item]));
   const baseById = new Map(baseItems.map((item) => [item.id, item]));
   const localById = new Map(localItems.map((item) => [item.id, item]));
+  const localOrderChanged = idsChanged(baseItems, localItems);
 
   for (const [id, localItem] of localById) {
     const baseItem = baseById.get(id);
@@ -409,7 +444,28 @@ function mergeById<T extends { id: string }>(
     if (!remoteItem || !changed(baseItem, remoteItem)) result.delete(id);
   }
 
-  return [...result.values()];
+  if (!localOrderChanged) return [...result.values()];
+
+  const ordered: T[] = [];
+  const seen = new Set<string>();
+  for (const item of localItems) {
+    const resultItem = result.get(item.id);
+    if (!resultItem) continue;
+
+    ordered.push(resultItem);
+    seen.add(item.id);
+  }
+
+  for (const item of result.values()) {
+    if (!seen.has(item.id)) ordered.push(item);
+  }
+
+  return ordered;
+}
+
+function idsChanged(left: readonly { id: string }[], right: readonly { id: string }[]) {
+  if (left.length !== right.length) return true;
+  return left.some((item, index) => item.id !== right[index]?.id);
 }
 
 function mergeProtocolBody(baseBody: string, localBody: string, remoteBody: string) {

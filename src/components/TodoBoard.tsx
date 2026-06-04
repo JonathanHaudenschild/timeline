@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { MarkdownBlock } from './MarkdownBlock';
 import { TodoEditor } from './TodoEditor';
 import type { TimelineTodo, TodoStatus } from '@/lib/types';
-import { defaultTodoStatuses, formatTodoStatus, isTodoCompleted, normalizeTodoStatus } from '@/lib/todos';
+import { defaultTodoStatuses, formatTodoStatus, isTodoCompleted, moveTodoWithinBoard, normalizeTodoStatus } from '@/lib/todos';
 import { usePersistentState } from '@/lib/usePersistentState';
 
 type TodoSortKey = 'manual' | 'due-date' | 'a-z' | 'owner' | 'created';
@@ -88,7 +88,20 @@ export function TodoBoard({
   }
 
   function moveTodo(todoId: string, status: TodoStatus) {
-    onChange(todos.map((todo) => (todo.id === todoId ? { ...todo, status, order: nextTodoOrder(todos, status) } : todo)));
+    onChange(moveTodoWithinBoard(todos, todoId, status));
+    setColumnSortKeys((sortKeys) => ({
+      ...sortKeys,
+      [status]: 'manual',
+    }));
+  }
+
+  function moveTodoBefore(todoId: string, status: TodoStatus, targetTodoId: string) {
+    if (todoId === targetTodoId) return;
+    onChange(moveTodoWithinBoard(todos, todoId, status, targetTodoId));
+    setColumnSortKeys((sortKeys) => ({
+      ...sortKeys,
+      [status]: 'manual',
+    }));
   }
 
   function nudgeTodo(todoId: string, status: TodoStatus, direction: -1 | 1) {
@@ -158,7 +171,7 @@ export function TodoBoard({
 
   return (
     <section className="todo-board">
-      <div className="section-heading">
+      <div className="section-heading todo-board-heading">
         <div>
           <h2>{boardName}</h2>
           <div className="todo-board-summary">{totalOpen} open / {todos.length} total</div>
@@ -235,7 +248,8 @@ export function TodoBoard({
               onDragLeave={() => setDropStatus(null)}
               onDrop={(event) => {
                 event.preventDefault();
-                if (draggedTodoId) moveTodo(draggedTodoId, status);
+                const droppedTodoId = draggedTodoId ?? event.dataTransfer.getData('text/plain');
+                if (droppedTodoId) moveTodo(droppedTodoId, status);
                 setDraggedTodoId(null);
                 setDropStatus(null);
               }}
@@ -279,7 +293,7 @@ export function TodoBoard({
                     <b>{columnTodos.length}</b>
                     <button
                       type="button"
-                      className="column-move"
+                      className="column-rename-trigger"
                       onClick={(event) => {
                         event.stopPropagation();
                         startRenameStatus(status);
@@ -287,7 +301,7 @@ export function TodoBoard({
                       aria-label={`Rename ${formatTodoStatus(status)} column`}
                       title="Rename column"
                     >
-                      ✎
+                      Edit
                     </button>
                     <button
                       type="button"
@@ -374,6 +388,21 @@ export function TodoBoard({
                       event.stopPropagation();
                       setDraggedTodoId(todo.id);
                       event.dataTransfer.effectAllowed = 'move';
+                      event.dataTransfer.setData('text/plain', todo.id);
+                    }}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setDropStatus(status);
+                      event.dataTransfer.dropEffect = 'move';
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      const droppedTodoId = draggedTodoId ?? event.dataTransfer.getData('text/plain');
+                      if (droppedTodoId) moveTodoBefore(droppedTodoId, status, todo.id);
+                      setDraggedTodoId(null);
+                      setDropStatus(null);
                     }}
                     onDragEnd={() => {
                       setDraggedTodoId(null);
@@ -434,7 +463,7 @@ export function TodoBoard({
                         aria-label={`Edit ${todo.title}`}
                         title="Edit"
                       >
-                        ✎
+                        Edit
                       </button>
                       <button
                         type="button"

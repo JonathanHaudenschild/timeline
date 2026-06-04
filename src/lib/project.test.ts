@@ -6,6 +6,7 @@ import {
   projectStorageKey,
 } from './project';
 import { renderMarkdown } from '@/components/MarkdownBlock';
+import { mergeProjectChanges } from '@/components/TimelineApp';
 import { formatShortGermanDate, formatShortGermanDateRange } from './dateFormat';
 import {
   createMeetingProtocol,
@@ -14,12 +15,13 @@ import {
   extractProtocolHeadlines,
   formatProtocolDuration,
   mergeMeetingProtocols,
+  moveProtocolItem,
   normalizeMeetingProtocols,
   protocolConversionBody,
 } from './meetingProtocols';
 import { ensureProjectHash } from './storage';
 import { moveTodoBetweenBoards, normalizeTodoBoards, syncProjectTodoBoard } from './todoBoards';
-import { isTodoCompleted, normalizeCompletedTodoStatus, normalizeTodoStatuses, renameTodoStatus } from './todos';
+import { isTodoCompleted, moveTodoWithinBoard, normalizeCompletedTodoStatus, normalizeTodoStatuses, renameTodoStatus } from './todos';
 
 describe('project helpers', () => {
   it('normalizes hashes from url fragments and plain strings', () => {
@@ -113,6 +115,138 @@ describe('project helpers', () => {
     expect(synced.settings.completedTodoStatus).toBe('finished');
   });
 
+  it('keeps both versions when cross-device project text changes conflict', () => {
+    const baseProject = createDefaultProject('merge-text');
+    const localProject = {
+      ...baseProject,
+      infoMarkdown: 'local info',
+      protocolInstructionTemplate: 'local instruction',
+    };
+    const remoteProject = {
+      ...baseProject,
+      revision: 2,
+      infoMarkdown: 'remote info',
+      protocolInstructionTemplate: 'remote instruction',
+    };
+
+    const merged = mergeProjectChanges(baseProject, localProject, remoteProject);
+
+    expect(merged.infoMarkdown).toContain('local info');
+    expect(merged.infoMarkdown).toContain('remote info');
+    expect(merged.infoMarkdown).toContain('Version from another device');
+    expect(merged.protocolInstructionTemplate).toContain('local instruction');
+    expect(merged.protocolInstructionTemplate).toContain('remote instruction');
+  });
+
+  it('merges todo board status columns without dropping columns from another device', () => {
+    const baseProject = createDefaultProject('merge-statuses');
+    const baseBoard = baseProject.todoBoards?.[0];
+    if (!baseBoard) throw new Error('Expected default board');
+
+    const localProject = {
+      ...baseProject,
+      todoBoards: [
+        {
+          ...baseBoard,
+          statuses: [...(baseBoard.statuses ?? []), 'blocked'],
+        },
+      ],
+    };
+    const remoteProject = {
+      ...baseProject,
+      revision: 2,
+      todoBoards: [
+        {
+          ...baseBoard,
+          statuses: [...(baseBoard.statuses ?? []), 'review'],
+        },
+      ],
+    };
+
+    const merged = mergeProjectChanges(baseProject, localProject, remoteProject);
+    const [mergedBoard] = normalizeTodoBoards(merged);
+
+    expect(mergedBoard.statuses).toEqual(['open', 'doing', 'done', 'review', 'blocked']);
+  });
+
+  it('keeps todos added on different devices during sync', () => {
+    const baseProject = createDefaultProject('merge-todo-additions');
+    const baseBoard = baseProject.todoBoards?.[0];
+    if (!baseBoard) throw new Error('Expected default board');
+
+    const localTodo = {
+      id: 'local-todo',
+      title: 'Local todo',
+      who: 'Alex',
+      body: 'Local details',
+      status: 'open',
+      dueDate: '',
+      showOnTimeline: true,
+      order: 99,
+    };
+    const remoteTodo = {
+      id: 'remote-todo',
+      title: 'Remote todo',
+      who: 'Sam',
+      body: 'Remote details',
+      status: 'doing',
+      dueDate: '',
+      showOnTimeline: true,
+      order: 100,
+    };
+    const localProject = {
+      ...baseProject,
+      todoBoards: [{ ...baseBoard, todos: [...baseBoard.todos, localTodo] }],
+    };
+    const remoteProject = {
+      ...baseProject,
+      revision: 2,
+      todoBoards: [{ ...baseBoard, todos: [...baseBoard.todos, remoteTodo] }],
+    };
+
+    const merged = mergeProjectChanges(baseProject, localProject, remoteProject);
+    const [mergedBoard] = normalizeTodoBoards(merged);
+
+    expect(mergedBoard.todos.map((todo) => todo.id)).toEqual(expect.arrayContaining(['local-todo', 'remote-todo']));
+  });
+
+  it('keeps both todo versions when the same todo changes on different devices', () => {
+    const baseProject = createDefaultProject('merge-todo-conflict');
+    const baseBoard = baseProject.todoBoards?.[0];
+    const baseTodo = baseBoard?.todos[0];
+    if (!baseBoard || !baseTodo) throw new Error('Expected default todo board with todos');
+
+    const localProject = {
+      ...baseProject,
+      todoBoards: [
+        {
+          ...baseBoard,
+          todos: baseBoard.todos.map((todo) => (todo.id === baseTodo.id ? { ...todo, title: 'Local title' } : todo)),
+        },
+      ],
+    };
+    const remoteProject = {
+      ...baseProject,
+      revision: 2,
+      todoBoards: [
+        {
+          ...baseBoard,
+          todos: baseBoard.todos.map((todo) => (todo.id === baseTodo.id ? { ...todo, title: 'Remote title' } : todo)),
+        },
+      ],
+    };
+
+    const merged = mergeProjectChanges(baseProject, localProject, remoteProject);
+    const [mergedBoard] = normalizeTodoBoards(merged);
+
+    expect(mergedBoard.todos).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: baseTodo.id, title: 'Local title' }),
+        expect.objectContaining({ id: `${baseTodo.id}-other-device`, title: 'Remote title (other device)' }),
+      ]),
+    );
+  });
+
   it('moves todos between boards without losing source or target board state', () => {
     const movingTodo = {
       id: 'todo-move',
@@ -175,6 +309,33 @@ describe('project helpers', () => {
     expect(movedTodo?.status).toBe('queued');
     expect(movedTodo?.order).toBe(5);
     expect(movedTodo?.boardId).toBeUndefined();
+  });
+
+  it('reorders todo cards inside the same column by target card', () => {
+    const todos = [
+      { id: 'a', title: 'A', who: '', body: '', status: 'open', dueDate: '', showOnTimeline: true, order: 1 },
+      { id: 'b', title: 'B', who: '', body: '', status: 'open', dueDate: '', showOnTimeline: true, order: 2 },
+      { id: 'c', title: 'C', who: '', body: '', status: 'open', dueDate: '', showOnTimeline: true, order: 3 },
+    ];
+
+    const moved = moveTodoWithinBoard(todos, 'c', 'open', 'a');
+
+    expect(moved.filter((todo) => todo.status === 'open').sort((left, right) => (left.order ?? 0) - (right.order ?? 0)).map((todo) => todo.id))
+      .toEqual(['c', 'a', 'b']);
+  });
+
+  it('moves todo cards to another column before a target card', () => {
+    const todos = [
+      { id: 'a', title: 'A', who: '', body: '', status: 'open', dueDate: '', showOnTimeline: true, order: 1 },
+      { id: 'b', title: 'B', who: '', body: '', status: 'doing', dueDate: '', showOnTimeline: true, order: 1 },
+      { id: 'c', title: 'C', who: '', body: '', status: 'doing', dueDate: '', showOnTimeline: true, order: 2 },
+    ];
+
+    const moved = moveTodoWithinBoard(todos, 'a', 'doing', 'c');
+
+    expect(moved.find((todo) => todo.id === 'a')).toMatchObject({ status: 'doing', order: 2 });
+    expect(moved.filter((todo) => todo.status === 'doing').sort((left, right) => (left.order ?? 0) - (right.order ?? 0)).map((todo) => todo.id))
+      .toEqual(['b', 'a', 'c']);
   });
 
   it('preserves reordered default todo statuses', () => {
@@ -326,7 +487,7 @@ describe('project helpers', () => {
     const body = createMeetingProtocolTemplate('2026-06-06', 3661);
     const headlines = extractProtocolHeadlines(body).map((headline) => headline.text);
 
-    expect(headlines).toContain('📋 Tägliches Platz-Plenum 📅 Datum: Sa. 06.06.26 · ⏱️ Dauer: 01:01:01');
+    expect(headlines).toContain('Tägliches Platz-Plenum | Datum: Sa. 06.06.26 | Dauer: 01:01:01');
     expect(headlines).not.toContain('Thema 1 (Name)');
   });
 
@@ -341,6 +502,63 @@ describe('project helpers', () => {
     const headlines = extractProtocolHeadlines('# Main\nText\n## Thema A\n- detail').map((headline) => headline.text);
 
     expect(headlines).toEqual(['Main', 'Thema A']);
+  });
+
+  it('reorders protocol entries within the same section without dropping entries', () => {
+    const [protocol] = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        updates: [
+          { id: 'update-1', title: 'First' },
+          { id: 'update-2', title: 'Second' },
+          { id: 'update-3', title: 'Third' },
+        ],
+        topics: [{ id: 'topic-1', title: 'Topic' }],
+      },
+    ]);
+
+    const moved = moveProtocolItem(protocol, 'updates', 'update-3', 'updates', 'update-1', '2026-06-06T11:00:00.000Z');
+
+    expect(moved.updates.map((item) => item.id)).toEqual(['update-3', 'update-1', 'update-2']);
+    expect(moved.topics.map((item) => item.id)).toEqual(['topic-1']);
+    expect(moved.updates[0].updatedAt).toBe('2026-06-06T11:00:00.000Z');
+    expect(moved.updatedAt).toBe('2026-06-06T11:00:00.000Z');
+  });
+
+  it('moves protocol entries between sections without dropping source or target entries', () => {
+    const [protocol] = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        updates: [
+          { id: 'update-1', title: 'Update' },
+          { id: 'update-2', title: 'Move me' },
+        ],
+        topics: [
+          { id: 'topic-1', title: 'Topic A' },
+          { id: 'topic-2', title: 'Topic B' },
+        ],
+      },
+    ]);
+
+    const moved = moveProtocolItem(protocol, 'updates', 'update-2', 'topics', 'topic-2', '2026-06-06T11:00:00.000Z');
+
+    expect(moved.updates.map((item) => item.id)).toEqual(['update-1']);
+    expect(moved.topics.map((item) => item.id)).toEqual(['topic-1', 'update-2', 'topic-2']);
+    expect(moved.topics[1]).toMatchObject({ id: 'update-2', title: 'Move me' });
+  });
+
+  it('keeps protocol unchanged when moving a missing entry', () => {
+    const [protocol] = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        updates: [{ id: 'update-1', title: 'Update' }],
+      },
+    ]);
+
+    expect(moveProtocolItem(protocol, 'updates', 'missing', 'topics')).toBe(protocol);
   });
 
   it('merges different nested protocol edits without dropping either side', () => {
@@ -403,6 +621,62 @@ describe('project helpers', () => {
       title: 'Weather (other device)',
       body: 'remote device update',
     });
+  });
+
+  it('keeps local protocol entry order when another device has no order change', () => {
+    const [baseProtocol] = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        updates: [
+          { id: 'update-1', title: 'First' },
+          { id: 'update-2', title: 'Second' },
+          { id: 'update-3', title: 'Third' },
+        ],
+        updatedAt: '2026-06-06T10:00:00.000Z',
+      },
+    ]);
+    const localProtocol = {
+      ...baseProtocol,
+      updates: [baseProtocol.updates[2], baseProtocol.updates[0], baseProtocol.updates[1]],
+      updatedAt: '2026-06-06T10:05:00.000Z',
+    };
+    const remoteProtocol = {
+      ...baseProtocol,
+      updatedAt: '2026-06-06T10:06:00.000Z',
+    };
+
+    const [merged] = mergeMeetingProtocols([baseProtocol], [localProtocol], [remoteProtocol]);
+
+    expect(merged.updates.map((item) => item.id)).toEqual(['update-3', 'update-1', 'update-2']);
+  });
+
+  it('keeps remote protocol additions when local device reorders entries', () => {
+    const [baseProtocol] = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        updates: [
+          { id: 'update-1', title: 'First' },
+          { id: 'update-2', title: 'Second' },
+        ],
+        updatedAt: '2026-06-06T10:00:00.000Z',
+      },
+    ]);
+    const localProtocol = {
+      ...baseProtocol,
+      updates: [baseProtocol.updates[1], baseProtocol.updates[0]],
+      updatedAt: '2026-06-06T10:05:00.000Z',
+    };
+    const remoteProtocol = {
+      ...baseProtocol,
+      updates: [...baseProtocol.updates, { id: 'update-3', title: 'Remote addition', owner: '', body: '', createdAt: '2026-06-06T10:06:00.000Z', updatedAt: '2026-06-06T10:06:00.000Z' }],
+      updatedAt: '2026-06-06T10:06:00.000Z',
+    };
+
+    const [merged] = mergeMeetingProtocols([baseProtocol], [localProtocol], [remoteProtocol]);
+
+    expect(merged.updates.map((item) => item.id)).toEqual(['update-2', 'update-1', 'update-3']);
   });
 
   it('keeps both versions when protocol notes change on two devices', () => {
