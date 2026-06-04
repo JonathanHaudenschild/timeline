@@ -303,4 +303,62 @@ describe('project helpers', () => {
     expect(merged.topics[0].body).toBe('remote topic');
     expect(merged.updatedAt).toBe('2026-06-06T10:06:00.000Z');
   });
+
+  it('keeps both versions when the same protocol entry changes on two devices', () => {
+    const [baseProtocol] = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        updates: [{ id: 'update-1', title: 'Weather', owner: 'Alex', body: 'base update' }],
+        updatedAt: '2026-06-06T10:00:00.000Z',
+      },
+    ]);
+    const localProtocol = {
+      ...baseProtocol,
+      updates: [{ ...baseProtocol.updates[0], body: 'local device update' }],
+      updatedAt: '2026-06-06T10:05:00.000Z',
+    };
+    const remoteProtocol = {
+      ...baseProtocol,
+      updates: [{ ...baseProtocol.updates[0], body: 'remote device update' }],
+      updatedAt: '2026-06-06T10:06:00.000Z',
+    };
+
+    const [merged] = mergeMeetingProtocols([baseProtocol], [localProtocol], [remoteProtocol]);
+
+    expect(merged.updates).toHaveLength(2);
+    expect(merged.updates[0]).toMatchObject({ id: 'update-1', body: 'local device update' });
+    expect(merged.updates[1]).toMatchObject({
+      id: 'update-1-other-device',
+      title: 'Weather (other device)',
+      body: 'remote device update',
+    });
+  });
+
+  it('keeps both versions when protocol notes change on two devices', () => {
+    const [baseProtocol] = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        body: 'base notes',
+        updatedAt: '2026-06-06T10:00:00.000Z',
+      },
+    ]);
+    const localProtocol = {
+      ...baseProtocol,
+      body: 'local notes',
+      updatedAt: '2026-06-06T10:05:00.000Z',
+    };
+    const remoteProtocol = {
+      ...baseProtocol,
+      body: 'remote notes',
+      updatedAt: '2026-06-06T10:06:00.000Z',
+    };
+
+    const [merged] = mergeMeetingProtocols([baseProtocol], [localProtocol], [remoteProtocol]);
+
+    expect(merged.body).toContain('local notes');
+    expect(merged.body).toContain('remote notes');
+    expect(merged.body).toContain('Version from another device');
+  });
 });

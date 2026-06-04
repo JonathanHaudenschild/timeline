@@ -1379,7 +1379,7 @@ function mergeProjectChanges(baseProject: TimelineProject, localProject: Timelin
     infoMarkdown: changed(baseProject.infoMarkdown, localProject.infoMarkdown)
       ? localProject.infoMarkdown
       : remoteProject.infoMarkdown,
-    events: mergeById(baseProject.events, localProject.events, remoteProject.events),
+    events: mergeById(baseProject.events, localProject.events, remoteProject.events, copyRemoteEventConflict),
     meetingProtocols: mergeMeetingProtocols(
       normalizeMeetingProtocols(baseProject.meetingProtocols),
       normalizeMeetingProtocols(localProject.meetingProtocols),
@@ -1426,7 +1426,12 @@ function mergeSettings(baseProject: TimelineProject, localProject: TimelineProje
     activeTodoBoardId: changed(baseSettings.activeTodoBoardId, localSettings.activeTodoBoardId)
       ? localSettings.activeTodoBoardId
       : remoteSettings.activeTodoBoardId,
-    stickyLinks: mergeById(baseSettings.stickyLinks ?? [], localSettings.stickyLinks ?? [], remoteSettings.stickyLinks ?? []),
+    stickyLinks: mergeById(
+      baseSettings.stickyLinks ?? [],
+      localSettings.stickyLinks ?? [],
+      remoteSettings.stickyLinks ?? [],
+      (link, id) => ({ ...link, id, label: `${link.label} (other device)` }),
+    ),
   };
 }
 
@@ -1445,7 +1450,7 @@ function mergeTodoBoards(
 
     return {
       ...board,
-      todos: mergeById(baseBoard.todos, localBoard.todos, remoteBoard.todos),
+      todos: mergeById(baseBoard.todos, localBoard.todos, remoteBoard.todos, copyRemoteTodoConflict),
       statuses: changed(baseBoard.statuses, localBoard.statuses) ? localBoard.statuses : remoteBoard.statuses,
       completedTodoStatus: changed(baseBoard.completedTodoStatus, localBoard.completedTodoStatus)
         ? localBoard.completedTodoStatus
@@ -1454,14 +1459,31 @@ function mergeTodoBoards(
   });
 }
 
-function mergeById<T extends { id: string }>(baseItems: readonly T[], localItems: readonly T[], remoteItems: readonly T[]) {
+function mergeById<T extends { id: string }>(
+  baseItems: readonly T[],
+  localItems: readonly T[],
+  remoteItems: readonly T[],
+  copyRemoteConflict?: (item: T, id: string) => T,
+) {
   const result = new Map(remoteItems.map((item) => [item.id, item]));
   const baseById = new Map(baseItems.map((item) => [item.id, item]));
   const localById = new Map(localItems.map((item) => [item.id, item]));
 
   for (const [id, localItem] of localById) {
     const baseItem = baseById.get(id);
-    if (!baseItem || changed(baseItem, localItem)) {
+    const remoteItem = result.get(id);
+    if (
+      baseItem &&
+      remoteItem &&
+      copyRemoteConflict &&
+      changed(baseItem, localItem) &&
+      changed(baseItem, remoteItem) &&
+      changed(localItem, remoteItem)
+    ) {
+      result.set(id, localItem);
+      const conflictId = uniqueConflictId(id, result);
+      result.set(conflictId, copyRemoteConflict(remoteItem, conflictId));
+    } else if (!baseItem || changed(baseItem, localItem)) {
       result.set(id, localItem);
     }
   }
@@ -1473,6 +1495,32 @@ function mergeById<T extends { id: string }>(baseItems: readonly T[], localItems
   }
 
   return [...result.values()];
+}
+
+function copyRemoteEventConflict(event: TimelineEvent, id: string): TimelineEvent {
+  return {
+    ...event,
+    id,
+    what: `${event.what} (other device)`,
+  };
+}
+
+function copyRemoteTodoConflict(todo: TimelineTodo, id: string): TimelineTodo {
+  return {
+    ...todo,
+    id,
+    title: `${todo.title} (other device)`,
+  };
+}
+
+function uniqueConflictId(baseId: string, items: ReadonlyMap<string, unknown>) {
+  let index = 1;
+  let id = `${baseId}-other-device`;
+  while (items.has(id)) {
+    index += 1;
+    id = `${baseId}-other-device-${index}`;
+  }
+  return id;
 }
 
 function changed(left: unknown, right: unknown) {

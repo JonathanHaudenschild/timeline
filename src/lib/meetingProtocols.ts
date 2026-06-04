@@ -205,10 +205,10 @@ export function mergeMeetingProtocols(
       todoOwner: changed(baseProtocol.todoOwner, localProtocol.todoOwner)
         ? localProtocol.todoOwner
         : remoteProtocol.todoOwner,
-      body: changed(baseProtocol.body, localProtocol.body) ? localProtocol.body : remoteProtocol.body,
-      updates: mergeById(baseProtocol.updates, localProtocol.updates, remoteProtocol.updates),
-      topics: mergeById(baseProtocol.topics, localProtocol.topics, remoteProtocol.topics),
-      todos: mergeById(baseProtocol.todos, localProtocol.todos, remoteProtocol.todos),
+      body: mergeProtocolBody(baseProtocol.body, localProtocol.body, remoteProtocol.body),
+      updates: mergeById(baseProtocol.updates, localProtocol.updates, remoteProtocol.updates, copyRemoteProtocolItem),
+      topics: mergeById(baseProtocol.topics, localProtocol.topics, remoteProtocol.topics, copyRemoteProtocolItem),
+      todos: mergeById(baseProtocol.todos, localProtocol.todos, remoteProtocol.todos, copyRemoteProtocolItem),
       updatedAt: latestString(localProtocol.updatedAt, remoteProtocol.updatedAt),
     };
   });
@@ -306,14 +306,31 @@ function slugify(input: string) {
     .slice(0, 36);
 }
 
-function mergeById<T extends { id: string }>(baseItems: readonly T[], localItems: readonly T[], remoteItems: readonly T[]) {
+function mergeById<T extends { id: string }>(
+  baseItems: readonly T[],
+  localItems: readonly T[],
+  remoteItems: readonly T[],
+  copyRemoteConflict?: (item: T, id: string) => T,
+) {
   const result = new Map(remoteItems.map((item) => [item.id, item]));
   const baseById = new Map(baseItems.map((item) => [item.id, item]));
   const localById = new Map(localItems.map((item) => [item.id, item]));
 
   for (const [id, localItem] of localById) {
     const baseItem = baseById.get(id);
-    if (!baseItem || changed(baseItem, localItem)) {
+    const remoteItem = result.get(id);
+    if (
+      baseItem &&
+      remoteItem &&
+      copyRemoteConflict &&
+      changed(baseItem, localItem) &&
+      changed(baseItem, remoteItem) &&
+      changed(localItem, remoteItem)
+    ) {
+      result.set(id, localItem);
+      const conflictId = uniqueConflictId(id, result);
+      result.set(conflictId, copyRemoteConflict(remoteItem, conflictId));
+    } else if (!baseItem || changed(baseItem, localItem)) {
       result.set(id, localItem);
     }
   }
@@ -325,6 +342,34 @@ function mergeById<T extends { id: string }>(baseItems: readonly T[], localItems
   }
 
   return [...result.values()];
+}
+
+function mergeProtocolBody(baseBody: string, localBody: string, remoteBody: string) {
+  const localChanged = changed(baseBody, localBody);
+  const remoteChanged = changed(baseBody, remoteBody);
+  if (localChanged && remoteChanged && localBody !== remoteBody) {
+    return `${localBody}\n\n--- Version from another device ---\n\n${remoteBody}`;
+  }
+
+  return localChanged ? localBody : remoteBody;
+}
+
+function copyRemoteProtocolItem(item: MeetingProtocolItem, id: string): MeetingProtocolItem {
+  return {
+    ...item,
+    id,
+    title: `${item.title} (other device)`,
+  };
+}
+
+function uniqueConflictId(baseId: string, items: ReadonlyMap<string, unknown>) {
+  let index = 1;
+  let id = `${baseId}-other-device`;
+  while (items.has(id)) {
+    index += 1;
+    id = `${baseId}-other-device-${index}`;
+  }
+  return id;
 }
 
 function latestString(left: string, right: string) {
