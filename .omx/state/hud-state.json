@@ -1,5 +1,5 @@
 {
-  "last_turn_at": "2026-06-04T11:46:09.831Z",
-  "turn_count": 82,
-  "last_agent_output": "Fixed. The move-right logic was inserting the column before the next column, which made right moves "
+  "last_turn_at": "2026-06-04T21:56:29.220Z",
+  "turn_count": 95,
+  "last_agent_output": "Done. The left `Entries` overview now has its own `Find` search field.\n\nIt filters entries by:\n- ent"
 }

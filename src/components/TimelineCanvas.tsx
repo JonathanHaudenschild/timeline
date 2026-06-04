@@ -74,6 +74,7 @@ export function TimelineCanvas({
   const hitBoxesRef = useRef<HitBox[]>([]);
   const dragRef = useRef<{ x: number; pan: number } | null>(null);
   const [zoom, setZoom] = usePersistentState(`timeline:ui:zoom:${project.hash}`, 1);
+  const [isMinimized, setIsMinimized] = usePersistentState(`timeline:ui:timeline-minimized:${project.hash}`, false);
   const [pan, setPan] = useState(0);
   const [hiddenTypes, setHiddenTypes] = usePersistentState<string[]>(`timeline:ui:hidden-types:${project.hash}`, []);
   const [hiddenCategories, setHiddenCategories] = usePersistentState<string[]>(`timeline:ui:hidden-categories:${project.hash}`, []);
@@ -186,155 +187,167 @@ export function TimelineCanvas({
               </button>
             ) : null}
           </div>
+          <button
+            type="button"
+            className={`event-table-toggle ${isMinimized ? 'collapsed' : 'expanded'}`}
+            onClick={() => setIsMinimized((minimized) => !minimized)}
+            aria-expanded={!isMinimized}
+          >
+            {isMinimized ? 'Show timeline' : 'Hide timeline'}
+          </button>
         </div>
       </div>
-      <div className="timeline-filters">
-        {eventTypes.length > 1 ? (
-          <div className="filter-group desktop-filter-group">
-            <span>Types</span>
-            <div className="filter-bulk-actions">
-              <button
-                type="button"
-                className="filter-mini-action"
-                onClick={() => setHiddenTypes(hiddenTypes.length ? [] : eventTypes)}
-              >
-                {hiddenTypes.length ? 'All' : 'None'}
-              </button>
-            </div>
-            {eventTypes.map((type) => (
-              <button
-                type="button"
-                className={hiddenTypes.includes(type) ? 'filter-chip' : 'filter-chip active'}
-                key={type}
-                onClick={() => setHiddenTypes((current) => toggleValue(current, type))}
-              >
-                {type}
-              </button>
-            ))}
-          </div>
-        ) : null}
-        {eventCategories.length > 1 ? (
-          <div className="filter-group desktop-filter-group">
-            <span>Categories</span>
-            <div className="filter-bulk-actions">
-              <button
-                type="button"
-                className="filter-mini-action"
-                onClick={() => setHiddenCategories(hiddenCategories.length ? [] : eventCategories)}
-              >
-                {hiddenCategories.length ? 'All' : 'None'}
-              </button>
-            </div>
-            {eventCategories.map((category) => (
-              <button
-                type="button"
-                className={hiddenCategories.includes(category) ? 'filter-chip' : 'filter-chip active'}
-                key={category}
-                onClick={() => setHiddenCategories((current) => toggleValue(current, category))}
-              >
-                {category}
-              </button>
-            ))}
-          </div>
-        ) : null}
-        {eventTypes.length > 1 ? (
-          <details className="mobile-control-menu timeline-filter-menu">
-            <summary>Types {eventTypes.length - hiddenTypes.length}/{eventTypes.length}</summary>
-            <div className="mobile-control-panel filter-menu-panel">
-              <div className="filter-bulk-actions">
-                <button
-                  type="button"
-                  className="filter-mini-action"
-                  onClick={() => setHiddenTypes(hiddenTypes.length ? [] : eventTypes)}
-                >
-                  {hiddenTypes.length ? 'Select all' : 'Deselect all'}
-                </button>
+      {isMinimized ? null : (
+        <>
+          <div className="timeline-filters">
+            {eventTypes.length > 1 ? (
+              <div className="filter-group desktop-filter-group">
+                <span>Types</span>
+                <div className="filter-bulk-actions">
+                  <button
+                    type="button"
+                    className="filter-mini-action"
+                    onClick={() => setHiddenTypes(hiddenTypes.length ? [] : eventTypes)}
+                  >
+                    {hiddenTypes.length ? 'All' : 'None'}
+                  </button>
+                </div>
+                {eventTypes.map((type) => (
+                  <button
+                    type="button"
+                    className={hiddenTypes.includes(type) ? 'filter-chip' : 'filter-chip active'}
+                    key={type}
+                    onClick={() => setHiddenTypes((current) => toggleValue(current, type))}
+                  >
+                    {type}
+                  </button>
+                ))}
               </div>
-              {eventTypes.map((type) => (
-                <button
-                  type="button"
-                  className={hiddenTypes.includes(type) ? 'filter-chip' : 'filter-chip active'}
-                  key={type}
-                  onClick={() => setHiddenTypes((current) => toggleValue(current, type))}
-                >
-                  {type}
-                </button>
-              ))}
-            </div>
-          </details>
-        ) : null}
-        {eventCategories.length > 1 ? (
-          <details className="mobile-control-menu timeline-filter-menu">
-            <summary>Categories {eventCategories.length - hiddenCategories.length}/{eventCategories.length}</summary>
-            <div className="mobile-control-panel filter-menu-panel">
-              <div className="filter-bulk-actions">
-                <button
-                  type="button"
-                  className="filter-mini-action"
-                  onClick={() => setHiddenCategories(hiddenCategories.length ? [] : eventCategories)}
-                >
-                  {hiddenCategories.length ? 'Select all' : 'Deselect all'}
-                </button>
+            ) : null}
+            {eventCategories.length > 1 ? (
+              <div className="filter-group desktop-filter-group">
+                <span>Categories</span>
+                <div className="filter-bulk-actions">
+                  <button
+                    type="button"
+                    className="filter-mini-action"
+                    onClick={() => setHiddenCategories(hiddenCategories.length ? [] : eventCategories)}
+                  >
+                    {hiddenCategories.length ? 'All' : 'None'}
+                  </button>
+                </div>
+                {eventCategories.map((category) => (
+                  <button
+                    type="button"
+                    className={hiddenCategories.includes(category) ? 'filter-chip' : 'filter-chip active'}
+                    key={category}
+                    onClick={() => setHiddenCategories((current) => toggleValue(current, category))}
+                  >
+                    {category}
+                  </button>
+                ))}
               </div>
-              {eventCategories.map((category) => (
-                <button
-                  type="button"
-                  className={hiddenCategories.includes(category) ? 'filter-chip' : 'filter-chip active'}
-                  key={category}
-                  onClick={() => setHiddenCategories((current) => toggleValue(current, category))}
-                >
-                  {category}
-                </button>
-              ))}
+            ) : null}
+            {eventTypes.length > 1 ? (
+              <details className="mobile-control-menu timeline-filter-menu">
+                <summary>Types {eventTypes.length - hiddenTypes.length}/{eventTypes.length}</summary>
+                <div className="mobile-control-panel filter-menu-panel">
+                  <div className="filter-bulk-actions">
+                    <button
+                      type="button"
+                      className="filter-mini-action"
+                      onClick={() => setHiddenTypes(hiddenTypes.length ? [] : eventTypes)}
+                    >
+                      {hiddenTypes.length ? 'Select all' : 'Deselect all'}
+                    </button>
+                  </div>
+                  {eventTypes.map((type) => (
+                    <button
+                      type="button"
+                      className={hiddenTypes.includes(type) ? 'filter-chip' : 'filter-chip active'}
+                      key={type}
+                      onClick={() => setHiddenTypes((current) => toggleValue(current, type))}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              </details>
+            ) : null}
+            {eventCategories.length > 1 ? (
+              <details className="mobile-control-menu timeline-filter-menu">
+                <summary>Categories {eventCategories.length - hiddenCategories.length}/{eventCategories.length}</summary>
+                <div className="mobile-control-panel filter-menu-panel">
+                  <div className="filter-bulk-actions">
+                    <button
+                      type="button"
+                      className="filter-mini-action"
+                      onClick={() => setHiddenCategories(hiddenCategories.length ? [] : eventCategories)}
+                    >
+                      {hiddenCategories.length ? 'Select all' : 'Deselect all'}
+                    </button>
+                  </div>
+                  {eventCategories.map((category) => (
+                    <button
+                      type="button"
+                      className={hiddenCategories.includes(category) ? 'filter-chip' : 'filter-chip active'}
+                      key={category}
+                      onClick={() => setHiddenCategories((current) => toggleValue(current, category))}
+                    >
+                      {category}
+                    </button>
+                  ))}
+                </div>
+              </details>
+            ) : null}
+            <div className="filter-group">
+              <span>Todos</span>
+              <label className="check-control compact switch-control timeline-overlay-control">
+                <input
+                  type="checkbox"
+                  checked={project.settings.showTodosOnTimeline}
+                  onChange={(event) => onToggleTodoOverlay(event.target.checked)}
+                />
+                <span>Overlay</span>
+              </label>
             </div>
-          </details>
-        ) : null}
-        <div className="filter-group">
-          <span>Todos</span>
-          <label className="check-control compact switch-control timeline-overlay-control">
-            <input
-              type="checkbox"
-              checked={project.settings.showTodosOnTimeline}
-              onChange={(event) => onToggleTodoOverlay(event.target.checked)}
-            />
-            <span>Overlay</span>
-          </label>
-        </div>
-      </div>
-      <canvas
-        ref={canvasRef}
-        className={`timeline-canvas ${project.settings.mode}`}
-        onPointerDown={(event) => {
-          const hit = hitBoxesRef.current.find(
-            (box) =>
-              event.nativeEvent.offsetX >= box.x &&
-              event.nativeEvent.offsetX <= box.x + box.width &&
-              event.nativeEvent.offsetY >= box.y &&
-              event.nativeEvent.offsetY <= box.y + box.height,
-          );
+          </div>
+          <canvas
+            ref={canvasRef}
+            className={`timeline-canvas ${project.settings.mode}`}
+            onPointerDown={(event) => {
+              const hit = hitBoxesRef.current.find(
+                (box) =>
+                  event.nativeEvent.offsetX >= box.x &&
+                  event.nativeEvent.offsetX <= box.x + box.width &&
+                  event.nativeEvent.offsetY >= box.y &&
+                  event.nativeEvent.offsetY <= box.y + box.height,
+              );
 
-          if (hit) {
-            if (hit.event) onSelectEvent(hit.event);
-            if (hit.todo) onSelectTodo(hit.todo);
-            return;
-          }
+              if (hit) {
+                if (hit.event) onSelectEvent(hit.event);
+                if (hit.todo) onSelectTodo(hit.todo);
+                return;
+              }
 
-          if (canEdit) {
-            onCreateEvent(clientXToMoment(event.clientX));
-            return;
-          }
+              if (canEdit) {
+                onCreateEvent(clientXToMoment(event.clientX));
+                return;
+              }
 
-          dragRef.current = { x: event.clientX, pan };
-          event.currentTarget.setPointerCapture(event.pointerId);
-        }}
-        onPointerMove={(event) => {
-          if (!dragRef.current || project.settings.mode !== 'view') return;
-          setPan(dragRef.current.pan + event.clientX - dragRef.current.x);
-        }}
-        onPointerUp={() => {
-          dragRef.current = null;
-        }}
-      />
+              dragRef.current = { x: event.clientX, pan };
+              event.currentTarget.setPointerCapture(event.pointerId);
+            }}
+            onPointerMove={(event) => {
+              if (!dragRef.current || project.settings.mode !== 'view') return;
+              setPan(dragRef.current.pan + event.clientX - dragRef.current.x);
+            }}
+            onPointerUp={() => {
+              dragRef.current = null;
+            }}
+          />
+        </>
+      )}
     </div>
   );
 }
@@ -759,7 +772,11 @@ function drawBoxText(
 
   ctx.fillStyle = '#111111';
   ctx.font = '900 12px system-ui, sans-serif';
-  ctx.fillText(truncateToWidth(ctx, `${event.time} / ${category}`.toUpperCase(), textWidth), boxX + padding, metaY);
+  ctx.fillText(
+    truncateToWidth(ctx, `${formatShortGermanDate(event.date)} / ${event.time} / ${category}`.toUpperCase(), textWidth),
+    boxX + padding,
+    metaY,
+  );
 
   ctx.font = isSelected ? '900 14px system-ui, sans-serif' : '800 13px system-ui, sans-serif';
   const titleLines = wrapText(ctx, event.what, textWidth, isSelected ? Math.min(3, maxTitleLines) : Math.min(2, maxTitleLines));

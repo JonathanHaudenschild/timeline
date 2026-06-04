@@ -1,4 +1,5 @@
 import { createDefaultProject, normalizeHash, projectStorageKey } from './project';
+import { normalizeMeetingProtocols } from './meetingProtocols';
 import type { TimelineProject } from './types';
 
 export function loadProject(hash: string, storage: Storage = window.localStorage) {
@@ -10,7 +11,8 @@ export function loadProject(hash: string, storage: Storage = window.localStorage
   }
 
   try {
-    return { ...createDefaultProject(normalizedHash), ...JSON.parse(raw), hash: normalizedHash } as TimelineProject;
+    const project = { ...createDefaultProject(normalizedHash), ...JSON.parse(raw), hash: normalizedHash } as TimelineProject;
+    return { ...project, meetingProtocols: normalizeMeetingProtocols(project.meetingProtocols) };
   } catch {
     return createDefaultProject(normalizedHash);
   }

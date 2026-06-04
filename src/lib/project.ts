@@ -1,5 +1,6 @@
 import type { TimelineProject } from './types';
 import { defaultTypeColors } from './colors';
+import { normalizeMeetingProtocols } from './meetingProtocols';
 import { defaultTodoStatuses } from './todos';
 
 export function createHash() {
@@ -67,6 +68,7 @@ export function createDefaultProject(hash: string): TimelineProject {
         note: 'Multi-day period example.',
       },
     ],
+    meetingProtocols: normalizeMeetingProtocols(undefined),
     todos: [
       {
         id: 'todo-first',

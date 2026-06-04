@@ -14,6 +14,7 @@ type TodoBoardProps = {
   statuses: TodoStatus[];
   completedTodoStatus: TodoStatus;
   boardId: string;
+  boardName: string;
   boards: Array<{ id: string; name: string; locked?: boolean }>;
   selectedTodoId?: string;
   onTodoOpened?: () => void;
@@ -29,6 +30,7 @@ export function TodoBoard({
   statuses,
   completedTodoStatus,
   boardId,
+  boardName,
   boards,
   selectedTodoId,
   onTodoOpened,
@@ -158,7 +160,7 @@ export function TodoBoard({
     <section className="todo-board">
       <div className="section-heading">
         <div>
-          <h2>Todos</h2>
+          <h2>{boardName}</h2>
           <div className="todo-board-summary">{totalOpen} open / {todos.length} total</div>
         </div>
         <div className="todo-board-actions">

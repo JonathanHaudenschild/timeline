@@ -5,13 +5,16 @@ import type { PointerEvent } from 'react';
 import { EventEditor } from './EventEditor';
 import { EventList } from './EventList';
 import { MarkdownBlock } from './MarkdownBlock';
+import { MeetingProtocols } from './MeetingProtocols';
 import { ProjectHeader } from './ProjectHeader';
 import { StickyLinks } from './StickyLinks';
 import { TimelineCanvas } from './TimelineCanvas';
 import { TodoBoard } from './TodoBoard';
+import { TodoEditor } from './TodoEditor';
 import { fetchProject, importProjectFile, LockedProjectError, persistProject, ProjectConflictError } from '@/lib/api';
 import { formatShortGermanDateRange } from '@/lib/dateFormat';
 import { createDefaultProject, normalizeHash } from '@/lib/project';
+import { normalizeMeetingProtocols } from '@/lib/meetingProtocols';
 import { ensureProjectHash } from '@/lib/storage';
 import { moveTodoBetweenBoards, normalizeTodoBoards, syncProjectTodoBoard } from '@/lib/todoBoards';
 import { normalizeCompletedTodoStatus, normalizeTodoStatuses, renameTodoStatus } from '@/lib/todos';
@@ -36,6 +39,7 @@ export function TimelineApp() {
   const [selectedEventId, setSelectedEventId] = useState<string>();
   const [selectedTodoId, setSelectedTodoId] = useState<string>();
   const [draftEvent, setDraftEvent] = useState<TimelineEvent | null>(null);
+  const [draftProtocolTodo, setDraftProtocolTodo] = useState<TimelineTodo | null>(null);
   const [editingInfo, setEditingInfo] = useState(false);
   const [saveState, setSaveState] = useState<'loading' | 'saved' | 'saving' | 'error' | 'conflict'>('loading');
   const [collaborationNotice, setCollaborationNotice] = useState('');
@@ -55,6 +59,7 @@ export function TimelineApp() {
   const projectPinRef = useRef<string | undefined>(undefined);
   const pinDialogResolverRef = useRef<((result: PinDialogResult | null) => void) | null>(null);
   const topRef = useRef<HTMLElement | null>(null);
+  const protocolsRef = useRef<HTMLDivElement | null>(null);
   const timelineRef = useRef<HTMLDivElement | null>(null);
   const eventsRef = useRef<HTMLElement | null>(null);
   const todoRef = useRef<HTMLDivElement | null>(null);
@@ -252,6 +257,10 @@ export function TimelineApp() {
   const todoStatuses = normalizeTodoStatuses(activeBoard.statuses, activeBoard.todos);
   const completedTodoStatus = normalizeCompletedTodoStatus(todoStatuses, activeBoard.completedTodoStatus);
   const isActiveBoardLocked = Boolean(activeBoard.pinHash && !unlockedTodoBoardIds.includes(activeBoard.id));
+  const meetingProtocols = normalizeMeetingProtocols(project.meetingProtocols);
+  const draftProtocolTodoBoardId = draftProtocolTodo?.boardId ?? activeBoard.id;
+  const draftProtocolTodoBoard = todoBoards.find((board) => board.id === draftProtocolTodoBoardId) ?? activeBoard;
+  const draftProtocolTodoStatuses = normalizeTodoStatuses(draftProtocolTodoBoard.statuses, draftProtocolTodoBoard.todos);
   const timelineProject = {
     ...project,
     todos: isActiveBoardLocked ? [] : activeBoard.todos,
@@ -357,6 +366,76 @@ export function TimelineApp() {
     );
     setSelectedTodoId(undefined);
     selectEvent(event.id);
+  }
+
+  function createTodoFromProtocol(source: { title: string; body: string; date: string }) {
+    const targetStatus = todoStatuses[0] ?? 'open';
+    setDraftProtocolTodo({
+      id: crypto.randomUUID(),
+      boardId: activeBoard.id,
+      title: source.title || 'Protocol todo',
+      who: '',
+      body: source.body,
+      status: targetStatus,
+      dueDate: source.date,
+      showOnTimeline: true,
+      order: nextTodoOrder(activeBoard.todos, targetStatus),
+    });
+  }
+
+  function saveProtocolTodo() {
+    if (!draftProtocolTodo) return;
+
+    const targetBoardId = draftProtocolTodo.boardId ?? activeBoard.id;
+    const targetBoard = todoBoards.find((board) => board.id === targetBoardId) ?? activeBoard;
+    if (targetBoard.pinHash && !unlockedTodoBoardIds.includes(targetBoard.id)) {
+      window.alert('Unlock that todo board before adding a protocol todo to it.');
+      return;
+    }
+
+    const targetStatuses = normalizeTodoStatuses(targetBoard.statuses, targetBoard.todos);
+    const targetStatus = targetStatuses.includes(draftProtocolTodo.status)
+      ? draftProtocolTodo.status
+      : targetStatuses[0] ?? 'open';
+    const todoForSave = {
+      ...draftProtocolTodo,
+      boardId: undefined,
+      status: targetStatus,
+      order: nextTodoOrder(targetBoard.todos, targetStatus),
+    };
+    const nextBoard = {
+      ...targetBoard,
+      todos: [...targetBoard.todos, todoForSave],
+      statuses: normalizeTodoStatuses(targetBoard.statuses, [...targetBoard.todos, todoForSave]),
+    };
+
+    updateProject(syncProjectTodoBoard(
+      project,
+      todoBoards.map((board) => (board.id === targetBoard.id ? nextBoard : board)),
+      targetBoard.id,
+    ));
+    setDraftProtocolTodo(null);
+    setSelectedTodoId(todoForSave.id);
+    scrollToElement(todoRef.current);
+  }
+
+  function createEventFromProtocol(source: { title: string; body: string; date: string }) {
+    const event: TimelineEvent = {
+      id: crypto.randomUUID(),
+      date: source.date || project.startDate,
+      time: '09:00',
+      what: source.title || 'Protocol event',
+      who: '',
+      type: 'protocol',
+      category: 'event',
+      color: project.settings.typeColors.protocol ?? '#00c2ff',
+      showOnTimeline: true,
+      note: source.body,
+    };
+
+    updateProject({ ...project, events: [...project.events, event] });
+    selectEvent(event.id);
+    scrollToElement(timelineRef.current);
   }
 
   function switchTodoBoard(boardId: string) {
@@ -788,6 +867,9 @@ export function TimelineApp() {
         <button type="button" className="secondary" onClick={() => scrollToElement(timelineRef.current)}>
           Timeline
         </button>
+        <button type="button" className="secondary" onClick={() => scrollToElement(protocolsRef.current)}>
+          Protocols
+        </button>
         <button type="button" className="secondary" onClick={() => scrollToElement(eventsRef.current)}>
           Events
         </button>
@@ -876,6 +958,16 @@ export function TimelineApp() {
         )}
       </section>
 
+      <div ref={protocolsRef}>
+        <MeetingProtocols
+          projectHash={project.hash}
+          protocols={meetingProtocols}
+          onChange={(protocols) => updateProject({ ...project, meetingProtocols: protocols })}
+          onCreateTodo={createTodoFromProtocol}
+          onCreateEvent={createEventFromProtocol}
+        />
+      </div>
+
       <div ref={timelineRef}>
         <TimelineCanvas
           project={timelineProject}
@@ -908,6 +1000,31 @@ export function TimelineApp() {
           onCancel={() => setDraftEvent(null)}
           onSave={saveEvent}
           modal
+        />
+      ) : null}
+
+      {draftProtocolTodo ? (
+        <TodoEditor
+          draft={draftProtocolTodo}
+          statuses={draftProtocolTodoStatuses}
+          title="Create todo on board"
+          saveLabel="Add to board"
+          forceBoardSelect
+          boards={todoBoards.map((board) => ({
+            id: board.id,
+            name: board.name,
+            locked: Boolean(board.pinHash && !unlockedTodoBoardIds.includes(board.id)),
+          }))}
+          onChange={(todo) => {
+            const targetBoard = todoBoards.find((board) => board.id === (todo.boardId ?? activeBoard.id)) ?? activeBoard;
+            const targetStatuses = normalizeTodoStatuses(targetBoard.statuses, targetBoard.todos);
+            setDraftProtocolTodo({
+              ...todo,
+              status: targetStatuses.includes(todo.status) ? todo.status : targetStatuses[0] ?? 'open',
+            });
+          }}
+          onCancel={() => setDraftProtocolTodo(null)}
+          onSave={saveProtocolTodo}
         />
       ) : null}
 
@@ -1041,29 +1158,26 @@ export function TimelineApp() {
               </button>
             ) : null}
           </div>
-          <div className="todo-board-tools">
-            <b>{activeBoard.name}</b>
-            {canEdit ? (
-              <>
-                <button type="button" className="secondary" onClick={() => renameTodoBoard(activeBoard)}>
-                  Rename
+          {canEdit ? (
+            <div className="todo-board-tools">
+              <button type="button" className="secondary" onClick={() => renameTodoBoard(activeBoard)}>
+                Rename
+              </button>
+              <button type="button" className="secondary" onClick={() => void changeTodoBoardPin(activeBoard)}>
+                {activeBoard.pinHash ? 'Change board PIN' : 'Add board PIN'}
+              </button>
+              {activeBoard.pinHash ? (
+                <button type="button" className="secondary" onClick={() => void removeTodoBoardPin(activeBoard)}>
+                  Remove board PIN
                 </button>
-                <button type="button" className="secondary" onClick={() => void changeTodoBoardPin(activeBoard)}>
-                  {activeBoard.pinHash ? 'Change board PIN' : 'Add board PIN'}
+              ) : null}
+              {todoBoards.length > 1 ? (
+                <button type="button" className="secondary" onClick={() => deleteTodoBoard(activeBoard)}>
+                  Delete board
                 </button>
-                {activeBoard.pinHash ? (
-                  <button type="button" className="secondary" onClick={() => void removeTodoBoardPin(activeBoard)}>
-                    Remove board PIN
-                  </button>
-                ) : null}
-                {todoBoards.length > 1 ? (
-                  <button type="button" className="secondary" onClick={() => deleteTodoBoard(activeBoard)}>
-                    Delete board
-                  </button>
-                ) : null}
-              </>
-            ) : null}
-          </div>
+              ) : null}
+            </div>
+          ) : null}
           {isActiveBoardLocked ? (
             <section className="todo-board-locked">
               <h2>{activeBoard.name}</h2>
@@ -1078,6 +1192,7 @@ export function TimelineApp() {
               statuses={todoStatuses}
               completedTodoStatus={completedTodoStatus}
               boardId={activeBoard.id}
+              boardName={activeBoard.name}
               boards={todoBoards.map((board) => ({
                 id: board.id,
                 name: board.name,
@@ -1265,6 +1380,11 @@ function mergeProjectChanges(baseProject: TimelineProject, localProject: Timelin
       ? localProject.infoMarkdown
       : remoteProject.infoMarkdown,
     events: mergeById(baseProject.events, localProject.events, remoteProject.events),
+    meetingProtocols: mergeById(
+      normalizeMeetingProtocols(baseProject.meetingProtocols),
+      normalizeMeetingProtocols(localProject.meetingProtocols),
+      normalizeMeetingProtocols(remoteProject.meetingProtocols),
+    ),
     settings: mergeSettings(baseProject, localProject, remoteProject),
   };
   const boards = mergeTodoBoards(

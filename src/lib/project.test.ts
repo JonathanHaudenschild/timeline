@@ -6,6 +6,7 @@ import {
   projectStorageKey,
 } from './project';
 import { formatShortGermanDate, formatShortGermanDateRange } from './dateFormat';
+import { createMeetingProtocolTemplate, extractProtocolHeadlines, normalizeMeetingProtocols } from './meetingProtocols';
 import { ensureProjectHash } from './storage';
 import { moveTodoBetweenBoards, normalizeTodoBoards, syncProjectTodoBoard } from './todoBoards';
 import { isTodoCompleted, normalizeCompletedTodoStatus, normalizeTodoStatuses, renameTodoStatus } from './todos';
@@ -36,6 +37,7 @@ describe('project helpers', () => {
     expect(project.settings.todoStatuses).toEqual(['open', 'doing', 'done']);
     expect(project.settings.completedTodoStatus).toBe('done');
     expect(project.settings.stickyLinks).toEqual([]);
+    expect(project.meetingProtocols).toEqual([]);
   });
 
   it('creates short random hashes', () => {
@@ -229,5 +231,40 @@ describe('project helpers', () => {
 
     expect(ensureProjectHash(location)).toBe('timeline');
     expect(location.hash).toBe('timeline');
+  });
+
+  it('normalizes meeting protocols without losing saved body text', () => {
+    const protocols = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '06.06.26',
+        title: '',
+        updates: [{ title: 'Update A', owner: 'Alex', body: '- Info' }],
+        topics: [{ title: 'Thema A', owner: 'Mika', body: '- Discuss' }],
+        todos: [{ title: 'Todo A', owner: 'Sam', body: '- Do it' }],
+        body: 'Samstag 06.06.26\n1. Updates 06.06.26\nCustom update',
+      },
+    ]);
+
+    expect(protocols[0].date).toBe('2026-06-06');
+    expect(protocols[0].title).toBe('Samstag 06.06.26');
+    expect(protocols[0].body).toContain('Custom update');
+    expect(protocols[0].updates[0].title).toBe('Update A');
+    expect(protocols[0].topics[0].owner).toBe('Mika');
+    expect(protocols[0].todos[0].body).toBe('- Do it');
+  });
+
+  it('keeps plenum guidance as instruction text outside protocol content', () => {
+    const body = createMeetingProtocolTemplate('2026-06-06');
+    const headlines = extractProtocolHeadlines(body).map((headline) => headline.text);
+
+    expect(headlines).toContain('📋 Tägliches Platz-Plenum 📅 Datum: Sa. 06.06.26 · 🕚 Uhrzeit:');
+    expect(headlines).not.toContain('Thema 1 (Name)');
+  });
+
+  it('extracts markdown headings from protocol bodies', () => {
+    const headlines = extractProtocolHeadlines('# Main\nText\n## Thema A\n- detail').map((headline) => headline.text);
+
+    expect(headlines).toEqual(['Main', 'Thema A']);
   });
 });

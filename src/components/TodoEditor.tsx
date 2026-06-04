@@ -8,13 +8,27 @@ type TodoEditorProps = {
   draft: TimelineTodo;
   statuses: TodoStatus[];
   boards?: Array<{ id: string; name: string; locked?: boolean }>;
+  title?: string;
+  saveLabel?: string;
+  forceBoardSelect?: boolean;
   onChange: (todo: TimelineTodo) => void;
   onCancel: () => void;
   onSave: () => void;
   onConvertToEvent?: () => void;
 };
 
-export function TodoEditor({ draft, statuses, boards = [], onChange, onCancel, onSave, onConvertToEvent }: TodoEditorProps) {
+export function TodoEditor({
+  draft,
+  statuses,
+  boards = [],
+  title = 'Todo',
+  saveLabel = 'Save todo',
+  forceBoardSelect = false,
+  onChange,
+  onCancel,
+  onSave,
+  onConvertToEvent,
+}: TodoEditorProps) {
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Edit todo">
       <form
@@ -24,7 +38,7 @@ export function TodoEditor({ draft, statuses, boards = [], onChange, onCancel, o
           onSave();
         }}
       >
-        <div className="panel-title">Todo</div>
+        <div className="panel-title">{title}</div>
         <div className="form-grid">
           <label>
             <span>Title</span>
@@ -51,7 +65,7 @@ export function TodoEditor({ draft, statuses, boards = [], onChange, onCancel, o
               ))}
             </select>
           </label>
-          {boards.length > 1 ? (
+          {boards.length > 1 || forceBoardSelect ? (
             <label>
               <span>Board</span>
               <select
@@ -87,7 +101,7 @@ export function TodoEditor({ draft, statuses, boards = [], onChange, onCancel, o
           <MarkdownBlock markdown={draft.body} />
         </div>
         <div className="action-row">
-          <button type="submit">Save todo</button>
+          <button type="submit">{saveLabel}</button>
           <button type="button" className="secondary" onClick={onCancel}>
             Cancel
           </button>

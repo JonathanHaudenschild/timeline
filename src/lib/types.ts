@@ -44,6 +44,30 @@ export type StickyLink = {
   url: string;
 };
 
+export type MeetingProtocol = {
+  id: string;
+  title: string;
+  date: string;
+  moderation: string;
+  protocolWriter: string;
+  todoOwner: string;
+  updates: MeetingProtocolItem[];
+  topics: MeetingProtocolItem[];
+  todos: MeetingProtocolItem[];
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type MeetingProtocolItem = {
+  id: string;
+  title: string;
+  owner: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type TimelineProject = {
   version: 1;
   revision?: number;
@@ -55,6 +79,7 @@ export type TimelineProject = {
   events: TimelineEvent[];
   todos: TimelineTodo[];
   todoBoards?: TimelineTodoBoard[];
+  meetingProtocols?: MeetingProtocol[];
   settings: {
     mode: TimelineMode;
     showTodosOnTimeline: boolean;
