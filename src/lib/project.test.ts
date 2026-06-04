@@ -5,10 +5,12 @@ import {
   normalizeHash,
   projectStorageKey,
 } from './project';
+import { renderMarkdown } from '@/components/MarkdownBlock';
 import { formatShortGermanDate, formatShortGermanDateRange } from './dateFormat';
 import {
   createMeetingProtocol,
   createMeetingProtocolTemplate,
+  defaultProtocolInstructionTemplate,
   extractProtocolHeadlines,
   formatProtocolDuration,
   mergeMeetingProtocols,
@@ -234,6 +236,18 @@ describe('project helpers', () => {
     expect(formatShortGermanDateRange('2026-06-09', '2026-06-12')).toBe('Di 09.06 - Fr 12.06');
   });
 
+  it('renders extended markdown formatting safely', () => {
+    const html = renderMarkdown('_italic_ ++under++ ~~gone~~ [color=#e53935]red **bold**[/color]\n1. One\n- [x] Done\n> Quote');
+
+    expect(html).toContain('<em>italic</em>');
+    expect(html).toContain('<u>under</u>');
+    expect(html).toContain('<s>gone</s>');
+    expect(html).toContain('<span style="color: #e53935">red <strong>bold</strong></span>');
+    expect(html).toContain('<ol>');
+    expect(html).toContain('type="checkbox" disabled checked');
+    expect(html).toContain('<blockquote>Quote</blockquote>');
+  });
+
   it('uses a stable default project hash when the url has no hash', () => {
     const location = { hash: '' } as Location;
 
@@ -314,6 +328,13 @@ describe('project helpers', () => {
 
     expect(headlines).toContain('📋 Tägliches Platz-Plenum 📅 Datum: Sa. 06.06.26 · ⏱️ Dauer: 01:01:01');
     expect(headlines).not.toContain('Thema 1 (Name)');
+  });
+
+  it('renders edited protocol instruction templates with protocol placeholders', () => {
+    const body = createMeetingProtocolTemplate('2026-06-06', 61, '# {title}\n{date}\n{duration}\n{endDate}');
+
+    expect(body).toBe('# Tägliches Platz-Plenum\nSa. 06.06.26\n01:01\n06.06.26');
+    expect(defaultProtocolInstructionTemplate).toContain('{duration}');
   });
 
   it('extracts markdown headings from protocol bodies', () => {

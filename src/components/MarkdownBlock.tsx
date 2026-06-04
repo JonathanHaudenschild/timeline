@@ -15,8 +15,12 @@ function escapeHtml(value: string) {
 
 function inlineMarkdown(value: string) {
   return escapeHtml(value)
+    .replace(/\[color=(#[0-9a-fA-F]{3,6})\](.*?)\[\/color\]/g, '<span style="color: $1">$2</span>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/(^|[^*])\*(?!\s)([^*]+?)\*(?!\*)/g, '$1<em>$2</em>')
+    .replace(/_(?!\s)([^_]+?)_/g, '<em>$1</em>')
+    .replace(/\+\+(.*?)\+\+/g, '<u>$1</u>')
+    .replace(/~~(.*?)~~/g, '<s>$1</s>')
     .replace(/`(.*?)`/g, '<code>$1</code>')
     .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
 }
@@ -25,36 +29,72 @@ export function renderMarkdown(markdown: string) {
   const lines = markdown.split('\n');
   const html: string[] = [];
   let inList = false;
+  let inOrderedList = false;
+
+  function closeLists() {
+    if (inList) {
+      html.push('</ul>');
+      inList = false;
+    }
+    if (inOrderedList) {
+      html.push('</ol>');
+      inOrderedList = false;
+    }
+  }
 
   for (const line of lines) {
     if (line.startsWith('### ')) {
-      if (inList) {
-        html.push('</ul>');
-        inList = false;
-      }
+      closeLists();
       html.push(`<h3>${inlineMarkdown(line.slice(4))}</h3>`);
       continue;
     }
 
     if (line.startsWith('## ')) {
-      if (inList) {
-        html.push('</ul>');
-        inList = false;
-      }
+      closeLists();
       html.push(`<h2>${inlineMarkdown(line.slice(3))}</h2>`);
       continue;
     }
 
     if (line.startsWith('# ')) {
-      if (inList) {
-        html.push('</ul>');
-        inList = false;
-      }
+      closeLists();
       html.push(`<h1>${inlineMarkdown(line.slice(2))}</h1>`);
       continue;
     }
 
+    const numbered = line.match(/^\d+\.\s+(.*)$/);
+    if (numbered) {
+      if (inList) {
+        html.push('</ul>');
+        inList = false;
+      }
+      if (!inOrderedList) {
+        html.push('<ol>');
+        inOrderedList = true;
+      }
+      html.push(`<li>${inlineMarkdown(numbered[1])}</li>`);
+      continue;
+    }
+
+    const task = line.match(/^- \[( |x|X)\]\s+(.*)$/);
+    if (task) {
+      if (inOrderedList) {
+        html.push('</ol>');
+        inOrderedList = false;
+      }
+      if (!inList) {
+        html.push('<ul>');
+        inList = true;
+      }
+      const checked = task[1].toLowerCase() === 'x' ? ' checked' : '';
+      html.push(`<li class="task-list-item"><input type="checkbox" disabled${checked}> ${inlineMarkdown(task[2])}</li>`);
+      continue;
+    }
+
     if (line.startsWith('- ')) {
+      if (inOrderedList) {
+        html.push('</ol>');
+        inOrderedList = false;
+      }
       if (!inList) {
         html.push('<ul>');
         inList = true;
@@ -63,19 +103,18 @@ export function renderMarkdown(markdown: string) {
       continue;
     }
 
-    if (inList) {
-      html.push('</ul>');
-      inList = false;
-    }
+    closeLists();
 
     if (line.trim()) {
-      html.push(`<p>${inlineMarkdown(line)}</p>`);
+      if (line.startsWith('> ')) {
+        html.push(`<blockquote>${inlineMarkdown(line.slice(2))}</blockquote>`);
+      } else {
+        html.push(`<p>${inlineMarkdown(line)}</p>`);
+      }
     }
   }
 
-  if (inList) {
-    html.push('</ul>');
-  }
+  closeLists();
 
   return html.join('');
 }

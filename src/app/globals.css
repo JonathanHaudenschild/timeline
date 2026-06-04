@@ -68,9 +68,32 @@ button.secondary:hover,
 }
 
 .app-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   width: min(1480px, calc(100vw - 24px));
   margin: 0 auto;
   padding: 16px 0 28px;
+}
+
+.ordered-section-todos {
+  order: 20;
+}
+
+.ordered-section-timeline {
+  order: 30;
+}
+
+.ordered-section-events {
+  order: 40;
+}
+
+.ordered-section-protocols {
+  order: 50;
+}
+
+.footer-line {
+  order: 80;
 }
 
 .quick-jump {
@@ -345,6 +368,45 @@ textarea {
   min-height: 28px;
   padding: 4px 8px;
   font-size: 11px;
+}
+
+.markdown-color-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.markdown-color-swatch {
+  width: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  border: 2px solid var(--line);
+  box-shadow: none;
+  padding: 0;
+}
+
+.markdown-color-swatch:hover {
+  box-shadow: 2px 2px 0 var(--line);
+}
+
+.markdown-color-picker {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  border: 2px solid var(--line);
+  background: #fffef8;
+  padding: 2px 5px;
+  font-size: 10px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.markdown-color-picker input {
+  width: 24px;
+  height: 22px;
+  border: 0;
+  padding: 0;
 }
 
 .color-row {
@@ -695,6 +757,28 @@ textarea {
 .markdown h2,
 .markdown h3 {
   font-size: 15px;
+}
+
+.markdown ol {
+  margin: 0 0 8px 20px;
+  padding: 0;
+}
+
+.markdown blockquote {
+  margin: 0 0 8px;
+  border-left: 4px solid var(--hot);
+  background: #fff6fb;
+  padding: 6px 8px;
+}
+
+.markdown .task-list-item {
+  list-style: none;
+  margin-left: -18px;
+}
+
+.markdown .task-list-item input {
+  width: auto;
+  margin-right: 6px;
 }
 
 .markdown code {

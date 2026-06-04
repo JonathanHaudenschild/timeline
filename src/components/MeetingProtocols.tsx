@@ -214,18 +214,6 @@ export function MeetingProtocols({
     });
   }
 
-  function createTodoFromProtocol() {
-    if (!selectedProtocol) return;
-
-    onCreateTodo({
-      title: selectedProtocol.title,
-      body: selectedProtocol.body,
-      who: selectedProtocol.todoOwner,
-      protocolId: selectedProtocol.id,
-      date: selectedProtocol.date,
-    });
-  }
-
   function createEventFromProtocol() {
     if (!selectedProtocol) return;
 
@@ -426,9 +414,6 @@ export function MeetingProtocols({
                     {isEditingInstruction ? 'Preview instruction' : 'Edit instruction'}
                   </button>
                 ) : null}
-                <button type="button" className="secondary" onClick={createTodoFromProtocol}>
-                  Todo from protocol
-                </button>
                 <button type="button" className="secondary" onClick={createEventFromProtocol}>
                   Event from protocol
                 </button>

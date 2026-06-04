@@ -19,6 +19,7 @@ import { ensureProjectHash } from '@/lib/storage';
 import { moveTodoBetweenBoards, normalizeTodoBoards, syncProjectTodoBoard } from '@/lib/todoBoards';
 import { normalizeCompletedTodoStatus, normalizeTodoStatuses, renameTodoStatus } from '@/lib/todos';
 import type { TimelineEvent, TimelineMode, TimelineProject, TimelineTodo, TimelineTodoBoard as TimelineTodoBoardData } from '@/lib/types';
+import { usePersistentState } from '@/lib/usePersistentState';
 
 type PinDialogConfig = {
   title: string;
@@ -52,6 +53,10 @@ export function TimelineApp() {
   const [pinDialogRepeat, setPinDialogRepeat] = useState('');
   const [selectedPopoverMinimized, setSelectedPopoverMinimized] = useState(false);
   const [unlockedTodoBoardIds, setUnlockedTodoBoardIds] = useState<string[]>([]);
+  const [isTodoSectionMinimized, setIsTodoSectionMinimized] = usePersistentState(
+    `timeline:ui:todo-section-minimized:${project.hash}`,
+    false,
+  );
   const lastSavedJsonRef = useRef('');
   const canSaveRef = useRef(false);
   const latestProjectRef = useRef(project);
@@ -865,17 +870,17 @@ export function TimelineApp() {
         <button type="button" className="secondary" onClick={() => scrollToElement(topRef.current)}>
           Top
         </button>
+        <button type="button" onClick={() => scrollToElement(todoRef.current)}>
+          Todos
+        </button>
         <button type="button" className="secondary" onClick={() => scrollToElement(timelineRef.current)}>
           Timeline
-        </button>
-        <button type="button" className="secondary" onClick={() => scrollToElement(protocolsRef.current)}>
-          Protocols
         </button>
         <button type="button" className="secondary" onClick={() => scrollToElement(eventsRef.current)}>
           Events
         </button>
-        <button type="button" onClick={() => scrollToElement(todoRef.current)}>
-          Todos
+        <button type="button" className="secondary" onClick={() => scrollToElement(protocolsRef.current)}>
+          Protocols
         </button>
       </nav>
 
@@ -959,7 +964,7 @@ export function TimelineApp() {
         )}
       </section>
 
-      <div ref={protocolsRef}>
+      <div className="ordered-section ordered-section-protocols" ref={protocolsRef}>
         <MeetingProtocols
           projectHash={project.hash}
           canEdit={canEdit}
@@ -974,7 +979,7 @@ export function TimelineApp() {
         />
       </div>
 
-      <div ref={timelineRef}>
+      <div className="ordered-section ordered-section-timeline" ref={timelineRef}>
         <TimelineCanvas
           project={timelineProject}
           completedTodoStatus={completedTodoStatus}
@@ -1097,7 +1102,7 @@ export function TimelineApp() {
         </aside>
       ) : null}
 
-      <section className="events-area" ref={eventsRef}>
+      <section className="events-area ordered-section ordered-section-events" ref={eventsRef}>
         <EventList
           events={project.events}
           selectedEventId={selectedEventId}
@@ -1129,8 +1134,24 @@ export function TimelineApp() {
         />
       </section>
 
-      <div ref={todoRef}>
+      <div className="ordered-section ordered-section-todos" ref={todoRef}>
         <section className="todo-board-frame">
+          <div className="section-heading">
+            <h2>Todos</h2>
+            <div className="heading-actions">
+              <span>{activeBoard.todos.length} cards</span>
+              <button
+                type="button"
+                className={`event-table-toggle ${isTodoSectionMinimized ? 'collapsed' : 'expanded'}`}
+                onClick={() => setIsTodoSectionMinimized((minimized) => !minimized)}
+                aria-expanded={!isTodoSectionMinimized}
+              >
+                {isTodoSectionMinimized ? 'Show todos' : 'Hide todos'}
+              </button>
+            </div>
+          </div>
+          {isTodoSectionMinimized ? null : (
+            <>
           <div className="todo-board-tabs">
             {todoBoards.map((board) => (
               <button
@@ -1241,6 +1262,8 @@ export function TimelineApp() {
                 });
               }}
             />
+          )}
+            </>
           )}
         </section>
       </div>
