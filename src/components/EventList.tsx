@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { MarkdownBlock } from './MarkdownBlock';
 import { formatShortGermanDateRange } from '@/lib/dateFormat';
 import type { TimelineEvent } from '@/lib/types';
+import { usePersistentState } from '@/lib/usePersistentState';
 
 type EventListProps = {
   events: TimelineEvent[];
@@ -44,9 +45,9 @@ export function EventList({
   onConvertToTodo,
   onDelete,
 }: EventListProps) {
-  const [sortKey, setSortKey] = useState<SortKey>('date');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
-  const [isMinimized, setIsMinimized] = useState(true);
+  const [sortKey, setSortKey] = usePersistentState<SortKey>('timeline:ui:event-list-sort-key', 'date');
+  const [sortDirection, setSortDirection] = usePersistentState<SortDirection>('timeline:ui:event-list-sort-direction', 'asc');
+  const [isMinimized, setIsMinimized] = usePersistentState('timeline:ui:event-list-minimized', true);
   const [search, setSearch] = useState('');
   const sortedEventRows = useMemo(
     () => sortEvents(events.filter((event) => eventMatchesSearch(event, search)), sortKey, sortDirection),
@@ -79,10 +80,10 @@ export function EventList({
           </label>
           <button
             type="button"
-            className={`toggle-chip ${isMinimized ? '' : 'active'}`}
+            className={`event-table-toggle ${isMinimized ? 'collapsed' : 'expanded'}`}
             onClick={() => setIsMinimized((minimized) => !minimized)}
           >
-            {isMinimized ? 'Expand' : 'Minimize'}
+            {isMinimized ? 'Show event table' : 'Hide event table'}
           </button>
           {canEdit ? (
             <button type="button" onClick={onAdd}>

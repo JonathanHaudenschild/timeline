@@ -5,6 +5,7 @@ import { MarkdownBlock } from './MarkdownBlock';
 import { TodoEditor } from './TodoEditor';
 import type { TimelineTodo, TodoStatus } from '@/lib/types';
 import { defaultTodoStatuses, formatTodoStatus, isTodoCompleted, normalizeTodoStatus } from '@/lib/todos';
+import { usePersistentState } from '@/lib/usePersistentState';
 
 type TodoSortKey = 'manual' | 'due-date' | 'a-z' | 'owner' | 'created';
 
@@ -43,7 +44,10 @@ export function TodoBoard({
   const [newStatus, setNewStatus] = useState('');
   const [editingStatus, setEditingStatus] = useState<TodoStatus | null>(null);
   const [editingStatusName, setEditingStatusName] = useState('');
-  const [sortKey, setSortKey] = useState<TodoSortKey>('manual');
+  const [columnSortKeys, setColumnSortKeys] = usePersistentState<Record<TodoStatus, TodoSortKey>>(
+    `timeline:ui:todo-column-sort:${boardId}`,
+    {},
+  );
   const [search, setSearch] = useState('');
   const selectedTodo = selectedTodoId ? todos.find((todo) => todo.id === selectedTodoId) ?? null : null;
   const activeDraftTodo = selectedTodo && selectedTodo.id !== draftTodo?.id ? selectedTodo : draftTodo;
@@ -168,16 +172,6 @@ export function TodoBoard({
           <div className="todo-board-summary">{totalOpen} open / {todos.length} total</div>
         </div>
         <div className="todo-board-actions">
-          <label className="todo-sort-control">
-            <span>Sort</span>
-            <select value={sortKey} onChange={(event) => setSortKey(event.target.value as TodoSortKey)}>
-              <option value="manual">Manual</option>
-              <option value="due-date">Due date</option>
-              <option value="a-z">A-Z</option>
-              <option value="owner">Owner</option>
-              <option value="created">Created</option>
-            </select>
-          </label>
           <label className="search-control todo-search-control">
             <span>Search</span>
             <input
@@ -232,9 +226,10 @@ export function TodoBoard({
       <div className="todo-columns">
         {visibleStatuses.map((status) => {
           const allColumnTodos = todos.filter((todo) => todo.status === status).sort(compareManualTodos);
+          const columnSortKey = columnSortKeys[status] ?? 'manual';
           const columnTodos = filteredTodos
             .filter((todo) => todo.status === status)
-            .sort((a, b) => compareTodos(a, b, sortKey));
+            .sort((a, b) => compareTodos(a, b, columnSortKey));
           const canRemoveStatus = !defaultTodoStatuses.includes(status) && allColumnTodos.length === 0;
 
           return (
@@ -270,16 +265,20 @@ export function TodoBoard({
                       autoFocus
                       aria-label={`Rename ${formatTodoStatus(status)} column`}
                     />
-                    <button type="submit" className="column-move">ok</button>
+                    <button type="submit" className="column-rename-action" aria-label="Save column name" title="Save">
+                      ok
+                    </button>
                     <button
                       type="button"
-                      className="column-move"
+                      className="column-rename-action"
                       onClick={() => {
                         setEditingStatus(null);
                         setEditingStatusName('');
                       }}
+                      aria-label="Cancel column rename"
+                      title="Cancel"
                     >
-                      cancel
+                      x
                     </button>
                   </form>
                 ) : (
@@ -294,8 +293,9 @@ export function TodoBoard({
                         startRenameStatus(status);
                       }}
                       aria-label={`Rename ${formatTodoStatus(status)} column`}
+                      title="Rename column"
                     >
-                      edit
+                      ✎
                     </button>
                     <button
                       type="button"
@@ -310,46 +310,68 @@ export function TodoBoard({
                     </button>
                   </>
                 )}
-                <button
-                  type="button"
-                  className="column-move"
-                  disabled={editingStatus === status || visibleStatuses[0] === status}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    nudgeStatus(status, -1);
-                  }}
-                  aria-label={`Move ${formatTodoStatus(status)} left`}
-                >
-                  &lt;
-                </button>
-                <button
-                  type="button"
-                  className="column-move"
-                  disabled={editingStatus === status || visibleStatuses.at(-1) === status}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    nudgeStatus(status, 1);
-                  }}
-                  aria-label={`Move ${formatTodoStatus(status)} right`}
-                >
-                  &gt;
-                </button>
-                {canRemoveStatus ? (
-                  <button
-                    type="button"
-                    className="column-remove"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      if (window.confirm(`Remove "${formatTodoStatus(status)}" column?`)) {
-                        removeStatus(status);
-                      }
-                    }}
-                    aria-label={`Remove ${formatTodoStatus(status)} column`}
-                  >
-                    x
-                  </button>
-                ) : null}
+                {editingStatus === status ? null : (
+                  <>
+                    <button
+                      type="button"
+                      className="column-move"
+                      disabled={visibleStatuses[0] === status}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        nudgeStatus(status, -1);
+                      }}
+                      aria-label={`Move ${formatTodoStatus(status)} left`}
+                    >
+                      &lt;
+                    </button>
+                    <button
+                      type="button"
+                      className="column-move"
+                      disabled={visibleStatuses.at(-1) === status}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        nudgeStatus(status, 1);
+                      }}
+                      aria-label={`Move ${formatTodoStatus(status)} right`}
+                    >
+                      &gt;
+                    </button>
+                    {canRemoveStatus ? (
+                      <button
+                        type="button"
+                        className="column-remove"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (window.confirm(`Remove "${formatTodoStatus(status)}" column?`)) {
+                            removeStatus(status);
+                          }
+                        }}
+                        aria-label={`Remove ${formatTodoStatus(status)} column`}
+                      >
+                        x
+                      </button>
+                    ) : null}
+                  </>
+                )}
               </div>
+              <label className="column-sort-control">
+                <span>Sort</span>
+                <select
+                  value={columnSortKey}
+                  onChange={(event) =>
+                    setColumnSortKeys((sortKeys) => ({
+                      ...sortKeys,
+                      [status]: event.target.value as TodoSortKey,
+                    }))
+                  }
+                >
+                  <option value="manual">Manual</option>
+                  <option value="due-date">Due date</option>
+                  <option value="a-z">A-Z</option>
+                  <option value="owner">Owner</option>
+                  <option value="created">Created</option>
+                </select>
+              </label>
               {columnTodos.length ? (
                 columnTodos.map((todo) => (
                   <article
@@ -369,32 +391,6 @@ export function TodoBoard({
                   >
                     <div className="todo-card-topline">
                       <div className="todo-card-title">{todo.title}</div>
-                      <div className="todo-card-order">
-                        <button
-                          type="button"
-                          className="column-move"
-                          disabled={allColumnTodos[0]?.id === todo.id}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            nudgeTodo(todo.id, status, -1);
-                          }}
-                          aria-label={`Move ${todo.title} up`}
-                        >
-                          up
-                        </button>
-                        <button
-                          type="button"
-                          className="column-move"
-                          disabled={allColumnTodos.at(-1)?.id === todo.id}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            nudgeTodo(todo.id, status, 1);
-                          }}
-                          aria-label={`Move ${todo.title} down`}
-                        >
-                          down
-                        </button>
-                      </div>
                     </div>
                     <div className="todo-card-meta">
                       <span>{todo.who || 'No owner'}</span>
@@ -409,16 +405,44 @@ export function TodoBoard({
                         <MarkdownBlock markdown={todo.body} />
                       </div>
                     ) : null}
-                    <div className="todo-meta">
+                    <div className="todo-card-actions">
                       <button
                         type="button"
-                        className="mini-button secondary"
+                        className="icon-button secondary"
+                        disabled={allColumnTodos[0]?.id === todo.id}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          nudgeTodo(todo.id, status, -1);
+                        }}
+                        aria-label={`Move ${todo.title} up`}
+                        title="Move up"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-button secondary"
+                        disabled={allColumnTodos.at(-1)?.id === todo.id}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          nudgeTodo(todo.id, status, 1);
+                        }}
+                        aria-label={`Move ${todo.title} down`}
+                        title="Move down"
+                      >
+                        ↓
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-button secondary"
                         onClick={(event) => {
                           event.stopPropagation();
                           setDraftTodo({ ...todo, boardId });
                         }}
+                        aria-label={`Edit ${todo.title}`}
+                        title="Edit"
                       >
-                        Edit
+                        ✎
                       </button>
                       <button
                         type="button"
@@ -430,6 +454,7 @@ export function TodoBoard({
                           }
                         }}
                         aria-label={`Delete ${todo.title}`}
+                        title="Delete"
                       >
                         x
                       </button>
@@ -439,6 +464,9 @@ export function TodoBoard({
               ) : (
                 <div className="todo-empty">Drop here</div>
               )}
+              <button type="button" className="column-add-card" onClick={() => addTodo(status)}>
+                + Add todo
+              </button>
             </div>
           );
         })}

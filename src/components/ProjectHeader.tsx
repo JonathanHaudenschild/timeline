@@ -1,5 +1,6 @@
 'use client';
 
+import { FileUp } from 'lucide-react';
 import type { TimelineMode, TimelineProject } from '@/lib/types';
 
 type ProjectHeaderProps = {
@@ -39,7 +40,7 @@ export function ProjectHeader({
       </div>
 
       <div className="header-controls">
-        <label>
+        <label className="date-control">
           <span>Start</span>
           <input
             type="date"
@@ -48,7 +49,7 @@ export function ProjectHeader({
             onChange={(event) => onChange({ ...project, startDate: event.target.value })}
           />
         </label>
-        <label>
+        <label className="date-control">
           <span>End</span>
           <input
             type="date"
@@ -91,18 +92,7 @@ export function ProjectHeader({
                 ) : null}
               </>
             ) : null}
-            <label className="import-button">
-              Import Excel
-              <input
-                type="file"
-                accept=".xlsx"
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) onImport(file);
-                  event.target.value = '';
-                }}
-              />
-            </label>
+            {project.settings.mode === 'edit' ? <ImportExcelButton onImport={onImport} /> : null}
           </div>
         </details>
         {project.settings.mode === 'edit' ? (
@@ -120,19 +110,27 @@ export function ProjectHeader({
             ) : null}
           </div>
         ) : null}
-        <label className="import-button desktop-only-control">
-          Import Excel
-          <input
-            type="file"
-            accept=".xlsx"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) onImport(file);
-              event.target.value = '';
-            }}
-          />
-        </label>
+        {project.settings.mode === 'edit' ? <ImportExcelButton onImport={onImport} desktopOnly /> : null}
       </div>
     </header>
+  );
+}
+
+function ImportExcelButton({ onImport, desktopOnly = false }: { onImport: (file: File) => void; desktopOnly?: boolean }) {
+  return (
+    <label className={`import-button icon-import-button ${desktopOnly ? 'desktop-only-control' : ''}`} title="Import Excel">
+      <FileUp size={18} strokeWidth={3} />
+      <span>Import Excel</span>
+      <input
+        type="file"
+        accept=".xlsx"
+        aria-label="Import Excel"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) onImport(file);
+          event.target.value = '';
+        }}
+      />
+    </label>
   );
 }

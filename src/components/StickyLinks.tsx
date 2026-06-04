@@ -22,6 +22,7 @@ import {
   Wrench,
 } from 'lucide-react';
 import type { StickyLink } from '@/lib/types';
+import { usePersistentState } from '@/lib/usePersistentState';
 
 type StickyLinksProps = {
   links: StickyLink[];
@@ -78,7 +79,7 @@ const iconOptions: Array<{ value: LinkIconName; label: string }> = [
 
 export function StickyLinks({ links, canEdit, onChange }: StickyLinksProps) {
   const [draftLink, setDraftLink] = useState<StickyLink | null>(null);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = usePersistentState('timeline:ui:sticky-links-collapsed', true);
 
   function saveLink() {
     if (!draftLink) return;

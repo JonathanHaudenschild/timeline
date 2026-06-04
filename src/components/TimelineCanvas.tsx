@@ -16,6 +16,7 @@ import { colorForType } from '@/lib/colors';
 import { formatShortGermanDate } from '@/lib/dateFormat';
 import { isTodoCompleted } from '@/lib/todos';
 import type { TimelineEvent, TimelineProject, TimelineTodo } from '@/lib/types';
+import { usePersistentState } from '@/lib/usePersistentState';
 
 type TimelineCanvasProps = {
   project: TimelineProject;
@@ -72,10 +73,10 @@ export function TimelineCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hitBoxesRef = useRef<HitBox[]>([]);
   const dragRef = useRef<{ x: number; pan: number } | null>(null);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = usePersistentState(`timeline:ui:zoom:${project.hash}`, 1);
   const [pan, setPan] = useState(0);
-  const [hiddenTypes, setHiddenTypes] = useState<string[]>([]);
-  const [hiddenCategories, setHiddenCategories] = useState<string[]>([]);
+  const [hiddenTypes, setHiddenTypes] = usePersistentState<string[]>(`timeline:ui:hidden-types:${project.hash}`, []);
+  const [hiddenCategories, setHiddenCategories] = usePersistentState<string[]>(`timeline:ui:hidden-categories:${project.hash}`, []);
   const [now, setNow] = useState(() => new Date());
   const eventTypes = uniqueValues(project.events.map((event) => event.type).filter(Boolean));
   const eventCategories = uniqueValues(project.events.map(eventTimelineCategory));
