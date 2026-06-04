@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   createDefaultProject,
   createHash,
@@ -7,10 +7,13 @@ import {
 } from './project';
 import { formatShortGermanDate, formatShortGermanDateRange } from './dateFormat';
 import {
+  createMeetingProtocol,
   createMeetingProtocolTemplate,
   extractProtocolHeadlines,
+  formatProtocolDuration,
   mergeMeetingProtocols,
   normalizeMeetingProtocols,
+  protocolConversionBody,
 } from './meetingProtocols';
 import { ensureProjectHash } from './storage';
 import { moveTodoBetweenBoards, normalizeTodoBoards, syncProjectTodoBoard } from './todoBoards';
@@ -252,18 +255,64 @@ describe('project helpers', () => {
     ]);
 
     expect(protocols[0].date).toBe('2026-06-06');
-    expect(protocols[0].title).toBe('Samstag 06.06.26');
+    expect(protocols[0].title).toBe('Tägliches Platz-Plenum');
     expect(protocols[0].body).toContain('Custom update');
     expect(protocols[0].updates[0].title).toBe('Update A');
     expect(protocols[0].topics[0].owner).toBe('Mika');
     expect(protocols[0].todos[0].body).toBe('- Do it');
   });
 
+  it('preserves spaces in protocol titles and entry headlines', () => {
+    const protocols = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        title: 'My protocol title ',
+        updates: [{ title: 'Update with spaces ', body: 'Details' }],
+      },
+    ]);
+
+    expect(protocols[0].title).toBe('My protocol title ');
+    expect(protocols[0].updates[0].title).toBe('Update with spaces ');
+  });
+
+  it('creates new meeting protocols with the current local date and a stopped duration counter', () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(2026, 5, 6, 11, 30));
+
+      const protocol = createMeetingProtocol();
+
+      expect(protocol.date).toBe('2026-06-06');
+      expect(protocol.durationSeconds).toBe(0);
+      expect(protocol.timerStartedAt).toBeUndefined();
+      expect(protocol.title).toBe('Tägliches Platz-Plenum');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('normalizes and formats meeting protocol durations', () => {
+    const [protocol] = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        durationSeconds: 3661.8,
+        timerStartedAt: '2026-06-06T10:00:00.000Z',
+      },
+    ]);
+
+    expect(protocol.durationSeconds).toBe(3661);
+    expect(protocol.timerStartedAt).toBe('2026-06-06T10:00:00.000Z');
+    expect(formatProtocolDuration(protocol.durationSeconds)).toBe('01:01:01');
+    expect(protocolConversionBody(protocol)).toContain('Duration: 01:01:01');
+  });
+
   it('keeps plenum guidance as instruction text outside protocol content', () => {
-    const body = createMeetingProtocolTemplate('2026-06-06');
+    const body = createMeetingProtocolTemplate('2026-06-06', 3661);
     const headlines = extractProtocolHeadlines(body).map((headline) => headline.text);
 
-    expect(headlines).toContain('📋 Tägliches Platz-Plenum 📅 Datum: Sa. 06.06.26 · 🕚 Uhrzeit:');
+    expect(headlines).toContain('📋 Tägliches Platz-Plenum 📅 Datum: Sa. 06.06.26 · ⏱️ Dauer: 01:01:01');
     expect(headlines).not.toContain('Thema 1 (Name)');
   });
 

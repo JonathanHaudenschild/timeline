@@ -48,6 +48,9 @@ export type MeetingProtocol = {
   id: string;
   title: string;
   date: string;
+  time: string;
+  durationSeconds: number;
+  timerStartedAt?: string;
   moderation: string;
   protocolWriter: string;
   todoOwner: string;

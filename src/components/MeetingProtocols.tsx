@@ -1,12 +1,12 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { MarkdownBlock } from './MarkdownBlock';
 import {
   createMeetingProtocol,
   createMeetingProtocolInstruction,
   createProtocolItem,
-  extractProtocolHeadlines,
+  formatProtocolDuration,
   protocolConversionBody,
   protocolItemConversionBody,
   protocolItemLabel,
@@ -22,13 +22,6 @@ type MeetingProtocolsProps = {
   onChange: (protocols: MeetingProtocol[]) => void;
   onCreateTodo: (source: { title: string; body: string; date: string }) => void;
   onCreateEvent: (source: { title: string; body: string; date: string }) => void;
-};
-
-type QuickFindItem = {
-  id: string;
-  title: string;
-  meta: string;
-  targetId: string;
 };
 
 type ProtocolOverviewItem = {
@@ -65,21 +58,31 @@ export function MeetingProtocols({
   } | null>(null);
   const [search, setSearch] = useState('');
   const [entrySearch, setEntrySearch] = useState('');
+  const [timerTick, setTimerTick] = useState(0);
   const selectedProtocol = protocols.find((protocol) => protocol.id === selectedProtocolId) ?? protocols[0];
-  const quickFindItems = useMemo(
-    () => (selectedProtocol ? buildQuickFindItems(selectedProtocol, search) : []),
-    [selectedProtocol, search],
-  );
+  const selectedProtocolDuration = selectedProtocol ? currentProtocolDuration(selectedProtocol, timerTick) : 0;
+  const isTimerRunning = Boolean(selectedProtocol?.timerStartedAt);
   const filteredProtocols = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return protocols;
 
-    return protocols.filter((protocol) => protocolMatchesQuery(protocol, query));
-  }, [protocols, search]);
+    return protocols.filter((protocol) => protocolMatchesQuery(protocol, query, timerTick));
+  }, [protocols, search, timerTick]);
   const overviewItems = useMemo(
-    () => buildProtocolOverviewItems(protocols, [search, entrySearch].filter(Boolean).join(' ')),
-    [protocols, search, entrySearch],
+    () => buildProtocolOverviewItems(protocols, [search, entrySearch].filter(Boolean).join(' '), timerTick),
+    [protocols, search, entrySearch, timerTick],
   );
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setTimerTick(Date.now()), 0);
+    if (!selectedProtocol?.timerStartedAt) return () => window.clearTimeout(timeout);
+
+    const interval = window.setInterval(() => setTimerTick(Date.now()), 1000);
+    return () => {
+      window.clearTimeout(timeout);
+      window.clearInterval(interval);
+    };
+  }, [selectedProtocol?.timerStartedAt]);
 
   function addProtocol() {
     const protocol = createMeetingProtocol();
@@ -104,8 +107,32 @@ export function MeetingProtocols({
 
     updateProtocol({
       date,
-      title: selectedProtocol.title === protocolTitle(selectedProtocol.date) ? protocolTitle(date) : selectedProtocol.title,
+      title: isGeneratedProtocolTitle(selectedProtocol)
+        ? protocolTitle(date, selectedProtocol.time)
+        : selectedProtocol.title,
     });
+  }
+
+  function startTimer() {
+    if (!selectedProtocol || selectedProtocol.timerStartedAt) return;
+
+    setTimerTick(Date.now());
+    updateProtocol({ timerStartedAt: new Date().toISOString() });
+  }
+
+  function pauseTimer() {
+    if (!selectedProtocol?.timerStartedAt) return;
+
+    const now = Date.now();
+    updateProtocol({
+      durationSeconds: currentProtocolDuration(selectedProtocol, now),
+      timerStartedAt: undefined,
+    });
+    setTimerTick(now);
+  }
+
+  function stopTimer() {
+    pauseTimer();
   }
 
   function deleteProtocol() {
@@ -165,12 +192,26 @@ export function MeetingProtocols({
     });
   }
 
+  function moveItem(kind: ProtocolItemKind, item: MeetingProtocolItem, nextKind: ProtocolItemKind) {
+    if (!selectedProtocol || kind === nextKind) return;
+
+    const movedItem = {
+      ...item,
+      updatedAt: new Date().toISOString(),
+    };
+
+    updateProtocol({
+      [kind]: selectedProtocol[kind].filter((currentItem) => currentItem.id !== item.id),
+      [nextKind]: [...selectedProtocol[nextKind], movedItem],
+    });
+  }
+
   function createTodoFromProtocol() {
     if (!selectedProtocol) return;
 
     onCreateTodo({
       title: selectedProtocol.title,
-      body: protocolConversionBody(selectedProtocol),
+      body: protocolConversionBody(withCurrentDuration(selectedProtocol, timerTick)),
       date: selectedProtocol.date,
     });
   }
@@ -180,7 +221,7 @@ export function MeetingProtocols({
 
     onCreateEvent({
       title: selectedProtocol.title,
-      body: protocolConversionBody(selectedProtocol),
+      body: protocolConversionBody(withCurrentDuration(selectedProtocol, timerTick)),
       date: selectedProtocol.date,
     });
   }
@@ -292,7 +333,7 @@ export function MeetingProtocols({
                   onClick={() => setSelectedProtocolId(protocol.id)}
                 >
                   <b>{protocol.title}</b>
-                  <span>{protocol.date}</span>
+                  <span>{[protocol.date, formatProtocolDuration(currentProtocolDuration(protocol, timerTick))].filter(Boolean).join(' · ')}</span>
                   <small>{protocol.updates.length} updates · {protocol.topics.length} topics · {protocol.todos.length} to-dos</small>
                 </button>
               ))
@@ -308,6 +349,7 @@ export function MeetingProtocols({
                   <input
                     value={selectedProtocol.title}
                     onChange={(event) => updateProtocol({ title: event.target.value })}
+                    placeholder="Tägliches Platz-Plenum"
                   />
                 </label>
                 <label>
@@ -317,6 +359,21 @@ export function MeetingProtocols({
                     value={selectedProtocol.date}
                     onChange={(event) => updateDate(event.target.value)}
                   />
+                </label>
+                <label>
+                  <span>Duration</span>
+                  <div className="protocol-timer-control">
+                    <strong>{formatProtocolDuration(selectedProtocolDuration)}</strong>
+                    <button type="button" className="mini-button secondary" onClick={startTimer} disabled={isTimerRunning}>
+                      Start
+                    </button>
+                    <button type="button" className="mini-button secondary" onClick={pauseTimer} disabled={!isTimerRunning}>
+                      Pause
+                    </button>
+                    <button type="button" className="mini-button secondary" onClick={stopTimer} disabled={!isTimerRunning}>
+                      Stop
+                    </button>
+                  </div>
                 </label>
               </div>
               <div className="protocol-role-grid" aria-label="Protocol roles">
@@ -365,65 +422,47 @@ export function MeetingProtocols({
               {showInstruction ? (
                 <details className="protocol-instruction" open>
                   <summary>Instruction</summary>
-                  <pre>{createMeetingProtocolInstruction(selectedProtocol.date)}</pre>
+                  <pre>{createMeetingProtocolInstruction(selectedProtocol.date, selectedProtocolDuration)}</pre>
                 </details>
               ) : null}
-              <div className="protocol-body-layout">
-                <div className="protocol-headlines">
-                  {quickFindItems.length ? (
-                    quickFindItems.map((item) => (
-                      <button
-                        type="button"
-                        className="protocol-quickfind-item"
-                        key={item.id}
-                        onClick={() => document.getElementById(item.targetId)?.scrollIntoView({ block: 'center' })}
-                      >
-                        <b>{item.title}</b>
-                        <span>{item.meta}</span>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="protocol-empty">No matches</div>
-                  )}
-                </div>
-                <div className="protocol-sections">
-                  {sectionConfig.map((section) => (
-                    <ProtocolStructuredSection
-                      key={section.kind}
-                      protocol={selectedProtocol}
-                      kind={section.kind}
-                      title={section.title}
-                      addLabel={section.addLabel}
-                      search={search}
-                      onAdd={() => addItem(section.kind)}
-                      onEdit={(item) => editItem(section.kind, item)}
-                      onDelete={(itemId) => deleteItem(section.kind, itemId)}
-                      onCreateTodo={(item) => createTodoFromItem(section.kind, item)}
-                      onCreateEvent={(item) => createEventFromItem(section.kind, item)}
+              <div className="protocol-sections">
+                {sectionConfig.map((section) => (
+                  <ProtocolStructuredSection
+                    key={section.kind}
+                    protocol={selectedProtocol}
+                    kind={section.kind}
+                    title={section.title}
+                    addLabel={section.addLabel}
+                    search={search}
+                    onAdd={() => addItem(section.kind)}
+                    onEdit={(item) => editItem(section.kind, item)}
+                    onDelete={(itemId) => deleteItem(section.kind, itemId)}
+                    onMove={(item, nextKind) => moveItem(section.kind, item, nextKind)}
+                    onCreateTodo={(item) => createTodoFromItem(section.kind, item)}
+                    onCreateEvent={(item) => createEventFromItem(section.kind, item)}
+                  />
+                ))}
+                <section className="protocol-structured-section" id={`protocol-${selectedProtocol.id}-notes`}>
+                  <div className="protocol-section-title">
+                    <h3>Notes</h3>
+                    <button type="button" className="secondary mini-button" onClick={() => setIsPreviewingNotes((previewing) => !previewing)}>
+                      {isPreviewingNotes ? 'Edit markdown' : 'Preview markdown'}
+                    </button>
+                  </div>
+                  {!isPreviewingNotes ? (
+                    <textarea
+                      className="protocol-editor protocol-notes-editor"
+                      value={selectedProtocol.body}
+                      onChange={(event) => updateProtocol({ body: event.target.value })}
+                      placeholder="Optional markdown notes that do not fit into updates, topics, or to-dos."
+                      rows={8}
                     />
-                  ))}
-                  <section className="protocol-structured-section" id={`protocol-${selectedProtocol.id}-notes`}>
-                    <div className="protocol-section-title">
-                      <h3>Notes</h3>
-                      <button type="button" className="secondary mini-button" onClick={() => setIsPreviewingNotes((previewing) => !previewing)}>
-                        {isPreviewingNotes ? 'Edit markdown' : 'Preview markdown'}
-                      </button>
+                  ) : (
+                    <div className="protocol-preview protocol-notes-preview">
+                      <MarkdownBlock markdown={selectedProtocol.body || '_No notes yet._'} />
                     </div>
-                    {!isPreviewingNotes ? (
-                      <textarea
-                        className="protocol-editor protocol-notes-editor"
-                        value={selectedProtocol.body}
-                        onChange={(event) => updateProtocol({ body: event.target.value })}
-                        placeholder="Optional markdown notes that do not fit into updates, topics, or to-dos."
-                        rows={8}
-                      />
-                    ) : (
-                      <div className="protocol-preview protocol-notes-preview">
-                        <MarkdownBlock markdown={selectedProtocol.body || '_No notes yet._'} />
-                      </div>
-                    )}
-                  </section>
-                </div>
+                  )}
+                </section>
               </div>
             </div>
           ) : (
@@ -492,6 +531,7 @@ function ProtocolStructuredSection({
   onAdd,
   onEdit,
   onDelete,
+  onMove,
   onCreateTodo,
   onCreateEvent,
 }: {
@@ -503,6 +543,7 @@ function ProtocolStructuredSection({
   onAdd: () => void;
   onEdit: (item: MeetingProtocolItem) => void;
   onDelete: (itemId: string) => void;
+  onMove: (item: MeetingProtocolItem, nextKind: ProtocolItemKind) => void;
   onCreateTodo: (item: MeetingProtocolItem) => void;
   onCreateEvent: (item: MeetingProtocolItem) => void;
 }) {
@@ -536,6 +577,19 @@ function ProtocolStructuredSection({
                 <MarkdownBlock markdown={item.body || '_No details yet._'} />
               </div>
               <div className="protocol-entry-actions">
+                <label className="protocol-section-select">
+                  <span>Section</span>
+                  <select
+                    value={kind}
+                    onChange={(event) => onMove(item, event.target.value as ProtocolItemKind)}
+                  >
+                    {sectionConfig.map((section) => (
+                      <option value={section.kind} key={section.kind}>
+                        {section.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <button type="button" className="mini-button secondary" onClick={() => onCreateTodo(item)}>
                   Todo
                 </button>
@@ -556,30 +610,7 @@ function ProtocolStructuredSection({
   );
 }
 
-function buildQuickFindItems(protocol: MeetingProtocol, search: string): QuickFindItem[] {
-  const query = search.trim().toLowerCase();
-  const structuredItems = sectionConfig.flatMap((section) =>
-    protocol[section.kind].map((item) => ({
-      id: `${section.kind}-${item.id}`,
-      title: item.title,
-      meta: [section.title, item.owner].filter(Boolean).join(' · '),
-      targetId: `protocol-${protocol.id}-${section.kind}-${item.id}`,
-      searchable: [section.title, item.title, item.owner, item.body].join(' ').toLowerCase(),
-    })),
-  );
-  const noteItems = extractProtocolHeadlines(protocol.body).map((headline) => ({
-    id: `note-${headline.id}`,
-    title: headline.text,
-    meta: 'Notes',
-    targetId: `protocol-${protocol.id}-notes`,
-    searchable: [headline.text, headline.excerpt].join(' ').toLowerCase(),
-  }));
-  const items = [...structuredItems, ...noteItems];
-
-  return query ? items.filter((item) => item.searchable.includes(query)) : items;
-}
-
-function buildProtocolOverviewItems(protocols: MeetingProtocol[], search: string): ProtocolOverviewItem[] {
+function buildProtocolOverviewItems(protocols: MeetingProtocol[], search: string, now: number): ProtocolOverviewItem[] {
   const query = search.trim().toLowerCase();
   const items = protocols.flatMap((protocol) =>
     sectionConfig.flatMap((section) =>
@@ -588,9 +619,25 @@ function buildProtocolOverviewItems(protocols: MeetingProtocol[], search: string
         protocolId: protocol.id,
         kind: section.kind,
         title: item.title,
-        meta: [protocol.title, protocol.date, section.title, item.owner].filter(Boolean).join(' · '),
+        meta: [
+          protocol.title,
+          protocol.date,
+          formatProtocolDuration(currentProtocolDuration(protocol, now)),
+          section.title,
+          item.owner,
+        ].filter(Boolean).join(' · '),
         body: item.body,
-        searchable: [protocol.title, protocol.date, section.title, item.title, item.owner, item.body].join(' ').toLowerCase(),
+        searchable: [
+          protocol.title,
+          protocol.date,
+          formatProtocolDuration(currentProtocolDuration(protocol, now)),
+          section.title,
+          item.title,
+          item.owner,
+          item.body,
+        ]
+          .join(' ')
+          .toLowerCase(),
       })),
     ),
   );
@@ -598,10 +645,11 @@ function buildProtocolOverviewItems(protocols: MeetingProtocol[], search: string
   return query ? items.filter((item) => item.searchable.includes(query)) : items;
 }
 
-function protocolMatchesQuery(protocol: MeetingProtocol, query: string) {
+function protocolMatchesQuery(protocol: MeetingProtocol, query: string, now: number) {
   return [
     protocol.title,
     protocol.date,
+    formatProtocolDuration(currentProtocolDuration(protocol, now)),
     protocol.moderation,
     protocol.protocolWriter,
     protocol.todoOwner,
@@ -617,4 +665,28 @@ function protocolMatchesQuery(protocol: MeetingProtocol, query: string) {
 
 function itemMatchesQuery(item: MeetingProtocolItem, query: string) {
   return [item.title, item.owner, item.body].join(' ').toLowerCase().includes(query);
+}
+
+function withCurrentDuration(protocol: MeetingProtocol, now: number): MeetingProtocol {
+  return {
+    ...protocol,
+    durationSeconds: currentProtocolDuration(protocol, now),
+  };
+}
+
+function currentProtocolDuration(protocol: MeetingProtocol, now: number) {
+  const baseDuration = Math.max(0, Math.floor(protocol.durationSeconds || 0));
+  if (!protocol.timerStartedAt) return baseDuration;
+
+  const startedAt = Date.parse(protocol.timerStartedAt);
+  if (!Number.isFinite(startedAt)) return baseDuration;
+
+  return baseDuration + Math.max(0, Math.floor((now - startedAt) / 1000));
+}
+
+function isGeneratedProtocolTitle(protocol: MeetingProtocol) {
+  return (
+    protocol.title === protocolTitle(protocol.date, protocol.time) ||
+    protocol.title === protocolTitle(protocol.date)
+  );
 }

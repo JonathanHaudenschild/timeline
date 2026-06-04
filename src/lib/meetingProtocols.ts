@@ -2,6 +2,7 @@ import type { MeetingProtocol, MeetingProtocolItem } from './types';
 
 const weekdayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
 const shortWeekdayNames = ['So.', 'Mo.', 'Di.', 'Mi.', 'Do.', 'Fr.', 'Sa.'];
+const defaultProtocolTitle = 'Tägliches Platz-Plenum';
 
 export type ProtocolHeadline = {
   id: string;
@@ -25,13 +26,17 @@ export function normalizeMeetingProtocols(protocols: readonly MeetingProtocolInp
     .filter((protocol) => protocol && typeof protocol === 'object')
     .map((protocol, index) => {
       const date = normalizeProtocolDate(protocol.date) || localDateString(new Date());
-      const title = protocol.title?.trim() || protocolTitle(date);
+      const time = normalizeProtocolTime(protocol.time);
+      const title = protocol.title && protocol.title.trim() ? protocol.title : defaultProtocolTitle;
       const now = new Date().toISOString();
 
       return {
         id: protocol.id?.trim() || `protocol-${index + 1}`,
         title,
         date,
+        time,
+        durationSeconds: normalizeProtocolDuration(protocol.durationSeconds),
+        timerStartedAt: normalizeProtocolTimestamp(protocol.timerStartedAt),
         moderation: protocol.moderation?.trim() || '',
         protocolWriter: protocol.protocolWriter?.trim() || '',
         todoOwner: protocol.todoOwner?.trim() || '',
@@ -46,14 +51,19 @@ export function normalizeMeetingProtocols(protocols: readonly MeetingProtocolInp
     .sort((a, b) => b.date.localeCompare(a.date) || b.updatedAt.localeCompare(a.updatedAt));
 }
 
-export function createMeetingProtocol(date = localDateString(new Date())): MeetingProtocol {
-  const normalizedDate = normalizeProtocolDate(date) || localDateString(new Date());
-  const now = new Date().toISOString();
+export function createMeetingProtocol(date?: string, time?: string): MeetingProtocol {
+  const currentDate = new Date();
+  const normalizedDate = normalizeProtocolDate(date) || localDateString(currentDate);
+  const normalizedTime = normalizeProtocolTime(time) || localTimeString(currentDate);
+  const now = currentDate.toISOString();
 
   return {
     id: crypto.randomUUID(),
-    title: protocolTitle(normalizedDate),
+    title: defaultProtocolTitle,
     date: normalizedDate,
+    time: normalizedTime,
+    durationSeconds: 0,
+    timerStartedAt: undefined,
     moderation: '',
     protocolWriter: '',
     todoOwner: '',
@@ -79,17 +89,18 @@ export function createProtocolItem(kind: ProtocolItemKind, index: number): Meeti
   };
 }
 
-export function protocolTitle(date: string) {
-  return `${weekdayName(date)} ${formatProtocolDate(date)}`;
+export function protocolTitle(date: string, time = '') {
+  return [weekdayName(date), formatProtocolDate(date), normalizeProtocolTime(time)].filter(Boolean).join(' ');
 }
 
-export function createMeetingProtocolInstruction(date: string) {
+export function createMeetingProtocolInstruction(date: string, durationSeconds = 0) {
   const longDate = formatProtocolDate(date);
   const shortDate = `${shortWeekdayName(date)} ${longDate}`;
+  const displayDuration = formatProtocolDuration(durationSeconds);
 
-  return `${protocolTitle(date)}
+  return `${defaultProtocolTitle}
 ---------------------------------------------------------------------------------------------------------------------
-📋 Tägliches Platz-Plenum 📅 Datum: ${shortDate} · 🕚 Uhrzeit:
+📋 Tägliches Platz-Plenum 📅 Datum: ${shortDate} · ⏱️ Dauer: ${displayDuration}
 🎤 Moderation: NAME | 📝 Protokoll: NAME | 📌 To-Dos-Beauftragte:r: NAME
 
 👋 Begrüßung & Rahmen
@@ -114,6 +125,17 @@ Danach Neue To-Dos sammeln & verteilen: Verantwortlichkeiten klären & Deadlines
 }
 
 export const createMeetingProtocolTemplate = createMeetingProtocolInstruction;
+
+export function formatProtocolDuration(durationSeconds: number) {
+  const seconds = normalizeProtocolDuration(durationSeconds);
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = seconds % 60;
+
+  return hours
+    ? `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`
+    : `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+}
 
 export function extractProtocolHeadlines(body: string) {
   const lines = body.split('\n');
@@ -148,6 +170,7 @@ export function protocolItemConversionBody(
   const parts = [
     `Protocol: ${protocol.title}`,
     `Date: ${protocol.date}`,
+    `Duration: ${formatProtocolDuration(protocol.durationSeconds)}`,
     `Section: ${protocolItemLabel(kind)}`,
     item.owner ? `Owner: ${item.owner}` : '',
     item.body || item.title,
@@ -166,6 +189,7 @@ export function protocolConversionBody(protocol: MeetingProtocol, headline?: Pro
   const parts = [
     `Protocol: ${protocol.title}`,
     `Date: ${protocol.date}`,
+    `Duration: ${formatProtocolDuration(protocol.durationSeconds)}`,
     headline ? `Headline: ${headline.text}` : '',
     headline?.excerpt || structuredBody,
   ].filter(Boolean);
@@ -196,6 +220,13 @@ export function mergeMeetingProtocols(
       ...protocol,
       title: changed(baseProtocol.title, localProtocol.title) ? localProtocol.title : remoteProtocol.title,
       date: changed(baseProtocol.date, localProtocol.date) ? localProtocol.date : remoteProtocol.date,
+      time: changed(baseProtocol.time, localProtocol.time) ? localProtocol.time : remoteProtocol.time,
+      durationSeconds: changed(baseProtocol.durationSeconds, localProtocol.durationSeconds)
+        ? localProtocol.durationSeconds
+        : remoteProtocol.durationSeconds,
+      timerStartedAt: changed(baseProtocol.timerStartedAt, localProtocol.timerStartedAt)
+        ? localProtocol.timerStartedAt
+        : remoteProtocol.timerStartedAt,
       moderation: changed(baseProtocol.moderation, localProtocol.moderation)
         ? localProtocol.moderation
         : remoteProtocol.moderation,
@@ -225,7 +256,7 @@ function normalizeProtocolItems(
 
     return {
       id: item.id?.trim() || `${fallbackTitle.toLowerCase()}-${index + 1}`,
-      title: item.title?.trim() || `${fallbackTitle} ${index + 1}`,
+      title: item.title && item.title.trim() ? item.title : `${fallbackTitle} ${index + 1}`,
       owner: item.owner?.trim() || '',
       body: item.body ?? '',
       createdAt: item.createdAt || now,
@@ -277,6 +308,29 @@ function normalizeProtocolDate(date: string | undefined) {
   return `${year.length === 2 ? `20${year}` : year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 }
 
+function normalizeProtocolTime(time: string | undefined) {
+  if (!time) return '';
+  const match = time.trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return '';
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return '';
+
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function normalizeProtocolDuration(durationSeconds: number | undefined) {
+  if (typeof durationSeconds !== 'number' || !Number.isFinite(durationSeconds)) return 0;
+  return Math.max(0, Math.floor(durationSeconds));
+}
+
+function normalizeProtocolTimestamp(timestamp: string | undefined) {
+  if (!timestamp) return undefined;
+  const time = Date.parse(timestamp);
+  return Number.isFinite(time) ? new Date(time).toISOString() : undefined;
+}
+
 function weekdayName(date: string) {
   return weekdayNames[dateToNoon(date).getDay()];
 }
@@ -296,6 +350,10 @@ function dateToNoon(date: string) {
 
 function localDateString(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function localTimeString(date: Date) {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
 function slugify(input: string) {
