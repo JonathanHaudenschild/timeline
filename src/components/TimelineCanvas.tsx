@@ -192,6 +192,15 @@ export function TimelineCanvas({
         {eventTypes.length > 1 ? (
           <div className="filter-group desktop-filter-group">
             <span>Types</span>
+            <div className="filter-bulk-actions">
+              <button
+                type="button"
+                className="filter-mini-action"
+                onClick={() => setHiddenTypes(hiddenTypes.length ? [] : eventTypes)}
+              >
+                {hiddenTypes.length ? 'All' : 'None'}
+              </button>
+            </div>
             {eventTypes.map((type) => (
               <button
                 type="button"
@@ -207,6 +216,15 @@ export function TimelineCanvas({
         {eventCategories.length > 1 ? (
           <div className="filter-group desktop-filter-group">
             <span>Categories</span>
+            <div className="filter-bulk-actions">
+              <button
+                type="button"
+                className="filter-mini-action"
+                onClick={() => setHiddenCategories(hiddenCategories.length ? [] : eventCategories)}
+              >
+                {hiddenCategories.length ? 'All' : 'None'}
+              </button>
+            </div>
             {eventCategories.map((category) => (
               <button
                 type="button"
@@ -223,6 +241,15 @@ export function TimelineCanvas({
           <details className="mobile-control-menu timeline-filter-menu">
             <summary>Types {eventTypes.length - hiddenTypes.length}/{eventTypes.length}</summary>
             <div className="mobile-control-panel filter-menu-panel">
+              <div className="filter-bulk-actions">
+                <button
+                  type="button"
+                  className="filter-mini-action"
+                  onClick={() => setHiddenTypes(hiddenTypes.length ? [] : eventTypes)}
+                >
+                  {hiddenTypes.length ? 'Select all' : 'Deselect all'}
+                </button>
+              </div>
               {eventTypes.map((type) => (
                 <button
                   type="button"
@@ -240,6 +267,15 @@ export function TimelineCanvas({
           <details className="mobile-control-menu timeline-filter-menu">
             <summary>Categories {eventCategories.length - hiddenCategories.length}/{eventCategories.length}</summary>
             <div className="mobile-control-panel filter-menu-panel">
+              <div className="filter-bulk-actions">
+                <button
+                  type="button"
+                  className="filter-mini-action"
+                  onClick={() => setHiddenCategories(hiddenCategories.length ? [] : eventCategories)}
+                >
+                  {hiddenCategories.length ? 'Select all' : 'Deselect all'}
+                </button>
+              </div>
               {eventCategories.map((category) => (
                 <button
                   type="button"

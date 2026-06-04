@@ -143,25 +143,15 @@ export function TodoBoard({
     setEditingStatusName('');
   }
 
-  function moveStatus(status: TodoStatus, targetStatus: TodoStatus) {
-    if (status === targetStatus) return;
-
-    const withoutDragged = visibleStatuses.filter((item) => item !== status);
-    const targetIndex = withoutDragged.indexOf(targetStatus);
-    if (targetIndex === -1) return;
-
-    onStatusesChange([
-      ...withoutDragged.slice(0, targetIndex),
-      status,
-      ...withoutDragged.slice(targetIndex),
-    ]);
-  }
-
   function nudgeStatus(status: TodoStatus, direction: -1 | 1) {
     const index = visibleStatuses.indexOf(status);
-    const targetStatus = visibleStatuses[index + direction];
-    if (!targetStatus) return;
-    moveStatus(status, targetStatus);
+    const targetIndex = index + direction;
+    if (index === -1 || targetIndex < 0 || targetIndex >= visibleStatuses.length) return;
+
+    const reorderedStatuses = [...visibleStatuses];
+    const [movedStatus] = reorderedStatuses.splice(index, 1);
+    reorderedStatuses.splice(targetIndex, 0, movedStatus);
+    onStatusesChange(reorderedStatuses);
   }
 
   return (

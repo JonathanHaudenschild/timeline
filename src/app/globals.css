@@ -755,6 +755,28 @@ textarea {
   text-transform: uppercase;
 }
 
+.filter-bulk-actions {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.filter-mini-action {
+  min-height: 24px;
+  border-width: 2px;
+  background: var(--line);
+  color: var(--primary);
+  box-shadow: 2px 2px 0 var(--line);
+  padding: 0 7px;
+  font-size: 10px;
+  font-weight: 950;
+}
+
+.filter-mini-action::before {
+  content: "↕ ";
+  color: #fff;
+}
+
 .filter-chip {
   min-height: 26px;
   border-width: 2px;
@@ -1512,7 +1534,7 @@ tr:has(.timeline-badge.hidden) td {
 
 .column-title {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 22px 22px 22px 22px 22px;
+  grid-template-columns: minmax(0, 1fr) repeat(6, 22px);
   align-items: center;
   gap: 4px;
   color: var(--text);
@@ -2089,7 +2111,7 @@ tr:has(.timeline-badge.hidden) td {
 
   .column-title {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto auto auto;
+    grid-template-columns: minmax(0, 1fr) repeat(6, 22px);
     gap: 5px;
     padding: 4px 6px;
   }
