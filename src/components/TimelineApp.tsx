@@ -44,6 +44,8 @@ export function TimelineApp() {
   const [editingInfo, setEditingInfo] = useState(false);
   const [saveState, setSaveState] = useState<'loading' | 'saved' | 'saving' | 'error' | 'conflict'>('loading');
   const [collaborationNotice, setCollaborationNotice] = useState('');
+  const [syncState, setSyncState] = useState<'idle' | 'checking' | 'updated' | 'merged' | 'offline'>('idle');
+  const [lastSyncCheckAt, setLastSyncCheckAt] = useState('');
   const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
   const [lockedHash, setLockedHash] = useState<string | null>(null);
   const [unlockPin, setUnlockPin] = useState('');
@@ -61,6 +63,7 @@ export function TimelineApp() {
   const canSaveRef = useRef(false);
   const latestProjectRef = useRef(project);
   const loadSequenceRef = useRef(0);
+  const syncPollInFlightRef = useRef(false);
   const projectPinRef = useRef<string | undefined>(undefined);
   const pinDialogResolverRef = useRef<((result: PinDialogResult | null) => void) | null>(null);
   const topRef = useRef<HTMLElement | null>(null);
@@ -227,32 +230,70 @@ export function TimelineApp() {
   useEffect(() => {
     if (!canSaveRef.current || lockedHash) return;
 
-    const interval = window.setInterval(() => {
+    let cancelled = false;
+
+    async function checkRemoteProject() {
       if (document.hidden || !canSaveRef.current || lockedHash) return;
+      if (syncPollInFlightRef.current) return;
 
-      const currentProject = latestProjectRef.current;
-      fetchProject(currentProject.hash, projectPinRef.current)
-        .then((remoteProject) => {
-          const remoteJson = JSON.stringify(remoteProject);
-          if (remoteJson === lastSavedJsonRef.current) return;
+      syncPollInFlightRef.current = true;
+      setSyncState('checking');
+      try {
+        const currentProject = latestProjectRef.current;
+        const remoteProject = await fetchProject(currentProject.hash, projectPinRef.current);
+        if (cancelled) return;
 
-          if (JSON.stringify(latestProjectRef.current) === lastSavedJsonRef.current) {
-            lastSavedJsonRef.current = remoteJson;
-            setProject(remoteProject);
-            clearUnsavedProjectBackup(remoteProject.hash);
-            setCollaborationNotice('Updated from another device.');
-            setSaveState('saved');
-            return;
-          }
+        const remoteJson = JSON.stringify(remoteProject);
+        setLastSyncCheckAt(formatSyncTime(new Date()));
+        if (remoteJson === lastSavedJsonRef.current) {
+          setSyncState('idle');
+          return;
+        }
 
-          setCollaborationNotice('Newer changes exist on another device. Your local edits will be merged on save.');
-        })
-        .catch(() => {
-          // Polling should never interrupt local editing.
-        });
-    }, 10_000);
+        const localJson = JSON.stringify(latestProjectRef.current);
+        if (localJson === lastSavedJsonRef.current) {
+          lastSavedJsonRef.current = remoteJson;
+          setProject(remoteProject);
+          clearUnsavedProjectBackup(remoteProject.hash);
+          setCollaborationNotice('Updated from another device.');
+          setSaveState('saved');
+          setSyncState('updated');
+          return;
+        }
 
-    return () => window.clearInterval(interval);
+        const baseProject = parseProjectJson(lastSavedJsonRef.current) ?? latestProjectRef.current;
+        const mergedProject = mergeProjectChanges(baseProject, latestProjectRef.current, remoteProject);
+        lastSavedJsonRef.current = remoteJson;
+        canSaveRef.current = true;
+        setProject(mergedProject);
+        saveUnsavedProjectBackup(mergedProject, remoteProject);
+        setSaveState('conflict');
+        setSyncState('merged');
+        setCollaborationNotice('Merged another device into your local edits. Autosaving the merged version now.');
+      } catch {
+        if (!cancelled) setSyncState('offline');
+      } finally {
+        syncPollInFlightRef.current = false;
+      }
+    }
+
+    const interval = window.setInterval(() => {
+      void checkRemoteProject();
+    }, 3_000);
+
+    function checkWhenVisible() {
+      if (!document.hidden) void checkRemoteProject();
+    }
+
+    window.addEventListener('focus', checkWhenVisible);
+    document.addEventListener('visibilitychange', checkWhenVisible);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener('focus', checkWhenVisible);
+      document.removeEventListener('visibilitychange', checkWhenVisible);
+    };
   }, [lockedHash]);
 
   const selectedEvent = project.events.find((event) => event.id === selectedEventId);
@@ -946,6 +987,7 @@ export function TimelineApp() {
         <div className="section-heading">
           <h2>Important info</h2>
           <span className={`save-state ${saveState}`}>{saveState}</span>
+          <span className={`sync-state ${syncState}`}>{syncStatusLabel(syncState, lastSyncCheckAt)}</span>
           {canEdit ? (
             <button type="button" onClick={() => setEditingInfo((value) => !value)}>
               {editingInfo ? 'Preview' : 'Edit'}
@@ -1558,6 +1600,22 @@ function uniqueConflictId(baseId: string, items: ReadonlyMap<string, unknown>) {
 
 function changed(left: unknown, right: unknown) {
   return JSON.stringify(left) !== JSON.stringify(right);
+}
+
+function formatSyncTime(date: Date) {
+  return date.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
+function syncStatusLabel(status: 'idle' | 'checking' | 'updated' | 'merged' | 'offline', lastCheckedAt: string) {
+  if (status === 'checking') return 'sync checking';
+  if (status === 'updated') return `synced ${lastCheckedAt}`;
+  if (status === 'merged') return `merged ${lastCheckedAt}`;
+  if (status === 'offline') return 'sync offline';
+  return lastCheckedAt ? `checked ${lastCheckedAt}` : 'sync ready';
 }
 
 const projectPinSessionTtlMs = 30 * 60 * 1000;

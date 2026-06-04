@@ -14,8 +14,7 @@ function escapeHtml(value: string) {
 }
 
 function inlineMarkdown(value: string) {
-  return escapeHtml(value)
-    .replace(/\[color=(#[0-9a-fA-F]{3,6})\](.*?)\[\/color\]/g, '<span style="color: $1">$2</span>')
+  return renderColorSpans(value)
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/(^|[^*])\*(?!\s)([^*]+?)\*(?!\*)/g, '$1<em>$2</em>')
     .replace(/_(?!\s)([^_]+?)_/g, '<em>$1</em>')
@@ -23,6 +22,22 @@ function inlineMarkdown(value: string) {
     .replace(/~~(.*?)~~/g, '<s>$1</s>')
     .replace(/`(.*?)`/g, '<code>$1</code>')
     .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
+}
+
+function renderColorSpans(value: string) {
+  const parts: string[] = [];
+  const colorPattern = /\[color=(#[0-9a-fA-F]{3}|#[0-9a-fA-F]{6})\]([\s\S]*?)\[\/color\]/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = colorPattern.exec(value))) {
+    parts.push(escapeHtml(value.slice(lastIndex, match.index)));
+    parts.push(`<span class="markdown-color-text" style="color: ${match[1]}">${escapeHtml(match[2])}</span>`);
+    lastIndex = match.index + match[0].length;
+  }
+
+  parts.push(escapeHtml(value.slice(lastIndex)));
+  return parts.join('');
 }
 
 export function renderMarkdown(markdown: string) {

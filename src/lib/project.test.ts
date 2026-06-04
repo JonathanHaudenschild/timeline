@@ -242,7 +242,7 @@ describe('project helpers', () => {
     expect(html).toContain('<em>italic</em>');
     expect(html).toContain('<u>under</u>');
     expect(html).toContain('<s>gone</s>');
-    expect(html).toContain('<span style="color: #e53935">red <strong>bold</strong></span>');
+    expect(html).toContain('<span class="markdown-color-text" style="color: #e53935">red <strong>bold</strong></span>');
     expect(html).toContain('<ol>');
     expect(html).toContain('type="checkbox" disabled checked');
     expect(html).toContain('<blockquote>Quote</blockquote>');

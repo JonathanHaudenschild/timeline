@@ -65,7 +65,6 @@ export function MeetingProtocols({
     isNew: boolean;
   } | null>(null);
   const [search, setSearch] = useState('');
-  const [entrySearch, setEntrySearch] = useState('');
   const [timerTick, setTimerTick] = useState(0);
   const selectedProtocol = protocols.find((protocol) => protocol.id === selectedProtocolId) ?? protocols[0];
   const selectedProtocolDuration = selectedProtocol ? currentProtocolDuration(selectedProtocol, timerTick) : 0;
@@ -77,8 +76,8 @@ export function MeetingProtocols({
     return protocols.filter((protocol) => protocolMatchesQuery(protocol, query, timerTick));
   }, [protocols, search, timerTick]);
   const overviewItems = useMemo(
-    () => buildProtocolOverviewItems(protocols, [search, entrySearch].filter(Boolean).join(' '), timerTick),
-    [protocols, search, entrySearch, timerTick],
+    () => buildProtocolOverviewItems(protocols, search, timerTick),
+    [protocols, search, timerTick],
   );
 
   useEffect(() => {
@@ -252,14 +251,6 @@ export function MeetingProtocols({
         <h2>Protocols</h2>
         <div className="heading-actions protocol-heading-actions">
           <span>{filteredProtocols.length} / {protocols.length}</span>
-          <label className="search-control protocol-search-control">
-            <span>Search</span>
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Date, person, update, topic, to-do"
-            />
-          </label>
           <button
             type="button"
             className={`event-table-toggle ${isMinimized ? 'collapsed' : 'expanded'}`}
@@ -276,6 +267,14 @@ export function MeetingProtocols({
       {isMinimized ? null : (
         <div className="protocol-workspace">
           <aside className="protocol-list" aria-label="Meeting protocols">
+            <label className="search-control protocol-search-control">
+              <span>Search</span>
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Date, person, update, topic, to-do"
+              />
+            </label>
             <div className="protocol-list-toggle segmented">
               <button
                 type="button"
@@ -294,14 +293,6 @@ export function MeetingProtocols({
             </div>
             {showProtocolEntries ? (
               <>
-                <label className="search-control protocol-entry-search-control">
-                  <span>Find</span>
-                  <input
-                    value={entrySearch}
-                    onChange={(event) => setEntrySearch(event.target.value)}
-                    placeholder="Entry text, name, section"
-                  />
-                </label>
                 {overviewItems.length ? (
                   overviewItems.map((item) => (
                     <button
@@ -333,7 +324,7 @@ export function MeetingProtocols({
                   onClick={() => setSelectedProtocolId(protocol.id)}
                 >
                   <b>{protocol.title}</b>
-                  <span>{[protocol.date, formatProtocolDuration(currentProtocolDuration(protocol, timerTick))].filter(Boolean).join(' · ')}</span>
+                  <span>{formatProtocolOverviewMeta(protocol, timerTick)}</span>
                   <small>{protocol.updates.length} updates · {protocol.topics.length} topics · {protocol.todos.length} to-dos</small>
                 </button>
               ))
@@ -344,7 +335,7 @@ export function MeetingProtocols({
           {selectedProtocol ? (
             <div className="protocol-detail">
               <div className="protocol-meta-grid">
-                <label>
+                <label className="protocol-meta-control protocol-title-control">
                   <span>Title</span>
                   <input
                     value={selectedProtocol.title}
@@ -352,7 +343,7 @@ export function MeetingProtocols({
                     placeholder="Tägliches Platz-Plenum"
                   />
                 </label>
-                <label>
+                <label className="protocol-meta-control protocol-date-control">
                   <span>Date</span>
                   <input
                     type="date"
@@ -360,7 +351,7 @@ export function MeetingProtocols({
                     onChange={(event) => updateDate(event.target.value)}
                   />
                 </label>
-                <label>
+                <label className="protocol-meta-control protocol-duration-control">
                   <span>Duration</span>
                   <div className="protocol-timer-control">
                     <strong>{formatProtocolDuration(selectedProtocolDuration)}</strong>
@@ -630,17 +621,12 @@ function buildProtocolOverviewItems(protocols: MeetingProtocol[], search: string
         protocolId: protocol.id,
         kind: section.kind,
         title: item.title,
-        meta: [
-          protocol.title,
-          protocol.date,
-          formatProtocolDuration(currentProtocolDuration(protocol, now)),
-          section.title,
-          item.owner,
-        ].filter(Boolean).join(' · '),
+        meta: [formatProtocolOverviewMeta(protocol, now), section.title, item.owner].filter(Boolean).join(' · '),
         body: item.body,
         searchable: [
           protocol.title,
           protocol.date,
+          formatProtocolOverviewDate(protocol.date),
           formatProtocolDuration(currentProtocolDuration(protocol, now)),
           section.title,
           item.title,
@@ -660,6 +646,7 @@ function protocolMatchesQuery(protocol: MeetingProtocol, query: string, now: num
   return [
     protocol.title,
     protocol.date,
+    formatProtocolOverviewDate(protocol.date),
     formatProtocolDuration(currentProtocolDuration(protocol, now)),
     protocol.moderation,
     protocol.protocolWriter,
@@ -676,6 +663,21 @@ function protocolMatchesQuery(protocol: MeetingProtocol, query: string, now: num
 
 function itemMatchesQuery(item: MeetingProtocolItem, query: string) {
   return [item.title, item.owner, item.body].join(' ').toLowerCase().includes(query);
+}
+
+function formatProtocolOverviewMeta(protocol: MeetingProtocol, now: number) {
+  return `${formatProtocolOverviewDate(protocol.date)} - ${formatProtocolDuration(currentProtocolDuration(protocol, now))}`;
+}
+
+function formatProtocolOverviewDate(date: string) {
+  const parsedDate = new Date(`${date}T12:00:00`);
+  if (Number.isNaN(parsedDate.getTime())) return date;
+
+  const weekday = parsedDate.toLocaleDateString('de-DE', { weekday: 'short' }).replace('.', '').toUpperCase();
+  const month = String(parsedDate.getMonth() + 1).padStart(2, '0');
+  const day = String(parsedDate.getDate()).padStart(2, '0');
+
+  return `${weekday} - ${month}.${day}.${parsedDate.getFullYear()}`;
 }
 
 function withCurrentDuration(protocol: MeetingProtocol, now: number): MeetingProtocol {
