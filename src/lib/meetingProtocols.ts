@@ -179,6 +179,41 @@ export function protocolItemLabel(kind: ProtocolItemKind) {
   return 'To-Do';
 }
 
+export function mergeMeetingProtocols(
+  baseProtocols: MeetingProtocol[],
+  localProtocols: MeetingProtocol[],
+  remoteProtocols: MeetingProtocol[],
+) {
+  const mergedProtocols = mergeById(baseProtocols, localProtocols, remoteProtocols);
+
+  return mergedProtocols.map((protocol) => {
+    const baseProtocol = baseProtocols.find((item) => item.id === protocol.id);
+    const localProtocol = localProtocols.find((item) => item.id === protocol.id);
+    const remoteProtocol = remoteProtocols.find((item) => item.id === protocol.id);
+    if (!baseProtocol || !localProtocol || !remoteProtocol) return protocol;
+
+    return {
+      ...protocol,
+      title: changed(baseProtocol.title, localProtocol.title) ? localProtocol.title : remoteProtocol.title,
+      date: changed(baseProtocol.date, localProtocol.date) ? localProtocol.date : remoteProtocol.date,
+      moderation: changed(baseProtocol.moderation, localProtocol.moderation)
+        ? localProtocol.moderation
+        : remoteProtocol.moderation,
+      protocolWriter: changed(baseProtocol.protocolWriter, localProtocol.protocolWriter)
+        ? localProtocol.protocolWriter
+        : remoteProtocol.protocolWriter,
+      todoOwner: changed(baseProtocol.todoOwner, localProtocol.todoOwner)
+        ? localProtocol.todoOwner
+        : remoteProtocol.todoOwner,
+      body: changed(baseProtocol.body, localProtocol.body) ? localProtocol.body : remoteProtocol.body,
+      updates: mergeById(baseProtocol.updates, localProtocol.updates, remoteProtocol.updates),
+      topics: mergeById(baseProtocol.topics, localProtocol.topics, remoteProtocol.topics),
+      todos: mergeById(baseProtocol.todos, localProtocol.todos, remoteProtocol.todos),
+      updatedAt: latestString(localProtocol.updatedAt, remoteProtocol.updatedAt),
+    };
+  });
+}
+
 function normalizeProtocolItems(
   items: readonly Partial<MeetingProtocolItem>[] | undefined,
   fallbackTitle: string,
@@ -269,4 +304,33 @@ function slugify(input: string) {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 36);
+}
+
+function mergeById<T extends { id: string }>(baseItems: readonly T[], localItems: readonly T[], remoteItems: readonly T[]) {
+  const result = new Map(remoteItems.map((item) => [item.id, item]));
+  const baseById = new Map(baseItems.map((item) => [item.id, item]));
+  const localById = new Map(localItems.map((item) => [item.id, item]));
+
+  for (const [id, localItem] of localById) {
+    const baseItem = baseById.get(id);
+    if (!baseItem || changed(baseItem, localItem)) {
+      result.set(id, localItem);
+    }
+  }
+
+  for (const [id, baseItem] of baseById) {
+    if (localById.has(id)) continue;
+    const remoteItem = result.get(id);
+    if (!remoteItem || !changed(baseItem, remoteItem)) result.delete(id);
+  }
+
+  return [...result.values()];
+}
+
+function latestString(left: string, right: string) {
+  return left > right ? left : right;
+}
+
+function changed(left: unknown, right: unknown) {
+  return JSON.stringify(left) !== JSON.stringify(right);
 }

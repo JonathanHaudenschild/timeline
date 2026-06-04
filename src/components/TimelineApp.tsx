@@ -14,7 +14,7 @@ import { TodoEditor } from './TodoEditor';
 import { fetchProject, importProjectFile, LockedProjectError, persistProject, ProjectConflictError } from '@/lib/api';
 import { formatShortGermanDateRange } from '@/lib/dateFormat';
 import { createDefaultProject, normalizeHash } from '@/lib/project';
-import { normalizeMeetingProtocols } from '@/lib/meetingProtocols';
+import { mergeMeetingProtocols, normalizeMeetingProtocols } from '@/lib/meetingProtocols';
 import { ensureProjectHash } from '@/lib/storage';
 import { moveTodoBetweenBoards, normalizeTodoBoards, syncProjectTodoBoard } from '@/lib/todoBoards';
 import { normalizeCompletedTodoStatus, normalizeTodoStatuses, renameTodoStatus } from '@/lib/todos';
@@ -1380,7 +1380,7 @@ function mergeProjectChanges(baseProject: TimelineProject, localProject: Timelin
       ? localProject.infoMarkdown
       : remoteProject.infoMarkdown,
     events: mergeById(baseProject.events, localProject.events, remoteProject.events),
-    meetingProtocols: mergeById(
+    meetingProtocols: mergeMeetingProtocols(
       normalizeMeetingProtocols(baseProject.meetingProtocols),
       normalizeMeetingProtocols(localProject.meetingProtocols),
       normalizeMeetingProtocols(remoteProject.meetingProtocols),

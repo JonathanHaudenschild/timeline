@@ -6,7 +6,12 @@ import {
   projectStorageKey,
 } from './project';
 import { formatShortGermanDate, formatShortGermanDateRange } from './dateFormat';
-import { createMeetingProtocolTemplate, extractProtocolHeadlines, normalizeMeetingProtocols } from './meetingProtocols';
+import {
+  createMeetingProtocolTemplate,
+  extractProtocolHeadlines,
+  mergeMeetingProtocols,
+  normalizeMeetingProtocols,
+} from './meetingProtocols';
 import { ensureProjectHash } from './storage';
 import { moveTodoBetweenBoards, normalizeTodoBoards, syncProjectTodoBoard } from './todoBoards';
 import { isTodoCompleted, normalizeCompletedTodoStatus, normalizeTodoStatuses, renameTodoStatus } from './todos';
@@ -266,5 +271,36 @@ describe('project helpers', () => {
     const headlines = extractProtocolHeadlines('# Main\nText\n## Thema A\n- detail').map((headline) => headline.text);
 
     expect(headlines).toEqual(['Main', 'Thema A']);
+  });
+
+  it('merges different nested protocol edits without dropping either side', () => {
+    const [baseProtocol] = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        title: 'Samstag 06.06.26',
+        updates: [{ id: 'update-1', title: 'Update A', owner: 'Alex', body: 'base update' }],
+        topics: [{ id: 'topic-1', title: 'Topic A', owner: 'Mika', body: 'base topic' }],
+        todos: [],
+        body: 'base notes',
+        updatedAt: '2026-06-06T10:00:00.000Z',
+      },
+    ]);
+    const localProtocol = {
+      ...baseProtocol,
+      updates: [{ ...baseProtocol.updates[0], body: 'local update' }],
+      updatedAt: '2026-06-06T10:05:00.000Z',
+    };
+    const remoteProtocol = {
+      ...baseProtocol,
+      topics: [{ ...baseProtocol.topics[0], body: 'remote topic' }],
+      updatedAt: '2026-06-06T10:06:00.000Z',
+    };
+
+    const [merged] = mergeMeetingProtocols([baseProtocol], [localProtocol], [remoteProtocol]);
+
+    expect(merged.updates[0].body).toBe('local update');
+    expect(merged.topics[0].body).toBe('remote topic');
+    expect(merged.updatedAt).toBe('2026-06-06T10:06:00.000Z');
   });
 });
