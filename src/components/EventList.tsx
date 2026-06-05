@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { CalendarPlus, CalendarX, Eye, EyeOff, ListTodo } from 'lucide-react';
+import { useAppDialog } from './AppDialog';
 import { MarkdownBlock } from './MarkdownBlock';
 import { formatShortGermanDateRange } from '@/lib/dateFormat';
 import type { TimelineEvent } from '@/lib/types';
@@ -46,6 +47,7 @@ export function EventList({
   onCopyLink,
   linkCopied,
 }: EventListProps) {
+  const appDialog = useAppDialog();
   const [sortKey, setSortKey] = usePersistentState<SortKey>('timeline:ui:event-list-sort-key', 'date');
   const [sortDirection, setSortDirection] = usePersistentState<SortDirection>('timeline:ui:event-list-sort-direction', 'asc');
   const [isMinimized, setIsMinimized] = usePersistentState('timeline:ui:event-list-minimized', true);
@@ -310,9 +312,16 @@ export function EventList({
                         className="icon-button danger"
                         onClick={(click) => {
                           click.stopPropagation();
-                          if (window.confirm(`Delete "${event.what}"?`)) {
-                            onDelete(event.id);
-                          }
+                          void appDialog
+                            .confirm({
+                              title: 'Delete event?',
+                              message: `Delete "${event.what}"?`,
+                              confirmLabel: 'Delete event',
+                              tone: 'danger',
+                            })
+                            .then((confirmed) => {
+                              if (confirmed) onDelete(event.id);
+                            });
                         }}
                         aria-label={`Delete ${event.what}`}
                       >
@@ -326,6 +335,7 @@ export function EventList({
           </tbody>
         </table>
       </div>
+      {appDialog.dialog}
     </section>
   );
 }

@@ -21,6 +21,7 @@ import {
   Users,
   Wrench,
 } from 'lucide-react';
+import { useAppDialog } from './AppDialog';
 import type { StickyLink } from '@/lib/types';
 import { usePersistentState } from '@/lib/usePersistentState';
 
@@ -78,6 +79,7 @@ const iconOptions: Array<{ value: LinkIconName; label: string }> = [
 ];
 
 export function StickyLinks({ links, canEdit, onChange }: StickyLinksProps) {
+  const appDialog = useAppDialog();
   const [draftLink, setDraftLink] = useState<StickyLink | null>(null);
   const [isCollapsed, setIsCollapsed] = usePersistentState('timeline:ui:sticky-links-collapsed', true);
 
@@ -184,10 +186,18 @@ export function StickyLinks({ links, canEdit, onChange }: StickyLinksProps) {
                   type="button"
                   className="secondary"
                   onClick={() => {
-                    if (window.confirm(`Delete "${draftLink.label}" link?`)) {
-                      onChange(links.filter((link) => link.id !== draftLink.id));
-                      setDraftLink(null);
-                    }
+                    void appDialog
+                      .confirm({
+                        title: 'Delete link?',
+                        message: `Delete "${draftLink.label}" link?`,
+                        confirmLabel: 'Delete link',
+                        tone: 'danger',
+                      })
+                      .then((confirmed) => {
+                        if (!confirmed) return;
+                        onChange(links.filter((link) => link.id !== draftLink.id));
+                        setDraftLink(null);
+                      });
                   }}
                 >
                   Delete
@@ -197,6 +207,7 @@ export function StickyLinks({ links, canEdit, onChange }: StickyLinksProps) {
           </form>
         </div>
       ) : null}
+      {appDialog.dialog}
     </>
   );
 }

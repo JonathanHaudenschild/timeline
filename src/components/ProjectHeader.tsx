@@ -1,6 +1,6 @@
 'use client';
 
-import { FileUp, KeyRound, Pencil, Trash2 } from 'lucide-react';
+import { FileUp, History, KeyRound, Pencil, Trash2 } from 'lucide-react';
 import type { TimelineMode, TimelineProject } from '@/lib/types';
 
 type ProjectHeaderProps = {
@@ -13,6 +13,7 @@ type ProjectHeaderProps = {
   onProjectPinChange: () => void;
   onProjectPinRemove: () => void;
   onEditPinChange: () => void;
+  onRestoreRevision: () => void;
   onImport: (file: File) => void;
 };
 
@@ -26,6 +27,7 @@ export function ProjectHeader({
   onProjectPinChange,
   onProjectPinRemove,
   onEditPinChange,
+  onRestoreRevision,
   onImport,
 }: ProjectHeaderProps) {
   return (
@@ -42,12 +44,14 @@ export function ProjectHeader({
         </label>
         <div className="hash-line">
           Share hash <code>#{project.hash}</code>
-          <span className={`save-state ${saveState}`}>{saveState}</span>
-          <span className={`sync-state ${syncState}`}>{syncLabel}</span>
         </div>
       </div>
 
       <div className="header-controls">
+        <div className="project-status-cluster" aria-label="Project save and sync status">
+          <span className={`save-state ${saveState}`}>{saveState}</span>
+          <span className={`sync-state ${syncState}`}>{syncLabel}</span>
+        </div>
         <label className="date-control">
           <span>Start</span>
           <input
@@ -103,6 +107,10 @@ export function ProjectHeader({
                 ) : null}
               </>
             ) : null}
+            <button type="button" className="secondary" onClick={onRestoreRevision}>
+              <History size={16} aria-hidden="true" />
+              <span>Restore</span>
+            </button>
             {project.settings.mode === 'edit' ? <ImportExcelButton onImport={onImport} /> : null}
           </div>
         </details>
@@ -137,6 +145,15 @@ export function ProjectHeader({
                 <Trash2 size={18} aria-hidden="true" />
               </button>
             ) : null}
+            <button
+              type="button"
+              className="icon-button secondary project-tool-button"
+              onClick={onRestoreRevision}
+              aria-label="Restore revision"
+              title="Restore revision"
+            >
+              <History size={18} aria-hidden="true" />
+            </button>
           </div>
         ) : null}
         {project.settings.mode === 'edit' ? <ImportExcelButton onImport={onImport} desktopOnly /> : null}

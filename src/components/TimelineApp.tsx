@@ -1,17 +1,28 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PointerEvent } from 'react';
 import { Eye, EyeOff, KeyRound, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useAppDialog } from './AppDialog';
 import { EventEditor } from './EventEditor';
 import { EventList } from './EventList';
 import { MarkdownBlock } from './MarkdownBlock';
 import { MeetingProtocols } from './MeetingProtocols';
 import { ProjectHeader } from './ProjectHeader';
+import { RevisionRestoreDialog } from './RevisionRestoreDialog';
 import { StickyLinks } from './StickyLinks';
 import { TimelineCanvas } from './TimelineCanvas';
 import { TodoBoard } from './TodoBoard';
-import { fetchProject, importProjectFile, LockedProjectError, persistProject, ProjectConflictError } from '@/lib/api';
+import {
+  fetchProject,
+  fetchProjectRevisions,
+  importProjectFile,
+  LockedProjectError,
+  persistProject,
+  ProjectConflictError,
+  restoreProjectRevision,
+  type ProjectRevisionSummary,
+} from '@/lib/api';
 import { formatShortGermanDateRange } from '@/lib/dateFormat';
 import { createDefaultProject, normalizeHash } from '@/lib/project';
 import { mergeMeetingProtocols, normalizeMeetingProtocols } from '@/lib/meetingProtocols';
@@ -36,6 +47,7 @@ type PinDialogResult = {
 };
 
 export function TimelineApp() {
+  const { dialog: appDialogElement, alert: showAlert, confirm: showConfirm, prompt: showPrompt } = useAppDialog();
   const [project, setProject] = useState<TimelineProject>(() => createDefaultProject('timeline'));
   const [selectedEventId, setSelectedEventId] = useState<string>();
   const [selectedTodoId, setSelectedTodoId] = useState<string>();
@@ -50,6 +62,8 @@ export function TimelineApp() {
   const [unlockPin, setUnlockPin] = useState('');
   const [lockError, setLockError] = useState('');
   const [pinDialog, setPinDialog] = useState<(PinDialogConfig & { error?: string }) | null>(null);
+  const [revisionDialogRevisions, setRevisionDialogRevisions] = useState<ProjectRevisionSummary[] | null>(null);
+  const [restoringRevision, setRestoringRevision] = useState<number | null>(null);
   const [pinDialogPin, setPinDialogPin] = useState('');
   const [pinDialogRepeat, setPinDialogRepeat] = useState('');
   const [selectedPopoverMinimized, setSelectedPopoverMinimized] = useState(false);
@@ -111,6 +125,22 @@ export function TimelineApp() {
     return () => window.removeEventListener('beforeunload', warnBeforeUnload);
   }, []);
 
+  const projectWithOptionalLocalBackup = useCallback(
+    async (loadedProject: TimelineProject) => {
+      const backup = getUnsavedProjectBackup(loadedProject.hash);
+      if (!backup || JSON.stringify(backup.project) === JSON.stringify(loadedProject)) return loadedProject;
+
+      const shouldRestore = await showConfirm({
+        title: 'Restore local edits?',
+        message: 'Found unsaved edits from this browser. Restore them now?',
+        confirmLabel: 'Restore edits',
+      });
+
+      return shouldRestore ? mergeProjectChanges(backup.baseProject, backup.project, loadedProject) : loadedProject;
+    },
+    [showConfirm],
+  );
+
   useEffect(() => {
     let cancelled = false;
     const activeHash = ensureProjectHash(window.location);
@@ -122,13 +152,7 @@ export function TimelineApp() {
       try {
         const loadedProject = await fetchProject(hash, projectPin);
         if (!cancelled && loadId === loadSequenceRef.current) {
-          const backup = getUnsavedProjectBackup(loadedProject.hash);
-          const projectToDisplay =
-            backup &&
-            JSON.stringify(backup.project) !== JSON.stringify(loadedProject) &&
-            window.confirm('Found unsaved edits from this browser. Restore them now?')
-              ? mergeProjectChanges(backup.baseProject, backup.project, loadedProject)
-              : loadedProject;
+          const projectToDisplay = await projectWithOptionalLocalBackup(loadedProject);
           projectPinRef.current = projectPin;
           if (projectPin) saveProjectPinSession(hash, projectPin);
           lastSavedJsonRef.current = JSON.stringify(loadedProject);
@@ -180,7 +204,7 @@ export function TimelineApp() {
       cancelled = true;
       window.removeEventListener('hashchange', handleHashChange);
     };
-  }, []);
+  }, [projectWithOptionalLocalBackup]);
 
   async function rebaseUnsavedChanges() {
     try {
@@ -352,11 +376,11 @@ export function TimelineApp() {
   function openTodoFromProtocol(todoId: string) {
     const board = todoBoards.find((item) => item.todos.some((todo) => todo.id === todoId));
     if (!board) {
-      window.alert('The linked todo could not be found. It may have been deleted.');
+      void showAlert({ title: 'Todo not found', message: 'The linked todo could not be found. It may have been deleted.' });
       return;
     }
     if (board.pinHash && !unlockedTodoBoardIds.includes(board.id)) {
-      window.alert('Unlock that todo board before opening the linked todo.');
+      void showAlert({ title: 'Board locked', message: 'Unlock that todo board before opening the linked todo.' });
       return;
     }
 
@@ -371,7 +395,7 @@ export function TimelineApp() {
   function openEventFromProtocol(eventId: string) {
     const event = project.events.find((item) => item.id === eventId);
     if (!event) {
-      window.alert('The linked event could not be found. It may have been deleted.');
+      void showAlert({ title: 'Event not found', message: 'The linked event could not be found. It may have been deleted.' });
       return;
     }
 
@@ -428,11 +452,15 @@ export function TimelineApp() {
   }
 
   function confirmEventCreation(message: string) {
-    return window.confirm(message);
+    return showConfirm({
+      title: 'Create event?',
+      message,
+      confirmLabel: 'Create event',
+    });
   }
 
-  function convertTodoToEvent(todo: TimelineTodo) {
-    if (!confirmEventCreation(`Create an event from todo "${todo.title || 'New todo'}"?`)) return false;
+  async function convertTodoToEvent(todo: TimelineTodo) {
+    if (!(await confirmEventCreation(`Create an event from todo "${todo.title || 'New todo'}"?`))) return false;
 
     const event: TimelineEvent = {
       id: crypto.randomUUID(),
@@ -473,7 +501,10 @@ export function TimelineApp() {
     protocolItemKind?: 'updates' | 'topics' | 'todos';
   }) {
     if (isActiveBoardLocked) {
-      window.alert('Unlock the active todo board before adding a protocol todo to it.');
+      void showAlert({
+        title: 'Board locked',
+        message: 'Unlock the active todo board before adding a protocol todo to it.',
+      });
       return;
     }
 
@@ -518,7 +549,7 @@ export function TimelineApp() {
     ));
   }
 
-  function createEventFromProtocol(source: {
+  async function createEventFromProtocol(source: {
     title: string;
     body: string;
     date: string;
@@ -526,7 +557,7 @@ export function TimelineApp() {
     protocolItemId?: string;
     protocolItemKind?: 'updates' | 'topics' | 'todos';
   }) {
-    if (!confirmEventCreation(`Create an event from "${source.title || 'this protocol'}"?`)) return;
+    if (!(await confirmEventCreation(`Create an event from "${source.title || 'this protocol'}"?`))) return;
 
     const event: TimelineEvent = {
       id: crypto.randomUUID(),
@@ -569,8 +600,13 @@ export function TimelineApp() {
     setSelectedTodoId(undefined);
   }
 
-  function addTodoBoard() {
-    const name = window.prompt('Board name')?.trim();
+  async function addTodoBoard() {
+    const name = (await showPrompt({
+      title: 'Add board',
+      label: 'Board name',
+      placeholder: 'Board name',
+      confirmLabel: 'Add board',
+    }))?.trim();
     if (!name) return;
 
     const board: TimelineTodoBoardData = {
@@ -584,15 +620,29 @@ export function TimelineApp() {
     setUnlockedTodoBoardIds((ids) => [...ids, board.id]);
   }
 
-  function renameTodoBoard(board: TimelineTodoBoardData) {
-    const name = window.prompt('Board name', board.name)?.trim();
+  async function renameTodoBoard(board: TimelineTodoBoardData) {
+    const name = (await showPrompt({
+      title: 'Rename board',
+      label: 'Board name',
+      defaultValue: board.name,
+      confirmLabel: 'Rename',
+    }))?.trim();
     if (!name) return;
     updateActiveTodoBoard({ ...board, name });
   }
 
-  function deleteTodoBoard(board: TimelineTodoBoardData) {
+  async function deleteTodoBoard(board: TimelineTodoBoardData) {
     if (todoBoards.length <= 1) return;
-    if (!window.confirm(`Delete board "${board.name}" and all its todos?`)) return;
+    if (
+      !(await showConfirm({
+        title: 'Delete board?',
+        message: `Delete board "${board.name}" and all its todos?`,
+        confirmLabel: 'Delete board',
+        tone: 'danger',
+      }))
+    ) {
+      return;
+    }
 
     const nextBoards = todoBoards.filter((item) => item.id !== board.id);
     updateTodoBoards(nextBoards, nextBoards[0].id);
@@ -640,7 +690,7 @@ export function TimelineApp() {
         <button
           type="button"
           className="icon-button secondary todo-board-tool-button"
-          onClick={() => renameTodoBoard(activeBoard)}
+          onClick={() => void renameTodoBoard(activeBoard)}
           aria-label="Rename todo board"
           title="Rename board"
         >
@@ -670,7 +720,7 @@ export function TimelineApp() {
           <button
             type="button"
             className="icon-button danger todo-board-tool-button"
-            onClick={() => deleteTodoBoard(activeBoard)}
+            onClick={() => void deleteTodoBoard(activeBoard)}
             aria-label="Delete todo board"
             title="Delete board"
           >
@@ -682,8 +732,6 @@ export function TimelineApp() {
   }
 
   function createEvent(moment: { date: string; time: string }) {
-    if (!confirmEventCreation(`Create a new event on ${moment.date} at ${moment.time}?`)) return;
-
     setDraftEvent({
       id: crypto.randomUUID(),
       date: moment.date,
@@ -706,6 +754,24 @@ export function TimelineApp() {
       : [...project.events, draftEvent];
     updateProject({ ...project, events });
     selectEvent(draftEvent.id);
+    setDraftEvent(null);
+  }
+
+  async function deleteDraftEvent() {
+    if (!draftEvent) return;
+    if (
+      !(await showConfirm({
+        title: 'Delete event?',
+        message: `Delete event "${draftEvent.what || 'New event'}"?`,
+        confirmLabel: 'Delete event',
+        tone: 'danger',
+      }))
+    ) {
+      return;
+    }
+
+    updateProject({ ...project, events: project.events.filter((event) => event.id !== draftEvent.id) });
+    if (selectedEventId === draftEvent.id) selectEvent(undefined);
     setDraftEvent(null);
   }
 
@@ -825,6 +891,66 @@ export function TimelineApp() {
         viewPinHash: undefined,
       },
     });
+  }
+
+  async function restoreRevision() {
+    try {
+      const { revisions } = await fetchProjectRevisions(project.hash, projectPinRef.current);
+      if (!revisions.length) {
+        await showAlert({
+          title: 'No revisions',
+          message: 'No revisions found for this project yet.',
+        });
+        return;
+      }
+
+      setRevisionDialogRevisions(revisions);
+    } catch (error) {
+      setSaveState('error');
+      await showAlert({
+        title: 'Revisions unavailable',
+        message: error instanceof Error ? error.message : 'Unable to load revisions.',
+      });
+    }
+  }
+
+  async function restoreSelectedRevision(revision: ProjectRevisionSummary) {
+    if (revision.revision === project.revision || restoringRevision !== null) return;
+
+    if (
+      !(await showConfirm({
+        title: `Restore r${revision.revision}?`,
+        message: `${revision.name || 'Untitled project'}\n${revision.startDate} to ${revision.endDate}\n${revision.eventCount} events, ${revision.todoCount} todos, ${revision.protocolCount} protocols\n\nThis creates a new current revision and keeps revision history.`,
+        confirmLabel: 'Restore',
+      }))
+    ) {
+      return;
+    }
+
+    try {
+      setRestoringRevision(revision.revision);
+      setSaveState('saving');
+      const restoredProject = await restoreProjectRevision(project.hash, revision.revision, projectPinRef.current);
+      lastSavedJsonRef.current = JSON.stringify(restoredProject);
+      clearUnsavedProjectBackup(restoredProject.hash);
+      canSaveRef.current = true;
+      setProject(restoredProject);
+      setRevisionDialogRevisions(null);
+      setDraftEvent(null);
+      setSelectedEventId(undefined);
+      setSelectedTodoId(undefined);
+      setSaveState('saved');
+      setSyncState('updated');
+      setCollaborationNotice(`Restored revision ${revision.revision}.`);
+    } catch (error) {
+      setSaveState('error');
+      await showAlert({
+        title: 'Restore failed',
+        message: error instanceof Error ? error.message : 'Unable to restore revision.',
+      });
+    } finally {
+      setRestoringRevision(null);
+    }
   }
 
   async function verifyCurrentProjectPin(title: string, description: string) {
@@ -1005,7 +1131,13 @@ export function TimelineApp() {
         window.setTimeout(() => setCopiedSectionLink(''), 1800);
       })
       .catch(() => {
-        window.prompt('Copy this link', link);
+        void showPrompt({
+          title: 'Copy link',
+          message: 'Clipboard access is blocked. Copy this link manually.',
+          label: 'Link',
+          defaultValue: link,
+          confirmLabel: 'Done',
+        });
       });
   }
 
@@ -1054,14 +1186,8 @@ export function TimelineApp() {
             onSubmit={(event) => {
               event.preventDefault();
               void fetchProject(lockedHash, unlockPin)
-                .then((loadedProject) => {
-                  const backup = getUnsavedProjectBackup(loadedProject.hash);
-                  const projectToDisplay =
-                    backup &&
-                    JSON.stringify(backup.project) !== JSON.stringify(loadedProject) &&
-                    window.confirm('Found unsaved edits from this browser. Restore them now?')
-                      ? mergeProjectChanges(backup.baseProject, backup.project, loadedProject)
-                      : loadedProject;
+                .then(async (loadedProject) => {
+                  const projectToDisplay = await projectWithOptionalLocalBackup(loadedProject);
                   projectPinRef.current = unlockPin;
                   saveProjectPinSession(lockedHash, unlockPin);
                   lastSavedJsonRef.current = JSON.stringify(loadedProject);
@@ -1094,6 +1220,7 @@ export function TimelineApp() {
             <button type="submit">Unlock project</button>
           </form>
         </section>
+        {appDialogElement}
       </main>
     );
   }
@@ -1148,6 +1275,9 @@ export function TimelineApp() {
         onEditPinChange={() => {
           void changeEditPin();
         }}
+        onRestoreRevision={() => {
+          void restoreRevision();
+        }}
         onImport={(file) => {
           setSaveState('saving');
           importProjectFile(project.hash, file, projectPinRef.current)
@@ -1164,7 +1294,10 @@ export function TimelineApp() {
               setSaveState('error');
               if (error instanceof ProjectConflictError) {
                 canSaveRef.current = false;
-                window.alert('This project changed somewhere else. Import was not saved over newer data.');
+                void showAlert({
+                  title: 'Import not saved',
+                  message: 'This project changed somewhere else. Import was not saved over newer data.',
+                });
               }
             });
         }}
@@ -1260,6 +1393,7 @@ export function TimelineApp() {
           onChange={setDraftEvent}
           onCancel={() => setDraftEvent(null)}
           onSave={saveEvent}
+          onDelete={deleteDraftEvent}
           modal
         />
       ) : null}
@@ -1504,12 +1638,36 @@ export function TimelineApp() {
           type="button"
           className="secondary"
           onClick={() => {
-            window.location.hash = normalizeHash(window.prompt('New timeline hash') || '');
+            void showPrompt({
+                title: 'Open project',
+                label: 'Project hash',
+                placeholder: 'timeline',
+                confirmLabel: 'Open',
+              })
+              .then((hash) => {
+                if (hash) window.location.hash = normalizeHash(hash);
+              });
           }}
         >
           New project
         </button>
       </footer>
+
+      {revisionDialogRevisions ? (
+        <RevisionRestoreDialog
+          currentRevision={project.revision}
+          revisions={revisionDialogRevisions}
+          restoringRevision={restoringRevision}
+          onClose={() => {
+            if (restoringRevision === null) setRevisionDialogRevisions(null);
+          }}
+          onRestore={(revision) => {
+            void restoreSelectedRevision(revision);
+          }}
+        />
+      ) : null}
+
+      {appDialogElement}
 
       {pinDialog ? (
         <PinDialog

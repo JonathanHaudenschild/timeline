@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Pencil, Plus } from 'lucide-react';
+import { useAppDialog } from './AppDialog';
 import { MarkdownBlock } from './MarkdownBlock';
 import { TodoEditor } from './TodoEditor';
 import type { TimelineTodo, TodoStatus } from '@/lib/types';
@@ -22,7 +23,7 @@ type TodoBoardProps = {
   onTodoOpened?: () => void;
   onChange: (todos: TimelineTodo[]) => void;
   onMoveTodoToBoard: (todo: TimelineTodo, targetBoardId: string) => void;
-  onConvertTodoToEvent: (todo: TimelineTodo) => boolean | void;
+  onConvertTodoToEvent: (todo: TimelineTodo) => boolean | void | Promise<boolean | void>;
   onStatusesChange: (statuses: TodoStatus[]) => void;
   onRenameStatus: (fromStatus: TodoStatus, toStatus: TodoStatus) => void;
   renderBoardActions?: () => ReactNode;
@@ -44,6 +45,7 @@ export function TodoBoard({
   onRenameStatus,
   renderBoardActions,
 }: TodoBoardProps) {
+  const appDialog = useAppDialog();
   const [draftTodo, setDraftTodo] = useState<TimelineTodo | null>(null);
   const [draggedTodoId, setDraggedTodoId] = useState<string | null>(null);
   const [dropStatus, setDropStatus] = useState<TodoStatus | null>(null);
@@ -89,6 +91,31 @@ export function TodoBoard({
     onChange(exists ? todos.map((todo) => (todo.id === todoForSave.id ? todoForSave : todo)) : [...todos, todoForSave]);
     setDraftTodo(null);
     onTodoOpened?.();
+  }
+
+  async function deleteTodo(todoToDelete: TimelineTodo) {
+    if (
+      !(await appDialog.confirm({
+        title: 'Delete todo?',
+        message: `Delete todo "${todoToDelete.title || 'New todo'}"?`,
+        confirmLabel: 'Delete todo',
+        tone: 'danger',
+      }))
+    ) {
+      return;
+    }
+    onChange(todos.filter((todo) => todo.id !== todoToDelete.id));
+    setDraftTodo(null);
+    onTodoOpened?.();
+  }
+
+  function confirmRemoveStatus(status: TodoStatus) {
+    return appDialog.confirm({
+      title: 'Remove column?',
+      message: `Remove "${formatTodoStatus(status)}" column?`,
+      confirmLabel: 'Remove column',
+      tone: 'danger',
+    });
   }
 
   function moveTodo(todoId: string, status: TodoStatus) {
@@ -238,8 +265,9 @@ export function TodoBoard({
             onTodoOpened?.();
           }}
           onSave={() => saveTodo(editorDraftTodo)}
-          onConvertToEvent={() => {
-            const converted = onConvertTodoToEvent(editorDraftTodo);
+          onDelete={() => void deleteTodo(editorDraftTodo)}
+          onConvertToEvent={async () => {
+            const converted = await onConvertTodoToEvent(editorDraftTodo);
             if (converted === false) return;
             setDraftTodo(null);
             onTodoOpened?.();
@@ -369,9 +397,9 @@ export function TodoBoard({
                         className="column-remove"
                         onClick={(event) => {
                           event.stopPropagation();
-                          if (window.confirm(`Remove "${formatTodoStatus(status)}" column?`)) {
-                            removeStatus(status);
-                          }
+                          void confirmRemoveStatus(status).then((confirmed) => {
+                            if (confirmed) removeStatus(status);
+                          });
                         }}
                         aria-label={`Remove ${formatTodoStatus(status)} column`}
                         title="Remove column"
@@ -493,9 +521,16 @@ export function TodoBoard({
                         className="icon-button danger"
                         onClick={(event) => {
                           event.stopPropagation();
-                          if (window.confirm(`Delete "${todo.title}"?`)) {
-                            onChange(todos.filter((item) => item.id !== todo.id));
-                          }
+                          void appDialog
+                            .confirm({
+                              title: 'Delete todo?',
+                              message: `Delete "${todo.title}"?`,
+                              confirmLabel: 'Delete todo',
+                              tone: 'danger',
+                            })
+                            .then((confirmed) => {
+                              if (confirmed) onChange(todos.filter((item) => item.id !== todo.id));
+                            });
                         }}
                         aria-label={`Delete ${todo.title}`}
                         title="Delete"
@@ -522,6 +557,7 @@ export function TodoBoard({
           );
         })}
       </div>
+      {appDialog.dialog}
     </section>
   );
 }

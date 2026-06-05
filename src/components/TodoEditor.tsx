@@ -1,6 +1,6 @@
 'use client';
 
-import { CalendarPlus, Save, X } from 'lucide-react';
+import { CalendarPlus, Save, Trash2, X } from 'lucide-react';
 import { MarkdownEditor } from './MarkdownEditor';
 import type { TimelineTodo, TodoStatus } from '@/lib/types';
 import { formatTodoStatus } from '@/lib/todos';
@@ -16,6 +16,7 @@ type TodoEditorProps = {
   onChange: (todo: TimelineTodo) => void;
   onCancel: () => void;
   onSave: () => void;
+  onDelete?: () => void;
   onConvertToEvent?: () => void;
 };
 
@@ -30,6 +31,7 @@ export function TodoEditor({
   onChange,
   onCancel,
   onSave,
+  onDelete,
   onConvertToEvent,
 }: TodoEditorProps) {
   return (
@@ -123,6 +125,11 @@ export function TodoEditor({
           <button type="button" className="icon-button secondary modal-action-icon" onClick={onCancel} aria-label="Cancel" title="Cancel">
             <X size={18} aria-hidden="true" />
           </button>
+          {onDelete ? (
+            <button type="button" className="icon-button danger modal-action-icon" onClick={onDelete} aria-label="Delete todo" title="Delete todo">
+              <Trash2 size={18} aria-hidden="true" />
+            </button>
+          ) : null}
           {onConvertToEvent ? (
             <button
               type="button"

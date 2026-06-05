@@ -169,6 +169,100 @@ export async function saveProjectToDb(project: TimelineProject) {
   }
 }
 
+export async function listProjectRevisions(hash: string) {
+  await ensureSchema();
+
+  const normalizedHash = normalizeHash(hash);
+  const result = await getPool().query<{
+    revision: string;
+    created_at: Date;
+    data: TimelineProject;
+  }>(
+    `SELECT
+       revision,
+       created_at,
+       data
+     FROM timeline_project_revisions
+     WHERE hash = $1
+     ORDER BY revision DESC
+     LIMIT 30`,
+    [normalizedHash],
+  );
+
+  return result.rows.map((row) => ({
+    ...revisionSummary(normalizedHash, row.data),
+    revision: Number(row.revision),
+    createdAt: row.created_at.toISOString(),
+  }));
+}
+
+function revisionSummary(hash: string, data: TimelineProject) {
+  const project = normalizeProject({
+    ...createDefaultProject(hash),
+    ...data,
+    hash,
+  });
+  const boards = normalizeTodoBoards(project);
+
+  return {
+    name: project.name,
+    startDate: project.startDate,
+    endDate: project.endDate,
+    eventCount: project.events.length,
+    todoCount: boards.reduce((count, board) => count + board.todos.length, 0),
+    boardCount: boards.length,
+    protocolCount: normalizeMeetingProtocols(project.meetingProtocols).length,
+  };
+}
+
+export async function restoreProjectRevision(hash: string, revision: number) {
+  await ensureSchema();
+
+  const normalizedHash = normalizeHash(hash);
+  const client = await getPool().connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const existing = await client.query<{ revision: string }>(
+      'SELECT revision FROM timeline_projects WHERE hash = $1 FOR UPDATE',
+      [normalizedHash],
+    );
+    if (!existing.rowCount) throw new ProjectConflictError();
+
+    const snapshot = await client.query<{ data: TimelineProject }>(
+      'SELECT data FROM timeline_project_revisions WHERE hash = $1 AND revision = $2',
+      [normalizedHash, revision],
+    );
+    if (!snapshot.rowCount) throw new Error('Revision not found');
+
+    const currentRevision = Number(existing.rows[0].revision);
+    const nextRevision = currentRevision + 1;
+    const restoredProject = normalizeProject({
+      ...snapshot.rows[0].data,
+      hash: normalizedHash,
+      revision: nextRevision,
+    });
+
+    const update = await client.query(
+      `UPDATE timeline_projects
+       SET data = $2, revision = $3, updated_at = now()
+       WHERE hash = $1 AND revision = $4`,
+      [restoredProject.hash, JSON.stringify(restoredProject), nextRevision, currentRevision],
+    );
+    if (!update.rowCount) throw new ProjectConflictError();
+
+    await insertProjectRevision(client, restoredProject);
+    await client.query('COMMIT');
+    return restoredProject;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function insertProjectRevision(client: PoolClient, project: TimelineProject) {
   await client.query(
     `INSERT INTO timeline_project_revisions (hash, revision, data)

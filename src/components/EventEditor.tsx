@@ -1,5 +1,6 @@
 'use client';
 
+import { Save, Trash2, X } from 'lucide-react';
 import type { TimelineEvent } from '@/lib/types';
 import { colorForType } from '@/lib/colors';
 import { MarkdownBlock } from './MarkdownBlock';
@@ -11,13 +12,14 @@ type EventEditorProps = {
   onChange: (event: TimelineEvent) => void;
   onCancel: () => void;
   onSave: () => void;
+  onDelete?: () => void;
   modal?: boolean;
 };
 
 const defaultEventTypes = ['milestone', 'meeting', 'decision', 'incident', 'review', 'note'];
 const defaultEventCategories = ['event', 'milestone', 'deadline', 'period'];
 
-export function EventEditor({ draft, events, typeColors, onChange, onCancel, onSave, modal = false }: EventEditorProps) {
+export function EventEditor({ draft, events, typeColors, onChange, onCancel, onSave, onDelete, modal = false }: EventEditorProps) {
   const eventTypes = uniqueValues([...defaultEventTypes, ...events.map((event) => event.type)]);
   const eventCategories = uniqueValues([
     ...defaultEventCategories,
@@ -142,10 +144,17 @@ export function EventEditor({ draft, events, typeColors, onChange, onCancel, onS
         </div>
       ) : null}
       <div className="action-row">
-        <button type="submit">Save event</button>
-        <button type="button" className="secondary" onClick={onCancel}>
-          Cancel
+        <button type="submit" className="icon-button modal-action-icon" aria-label="Save event" title="Save event">
+          <Save size={18} aria-hidden="true" />
         </button>
+        <button type="button" className="icon-button secondary modal-action-icon" onClick={onCancel} aria-label="Cancel" title="Cancel">
+          <X size={18} aria-hidden="true" />
+        </button>
+        {onDelete ? (
+          <button type="button" className="icon-button danger modal-action-icon" onClick={onDelete} aria-label="Delete event" title="Delete event">
+            <Trash2 size={18} aria-hidden="true" />
+          </button>
+        ) : null}
       </div>
     </form>
   );

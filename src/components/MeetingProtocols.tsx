@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
-import { BookOpen, CalendarPlus, Download, Eye, EyeOff, ListTodo, Pause, Pencil, Play, Plus, Square, Trash2 } from 'lucide-react';
+import { BookOpen, CalendarPlus, Download, Eye, EyeOff, ListTodo, Pause, Pencil, Play, Plus, Save, Square, Trash2, X } from 'lucide-react';
+import { useAppDialog } from './AppDialog';
 import { MarkdownEditor } from './MarkdownEditor';
 import { MarkdownBlock, renderMarkdown } from './MarkdownBlock';
 import {
@@ -88,6 +89,7 @@ export function MeetingProtocols({
   onOpenEvent,
   onCreateEvent,
 }: MeetingProtocolsProps) {
+  const appDialog = useAppDialog();
   const [isMinimized, setIsMinimized] = usePersistentState(`timeline:ui:meeting-protocols-minimized:${projectHash}`, false);
   const [showInstruction, setShowInstruction] = usePersistentState(`timeline:ui:meeting-protocols-instruction:${projectHash}`, true);
   const [isEditingInstruction, setIsEditingInstruction] = usePersistentState(`timeline:ui:meeting-protocols-edit-instruction:${projectHash}`, false);
@@ -228,8 +230,18 @@ export function MeetingProtocols({
     pauseTimer();
   }
 
-  function deleteProtocol() {
-    if (!selectedProtocol || !window.confirm(`Delete "${selectedProtocol.title}"?`)) return;
+  async function deleteProtocol() {
+    if (!selectedProtocol) return;
+    if (
+      !(await appDialog.confirm({
+        title: 'Delete protocol?',
+        message: `Delete "${selectedProtocol.title}"?`,
+        confirmLabel: 'Delete protocol',
+        tone: 'danger',
+      }))
+    ) {
+      return;
+    }
     onChange(protocols.filter((protocol) => protocol.id !== selectedProtocol.id));
   }
 
@@ -275,14 +287,34 @@ export function MeetingProtocols({
     });
   }
 
-  function deleteItem(kind: ProtocolItemKind, itemId: string) {
+  async function deleteItem(kind: ProtocolItemKind, itemId: string) {
     if (!selectedProtocol) return;
 
-    if (!window.confirm(`Delete this ${protocolItemLabel(kind).toLowerCase()}?`)) return;
+    if (
+      !(await appDialog.confirm({
+        title: `Delete ${protocolItemLabel(kind).toLowerCase()}?`,
+        message: `Delete this ${protocolItemLabel(kind).toLowerCase()}?`,
+        confirmLabel: 'Delete',
+        tone: 'danger',
+      }))
+    ) {
+      return;
+    }
 
     updateProtocol({
       [kind]: selectedProtocol[kind].filter((item) => item.id !== itemId),
     });
+  }
+
+  async function deleteEditingItem() {
+    if (!editingItem) return;
+    if (editingItem.isNew) {
+      setEditingItem(null);
+      return;
+    }
+
+    await deleteItem(editingItem.kind, editingItem.item.id);
+    setEditingItem(null);
   }
 
   function startDraggingProtocolItem(kind: ProtocolItemKind, itemId: string) {
@@ -331,7 +363,10 @@ export function MeetingProtocols({
     const protocolForExport = withCurrentDuration(selectedProtocol, timerTick);
     const printWindow = window.open('', '_blank', 'width=920,height=1100');
     if (!printWindow) {
-      window.alert('Please allow pop-ups to export this protocol as PDF.');
+      void appDialog.alert({
+        title: 'Export blocked',
+        message: 'Please allow pop-ups to export this protocol as PDF.',
+      });
       return;
     }
 
@@ -602,7 +637,7 @@ export function MeetingProtocols({
                 <button
                   type="button"
                   className="icon-button danger protocol-action-button"
-                  onClick={deleteProtocol}
+                  onClick={() => void deleteProtocol()}
                   aria-label="Delete protocol"
                   title="Delete protocol"
                 >
@@ -637,7 +672,7 @@ export function MeetingProtocols({
                     onAdd={() => addItem(section.kind)}
                     onToggleCollapsed={() => toggleProtocolSection(section.kind)}
                     onEdit={(item) => editItem(section.kind, item)}
-                    onDelete={(itemId) => deleteItem(section.kind, itemId)}
+                    onDelete={(itemId) => void deleteItem(section.kind, itemId)}
                     draggedItem={draggedProtocolItem}
                     isDropTarget={dropTargetKind === section.kind}
                     onDragStart={(itemId) => startDraggingProtocolItem(section.kind, itemId)}
@@ -709,14 +744,37 @@ export function MeetingProtocols({
               />
             </label>
             <div className="action-row">
-              <button type="submit">Save {protocolItemLabel(editingItem.kind).toLowerCase()}</button>
-              <button type="button" className="secondary" onClick={() => setEditingItem(null)}>
-                Cancel
+              <button
+                type="submit"
+                className="icon-button modal-action-icon"
+                aria-label={`Save ${protocolItemLabel(editingItem.kind).toLowerCase()}`}
+                title={`Save ${protocolItemLabel(editingItem.kind).toLowerCase()}`}
+              >
+                <Save size={18} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="icon-button secondary modal-action-icon"
+                onClick={() => setEditingItem(null)}
+                aria-label="Cancel"
+                title="Cancel"
+              >
+                <X size={18} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                className="icon-button danger modal-action-icon"
+                onClick={() => void deleteEditingItem()}
+                aria-label={`Delete ${protocolItemLabel(editingItem.kind).toLowerCase()}`}
+                title={`Delete ${protocolItemLabel(editingItem.kind).toLowerCase()}`}
+              >
+                <Trash2 size={18} aria-hidden="true" />
               </button>
             </div>
           </form>
         </div>
       ) : null}
+      {appDialog.dialog}
     </section>
   );
 }

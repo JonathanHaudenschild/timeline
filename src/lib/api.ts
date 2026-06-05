@@ -1,5 +1,17 @@
 import type { TimelineProject } from './types';
 
+export type ProjectRevisionSummary = {
+  revision: number;
+  createdAt: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  eventCount: number;
+  todoCount: number;
+  boardCount: number;
+  protocolCount: number;
+};
+
 export class LockedProjectError extends Error {
   constructor() {
     super('Project is locked');
@@ -80,4 +92,40 @@ export async function importProjectFile(hash: string, file: File, projectPin?: s
     importedEvents: number;
     importedLinks: number;
   };
+}
+
+export async function fetchProjectRevisions(hash: string, projectPin?: string) {
+  const response = await fetch(`/api/projects/${encodeURIComponent(hash)}/revisions`, {
+    cache: 'no-store',
+    headers: projectPinHeaders(projectPin),
+  });
+
+  if (response.status === 423) throw new LockedProjectError();
+
+  if (!response.ok) {
+    throw new Error(`Unable to load revisions (${response.status})`);
+  }
+
+  return (await response.json()) as {
+    revisions: ProjectRevisionSummary[];
+  };
+}
+
+export async function restoreProjectRevision(hash: string, revision: number, projectPin?: string) {
+  const response = await fetch(`/api/projects/${encodeURIComponent(hash)}/revisions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...projectPinHeaders(projectPin),
+    },
+    body: JSON.stringify({ revision }),
+  });
+
+  if (response.status === 423) throw new LockedProjectError();
+
+  if (!response.ok) {
+    throw new Error(`Unable to restore revision (${response.status})`);
+  }
+
+  return (await response.json()) as TimelineProject;
 }
