@@ -70,15 +70,14 @@ export function RevisionRestoreDialog({
                     role="option"
                     aria-selected={isSelected}
                   >
-                    <span className="revision-list-topline">
+                    <span className="revision-list-row">
                       <b>r{revision.revision}</b>
                       <time>{formatRevisionTimestamp(revision.createdAt)}</time>
-                      {isCurrent ? <em>current</em> : null}
-                    </span>
-                    <span className="revision-list-title">{revision.name || 'Untitled project'}</span>
-                    <span className="revision-list-meta">
-                      {revision.startDate} to {revision.endDate} · {revision.eventCount} events · {revision.todoCount} todos ·{' '}
-                      {revision.protocolCount} protocols
+                      <span className="revision-list-title">{revision.name || 'Untitled project'}</span>
+                      <span className="revision-list-meta">
+                         {revision.eventCount} events · {revision.todoCount} todos ·{' '}
+                        {revision.protocolCount} protocols
+                      </span>
                     </span>
                   </button>
                 );
@@ -134,7 +133,6 @@ export function RevisionRestoreDialog({
               if (selected) onRestore(selected);
             }}
           >
-            <RotateCcw size={17} aria-hidden="true" />
             <span>{restoringRevision === selected?.revision ? 'Restoring' : 'Restore selected'}</span>
           </button>
         </div>

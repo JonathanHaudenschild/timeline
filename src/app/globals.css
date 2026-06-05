@@ -1940,7 +1940,10 @@ textarea {
 
 .event-list {
   position: relative;
-  overflow: visible;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
+  overflow-y: visible;
 }
 
 .selected-popover {
@@ -2203,14 +2206,18 @@ textarea {
   width: 100%;
   min-width: 0;
   max-width: 100%;
-  padding: 10px;
+  align-items: start;
+  padding: 9px 10px;
   border: 1px solid rgba(36, 34, 29, 0.18);
   border-left: 5px solid rgba(36, 34, 29, 0.3);
   background: #fffef8;
   color: var(--text);
   text-align: left;
   box-shadow: none;
+  font-size: 13px;
+  line-height: 1.2;
   white-space: normal;
+  text-transform: none;
 }
 
 .revision-list-item:hover,
@@ -2226,33 +2233,39 @@ textarea {
   background: #fff8fb;
 }
 
+.revision-list-row,
 .revision-list-topline {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   min-width: 0;
   align-items: center;
+  line-height: 3;
 }
 
+.revision-list-row b,
 .revision-list-topline b,
 .revision-detail-topline b {
   min-width: 0;
   font-family: var(--mono);
-  font-size: 13px;
+  font-size: 12px;
   background: var(--ink);
   color: var(--acid);
-  padding: 3px 6px;
   overflow-wrap: anywhere;
+  line-height: 1;
 }
 
+.revision-list-row time,
 .revision-list-topline time {
   min-width: 0;
   color: var(--muted);
   font-size: 12px;
   font-weight: 900;
   overflow-wrap: anywhere;
+  line-height: 1.1;
 }
 
+.revision-list-row em,
 .revision-list-topline em {
   min-width: 0;
   border: 1px solid rgba(36, 34, 29, 0.24);
@@ -2269,19 +2282,24 @@ textarea {
 .revision-list-title {
   min-width: 0;
   max-width: 100%;
+  flex: 1 1 180px;
   overflow-wrap: anywhere;
-  font-weight: 950;
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 1.15;
   text-transform: uppercase;
 }
 
 .revision-list-meta {
   min-width: 0;
   max-width: 100%;
+  flex: 2 1 260px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
-  line-height: 1.35;
+  line-height: 1.25;
   overflow-wrap: anywhere;
+  text-transform: none;
 }
 
 .revision-empty,
@@ -2464,8 +2482,12 @@ textarea {
 }
 
 .table-wrap {
+  width: 100%;
+  min-width: 0;
   max-width: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
   scrollbar-gutter: stable;
 }
 
@@ -2649,7 +2671,7 @@ tr.event-row-alt.selected td {
 .event-inline-note {
   min-height: 30px;
   max-height: 34px;
-  resize: vertical;
+  resize: none;
   line-height: 1.25;
   font-weight: 650;
   overflow: hidden;
@@ -3987,7 +4009,7 @@ tr:has(.timeline-badge.hidden) td {
 
   .table-wrap {
     margin-inline: 0;
-    overflow: visible;
+    overflow: hidden;
   }
 
   .event-list table,
@@ -4404,15 +4426,6 @@ tr:has(.timeline-badge.hidden) td {
   .revision-list {
     max-height: min(44dvh, 380px);
     padding-right: 0;
-  }
-
-  .revision-list-topline {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .revision-list-topline em {
-    grid-column: 1 / -1;
-    justify-self: start;
   }
 
   .revision-detail {
