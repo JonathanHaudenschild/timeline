@@ -181,6 +181,7 @@ export async function saveProjectToDb(project: TimelineProject) {
       if (!update.rowCount) throw new ProjectConflictError();
 
       await insertProjectRevision(client, normalizedProject);
+      await pruneProjectRevisions(client, normalizedProject.hash, normalizedProject.revision);
       await client.query('COMMIT');
       return normalizedProject;
     }
@@ -192,6 +193,7 @@ export async function saveProjectToDb(project: TimelineProject) {
       [normalizedProject.hash, JSON.stringify(normalizedProject), normalizedProject.revision],
     );
     await insertProjectRevision(client, normalizedProject);
+    await pruneProjectRevisions(client, normalizedProject.hash, normalizedProject.revision);
     await client.query('COMMIT');
 
     return normalizedProject;
@@ -289,6 +291,7 @@ export async function restoreProjectRevision(hash: string, revision: number) {
     if (!update.rowCount) throw new ProjectConflictError();
 
     await insertProjectRevision(client, restoredProject);
+    await pruneProjectRevisions(client, restoredProject.hash, restoredProject.revision);
     await client.query('COMMIT');
     return restoredProject;
   } catch (error) {
@@ -305,6 +308,41 @@ async function insertProjectRevision(client: PoolClient, project: TimelineProjec
      VALUES ($1, $2, $3)
      ON CONFLICT (hash, revision) DO NOTHING`,
     [project.hash, project.revision, JSON.stringify(project)],
+  );
+}
+
+async function pruneProjectRevisions(client: PoolClient, hash: string, latestRevision?: number) {
+  await client.query(
+    `
+      WITH ranked_daily_revisions AS (
+        SELECT
+          id,
+          row_number() OVER (
+            PARTITION BY date_trunc('day', created_at)
+            ORDER BY created_at DESC, revision DESC
+          ) AS daily_rank
+        FROM timeline_project_revisions
+        WHERE hash = $1
+          AND created_at < now() - interval '7 days'
+          AND created_at >= now() - interval '30 days'
+          AND revision <> $2
+      ),
+      old_revisions AS (
+        SELECT id
+        FROM timeline_project_revisions
+        WHERE hash = $1
+          AND created_at < now() - interval '30 days'
+          AND revision <> $2
+      ),
+      revisions_to_delete AS (
+        SELECT id FROM ranked_daily_revisions WHERE daily_rank > 1
+        UNION
+        SELECT id FROM old_revisions
+      )
+      DELETE FROM timeline_project_revisions
+      WHERE id IN (SELECT id FROM revisions_to_delete)
+    `,
+    [hash, latestRevision ?? -1],
   );
 }
 
