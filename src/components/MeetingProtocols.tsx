@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
+import { BookOpen, CalendarPlus, Download, Eye, EyeOff, ListTodo, Pause, Pencil, Play, Plus, Square } from 'lucide-react';
 import { MarkdownEditor } from './MarkdownEditor';
 import { MarkdownBlock, renderMarkdown } from './MarkdownBlock';
 import {
@@ -401,17 +402,25 @@ export function MeetingProtocols({
           </button>
         </div>
         <div className="heading-actions protocol-heading-actions">
-          <span>{filteredProtocols.length} / {protocols.length}</span>
-          <button type="button" onClick={addProtocol}>
-            Add protocol
+          <span className="section-counter">{filteredProtocols.length} / {protocols.length}</span>
+          <button
+            type="button"
+            className="icon-button protocol-add-button"
+            onClick={addProtocol}
+            aria-label="Add protocol"
+            title="Add protocol"
+          >
+            <Plus size={18} aria-hidden="true" />
           </button>
           <button
             type="button"
             className={`event-table-toggle ${isMinimized ? 'collapsed' : 'expanded'}`}
             onClick={() => setIsMinimized((minimized) => !minimized)}
             aria-expanded={!isMinimized}
+            aria-label={isMinimized ? 'Show protocols' : 'Hide protocols'}
+            title={isMinimized ? 'Show protocols' : 'Hide protocols'}
           >
-            {isMinimized ? 'Show protocols' : 'Hide protocols'}
+            {isMinimized ? <Eye size={18} aria-hidden="true" /> : <EyeOff size={18} aria-hidden="true" />}
           </button>
         </div>
       </div>
@@ -475,8 +484,11 @@ export function MeetingProtocols({
                     onProtocolSelect(protocol.id);
                   }}
                 >
-                  <b>{protocol.title}</b>
-                  <span>{formatProtocolOverviewMeta(protocol, timerTick)}</span>
+                  <span className="protocol-list-heading">
+                    <b>{protocol.title}</b>
+                    <span className="protocol-list-date">{formatProtocolOverviewDate(protocol.date)}</span>
+                  </span>
+                  <span className="protocol-list-duration">{formatProtocolDuration(currentProtocolDuration(protocol, timerTick))}</span>
                   <small>{protocol.updates.length} updates · {protocol.topics.length} topics · {protocol.todos.length} to-dos</small>
                 </button>
               ))
@@ -531,40 +543,61 @@ export function MeetingProtocols({
                   />
                 </label>
               </div>
-              <div className="protocol-timer-row" aria-label="Protocol duration">
-                <span>Duration</span>
-                <div className="protocol-timer-control">
+              <div className="protocol-actions">
+                <div className="protocol-timer-control" aria-label="Protocol duration">
                   <strong>{formatProtocolDuration(selectedProtocolDuration)}</strong>
                   {isTimerRunning ? (
                     <>
-                      <button type="button" className="mini-button secondary" onClick={pauseTimer}>
-                        Pause
+                      <button type="button" className="icon-button secondary protocol-timer-button" onClick={pauseTimer} aria-label="Pause timer" title="Pause">
+                        <Pause size={16} aria-hidden="true" />
                       </button>
-                      <button type="button" className="mini-button secondary" onClick={stopTimer}>
-                        Stop
+                      <button type="button" className="icon-button secondary protocol-timer-button" onClick={stopTimer} aria-label="Stop timer" title="Stop">
+                        <Square size={16} aria-hidden="true" />
                       </button>
                     </>
                   ) : (
-                    <button type="button" className="mini-button secondary" onClick={startTimer}>
-                      {timerStartLabel}
+                    <button type="button" className="icon-button secondary protocol-timer-button" onClick={startTimer} aria-label={`${timerStartLabel} timer`} title={timerStartLabel}>
+                      <Play size={16} aria-hidden="true" />
                     </button>
                   )}
                 </div>
-              </div>
-              <div className="protocol-actions">
-                <button type="button" className="secondary" onClick={() => setShowInstruction((visible) => !visible)}>
-                  {showInstruction ? 'Hide instruction' : 'Show instruction'}
+                <button
+                  type="button"
+                  className="icon-button secondary protocol-action-button"
+                  onClick={() => setShowInstruction((visible) => !visible)}
+                  aria-label={showInstruction ? 'Hide instruction' : 'Show instruction'}
+                  title={showInstruction ? 'Hide instruction' : 'Show instruction'}
+                >
+                  {showInstruction ? <EyeOff size={17} aria-hidden="true" /> : <BookOpen size={17} aria-hidden="true" />}
                 </button>
                 {canEdit ? (
-                  <button type="button" className="secondary" onClick={() => setIsEditingInstruction((editing) => !editing)}>
-                    {isEditingInstruction ? 'Preview instruction' : 'Edit instruction'}
+                  <button
+                    type="button"
+                    className="icon-button secondary protocol-action-button"
+                    onClick={() => setIsEditingInstruction((editing) => !editing)}
+                    aria-label={isEditingInstruction ? 'Preview instruction' : 'Edit instruction'}
+                    title={isEditingInstruction ? 'Preview instruction' : 'Edit instruction'}
+                  >
+                    {isEditingInstruction ? <Eye size={17} aria-hidden="true" /> : <Pencil size={17} aria-hidden="true" />}
                   </button>
                 ) : null}
-                <button type="button" className="secondary" onClick={createEventFromProtocol}>
-                  Event from protocol
+                <button
+                  type="button"
+                  className="icon-button secondary protocol-action-button"
+                  onClick={createEventFromProtocol}
+                  aria-label="Create event from protocol"
+                  title="Event from protocol"
+                >
+                  <CalendarPlus size={17} aria-hidden="true" />
                 </button>
-                <button type="button" className="secondary" onClick={exportProtocolPdf}>
-                  Export PDF
+                <button
+                  type="button"
+                  className="icon-button secondary protocol-action-button"
+                  onClick={exportProtocolPdf}
+                  aria-label="Export protocol as PDF"
+                  title="Export PDF"
+                >
+                  <Download size={17} aria-hidden="true" />
                 </button>
                 <button type="button" className="icon-button danger" onClick={deleteProtocol} aria-label="Delete protocol">
                   x
@@ -745,16 +778,24 @@ function ProtocolStructuredSection({
           <span>{collapsed ? `${items.length} entries hidden` : `${items.length} entries`}</span>
         </div>
         <div className="protocol-section-title-actions">
-          <button type="button" className="secondary mini-button" onClick={onAdd}>
-            {addLabel}
+          <button
+            type="button"
+            className="icon-button secondary protocol-section-add-button"
+            onClick={onAdd}
+            aria-label={addLabel}
+            title={addLabel}
+          >
+            <Plus size={15} aria-hidden="true" />
           </button>
           <button
             type="button"
             className={`event-table-toggle mini-button ${collapsed ? 'collapsed' : 'expanded'}`}
             onClick={onToggleCollapsed}
             aria-expanded={!collapsed}
+            aria-label={collapsed ? `Show ${title}` : `Hide ${title}`}
+            title={collapsed ? `Show ${title}` : `Hide ${title}`}
           >
-            {collapsed ? 'Show' : 'Hide'}
+            {collapsed ? <Eye size={15} aria-hidden="true" /> : <EyeOff size={15} aria-hidden="true" />}
           </button>
         </div>
       </div>
@@ -816,49 +857,55 @@ function ProtocolStructuredSection({
                 {item.convertedTodoId ? (
                   <button
                     type="button"
-                    className="mini-button protocol-convert-action protocol-linked-todo"
+                    className="icon-button protocol-convert-action protocol-linked-todo"
                     onClick={(event) => {
                       event.stopPropagation();
                       onOpenTodo(item.convertedTodoId!);
                     }}
+                    aria-label="Open linked todo"
                     title="Open linked todo"
                   >
-                    Open todo
+                    <ListTodo size={16} aria-hidden="true" />
                   </button>
                 ) : (
                   <button
                     type="button"
-                    className="mini-button protocol-convert-action protocol-create-todo"
+                    className="icon-button protocol-convert-action protocol-create-todo"
                     onClick={(event) => {
                       event.stopPropagation();
                       onCreateTodo(item);
                     }}
+                    aria-label="Create todo"
+                    title="Create todo"
                   >
-                    Create todo
+                    <ListTodo size={16} aria-hidden="true" />
                   </button>
                 )}
                 {item.convertedEventId ? (
                   <button
                     type="button"
-                    className="mini-button protocol-convert-action protocol-linked-event"
+                    className="icon-button protocol-convert-action protocol-linked-event"
                     onClick={(event) => {
                       event.stopPropagation();
                       onOpenEvent(item.convertedEventId!);
                     }}
+                    aria-label="Open linked event"
                     title="Open linked event"
                   >
-                    Open event
+                    <CalendarPlus size={16} aria-hidden="true" />
                   </button>
                 ) : (
                   <button
                     type="button"
-                    className="mini-button protocol-convert-action protocol-create-event"
+                    className="icon-button protocol-convert-action protocol-create-event"
                     onClick={(event) => {
                       event.stopPropagation();
                       onCreateEvent(item);
                     }}
+                    aria-label="Create event"
+                    title="Create event"
                   >
-                    Create event
+                    <CalendarPlus size={16} aria-hidden="true" />
                   </button>
                 )}
                 <button

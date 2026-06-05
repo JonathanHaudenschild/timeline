@@ -1,10 +1,13 @@
 'use client';
 
-import { FileUp } from 'lucide-react';
+import { FileUp, KeyRound, Pencil, Trash2 } from 'lucide-react';
 import type { TimelineMode, TimelineProject } from '@/lib/types';
 
 type ProjectHeaderProps = {
   project: TimelineProject;
+  saveState: string;
+  syncState: string;
+  syncLabel: string;
   onChange: (project: TimelineProject) => void;
   onModeChange: (mode: TimelineMode) => void;
   onProjectPinChange: () => void;
@@ -15,6 +18,9 @@ type ProjectHeaderProps = {
 
 export function ProjectHeader({
   project,
+  saveState,
+  syncState,
+  syncLabel,
   onChange,
   onModeChange,
   onProjectPinChange,
@@ -36,6 +42,8 @@ export function ProjectHeader({
         </label>
         <div className="hash-line">
           Share hash <code>#{project.hash}</code>
+          <span className={`save-state ${saveState}`}>{saveState}</span>
+          <span className={`sync-state ${syncState}`}>{syncLabel}</span>
         </div>
       </div>
 
@@ -80,14 +88,17 @@ export function ProjectHeader({
             {project.settings.mode === 'edit' ? (
               <>
                 <button type="button" className="secondary" onClick={onProjectPinChange}>
-                  {project.settings.viewPinHash ? 'Change project PIN' : 'Add project PIN'}
+                  <KeyRound size={16} aria-hidden="true" />
+                  <span>Project PIN</span>
                 </button>
                 <button type="button" className="secondary" onClick={onEditPinChange}>
-                  {project.settings.editPinHash ? 'Change edit PIN' : 'Add edit PIN'}
+                  <Pencil size={16} aria-hidden="true" />
+                  <span>Edit PIN</span>
                 </button>
                 {project.settings.viewPinHash ? (
                   <button type="button" className="secondary" onClick={onProjectPinRemove}>
-                    Remove project PIN
+                    <Trash2 size={16} aria-hidden="true" />
+                    <span>Remove PIN</span>
                   </button>
                 ) : null}
               </>
@@ -97,15 +108,33 @@ export function ProjectHeader({
         </details>
         {project.settings.mode === 'edit' ? (
           <div className="desktop-control-group">
-            <button type="button" className="secondary" onClick={onProjectPinChange}>
-              {project.settings.viewPinHash ? 'Change project PIN' : 'Add project PIN'}
+            <button
+              type="button"
+              className="icon-button secondary project-tool-button"
+              onClick={onProjectPinChange}
+              aria-label={project.settings.viewPinHash ? 'Change project PIN' : 'Add project PIN'}
+              title={project.settings.viewPinHash ? 'Change project PIN' : 'Add project PIN'}
+            >
+              <KeyRound size={18} aria-hidden="true" />
             </button>
-            <button type="button" className="secondary" onClick={onEditPinChange}>
-              {project.settings.editPinHash ? 'Change edit PIN' : 'Add edit PIN'}
+            <button
+              type="button"
+              className="icon-button secondary project-tool-button"
+              onClick={onEditPinChange}
+              aria-label={project.settings.editPinHash ? 'Change edit PIN' : 'Add edit PIN'}
+              title={project.settings.editPinHash ? 'Change edit PIN' : 'Add edit PIN'}
+            >
+              <Pencil size={18} aria-hidden="true" />
             </button>
             {project.settings.viewPinHash ? (
-              <button type="button" className="secondary" onClick={onProjectPinRemove}>
-                Remove project PIN
+              <button
+                type="button"
+                className="icon-button secondary project-tool-button"
+                onClick={onProjectPinRemove}
+                aria-label="Remove project PIN"
+                title="Remove project PIN"
+              >
+                <Trash2 size={18} aria-hidden="true" />
               </button>
             ) : null}
           </div>
@@ -118,8 +147,8 @@ export function ProjectHeader({
 
 function ImportExcelButton({ onImport, desktopOnly = false }: { onImport: (file: File) => void; desktopOnly?: boolean }) {
   return (
-    <label className={`import-button icon-import-button ${desktopOnly ? 'desktop-only-control' : ''}`} title="Import Excel">
-      <FileUp size={18} strokeWidth={3} />
+    <label className={`import-button icon-import-button ${desktopOnly ? 'desktop-only-control' : ''}`} aria-label="Import Excel" title="Import Excel">
+      <FileUp size={18} aria-hidden="true" />
       <span>Import Excel</span>
       <input
         type="file"

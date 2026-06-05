@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent } from 'react';
+import { Eye, EyeOff, KeyRound, Pencil, Plus, Trash2 } from 'lucide-react';
 import { EventEditor } from './EventEditor';
 import { EventList } from './EventList';
 import { MarkdownBlock } from './MarkdownBlock';
@@ -1073,6 +1074,9 @@ export function TimelineApp() {
 
       <ProjectHeader
         project={project}
+        saveState={saveState}
+        syncState={syncState}
+        syncLabel={syncStatusLabel(syncState, lastSyncCheckAt)}
         onChange={updateProject}
         onModeChange={(mode) => {
           void changeMode(mode);
@@ -1118,11 +1122,15 @@ export function TimelineApp() {
       <section className="info-section">
         <div className="section-heading">
           <h2>Important info</h2>
-          <span className={`save-state ${saveState}`}>{saveState}</span>
-          <span className={`sync-state ${syncState}`}>{syncStatusLabel(syncState, lastSyncCheckAt)}</span>
           {canEdit ? (
-            <button type="button" onClick={() => setEditingInfo((value) => !value)}>
-              {editingInfo ? 'Preview' : 'Edit'}
+            <button
+              type="button"
+              className="icon-button info-edit-button"
+              onClick={() => setEditingInfo((value) => !value)}
+              aria-label={editingInfo ? 'Preview important info' : 'Edit important info'}
+              title={editingInfo ? 'Preview important info' : 'Edit important info'}
+            >
+              {editingInfo ? <Eye size={18} aria-hidden="true" /> : <Pencil size={18} aria-hidden="true" />}
             </button>
           ) : null}
         </div>
@@ -1296,7 +1304,7 @@ export function TimelineApp() {
       <div className="ordered-section ordered-section-todos" ref={todoRef}>
         <section className="todo-board-frame">
           <div className="section-heading todo-section-heading">
-            <div className="todo-section-title">
+            <div className="section-title-with-link">
               <h2>Todos</h2>
               <button
                 type="button"
@@ -1307,16 +1315,18 @@ export function TimelineApp() {
               >
                 {copiedSectionLink === 'todos' ? 'ok' : '§'}
               </button>
-              <span>{activeBoard.todos.length} cards</span>
             </div>
             <div className="heading-actions">
+              <span className="section-counter">{activeBoard.todos.length} / {activeBoard.todos.length}</span>
               <button
                 type="button"
                 className={`event-table-toggle ${isTodoSectionMinimized ? 'collapsed' : 'expanded'}`}
                 onClick={() => setIsTodoSectionMinimized((minimized) => !minimized)}
                 aria-expanded={!isTodoSectionMinimized}
+                aria-label={isTodoSectionMinimized ? 'Show todos' : 'Hide todos'}
+                title={isTodoSectionMinimized ? 'Show todos' : 'Hide todos'}
               >
-                {isTodoSectionMinimized ? 'Show todos' : 'Hide todos'}
+                {isTodoSectionMinimized ? <Eye size={18} aria-hidden="true" /> : <EyeOff size={18} aria-hidden="true" />}
               </button>
             </div>
           </div>
@@ -1334,8 +1344,14 @@ export function TimelineApp() {
               </button>
             ))}
             {canEdit ? (
-              <button type="button" className="secondary" onClick={addTodoBoard}>
-                Add board
+              <button
+                type="button"
+                className="icon-button secondary todo-board-tool-button"
+                onClick={addTodoBoard}
+                aria-label="Add todo board"
+                title="Add board"
+              >
+                <Plus size={17} aria-hidden="true" />
               </button>
             ) : null}
           </div>
@@ -1358,20 +1374,44 @@ export function TimelineApp() {
           </div>
           {canEdit ? (
             <div className="todo-board-tools">
-              <button type="button" className="secondary" onClick={() => renameTodoBoard(activeBoard)}>
-                Rename
+              <button
+                type="button"
+                className="icon-button secondary todo-board-tool-button"
+                onClick={() => renameTodoBoard(activeBoard)}
+                aria-label="Rename todo board"
+                title="Rename board"
+              >
+                <Pencil size={17} aria-hidden="true" />
               </button>
-              <button type="button" className="secondary" onClick={() => void changeTodoBoardPin(activeBoard)}>
-                {activeBoard.pinHash ? 'Change board PIN' : 'Add board PIN'}
+              <button
+                type="button"
+                className="icon-button secondary todo-board-tool-button"
+                onClick={() => void changeTodoBoardPin(activeBoard)}
+                aria-label={activeBoard.pinHash ? 'Change board PIN' : 'Add board PIN'}
+                title={activeBoard.pinHash ? 'Change board PIN' : 'Add board PIN'}
+              >
+                <KeyRound size={17} aria-hidden="true" />
               </button>
               {activeBoard.pinHash ? (
-                <button type="button" className="secondary" onClick={() => void removeTodoBoardPin(activeBoard)}>
-                  Remove board PIN
+                <button
+                  type="button"
+                  className="icon-button secondary todo-board-tool-button"
+                  onClick={() => void removeTodoBoardPin(activeBoard)}
+                  aria-label="Remove board PIN"
+                  title="Remove board PIN"
+                >
+                  <Trash2 size={17} aria-hidden="true" />
                 </button>
               ) : null}
               {todoBoards.length > 1 ? (
-                <button type="button" className="secondary" onClick={() => deleteTodoBoard(activeBoard)}>
-                  Delete board
+                <button
+                  type="button"
+                  className="icon-button danger todo-board-tool-button"
+                  onClick={() => deleteTodoBoard(activeBoard)}
+                  aria-label="Delete todo board"
+                  title="Delete board"
+                >
+                  <Trash2 size={17} aria-hidden="true" />
                 </button>
               ) : null}
             </div>

@@ -1,5 +1,6 @@
 'use client';
 
+import { CalendarPlus, Save, X } from 'lucide-react';
 import { MarkdownEditor } from './MarkdownEditor';
 import type { TimelineTodo, TodoStatus } from '@/lib/types';
 import { formatTodoStatus } from '@/lib/todos';
@@ -116,13 +117,21 @@ export function TodoEditor({
           />
         </label>
         <div className="action-row">
-          <button type="submit">{saveLabel}</button>
-          <button type="button" className="secondary" onClick={onCancel}>
-            Cancel
+          <button type="submit" className="icon-button modal-action-icon" aria-label={saveLabel} title={saveLabel}>
+            <Save size={18} aria-hidden="true" />
+          </button>
+          <button type="button" className="icon-button secondary modal-action-icon" onClick={onCancel} aria-label="Cancel" title="Cancel">
+            <X size={18} aria-hidden="true" />
           </button>
           {onConvertToEvent ? (
-            <button type="button" className="secondary" onClick={onConvertToEvent}>
-              Convert to event
+            <button
+              type="button"
+              className="icon-button secondary modal-action-icon"
+              onClick={onConvertToEvent}
+              aria-label="Convert to event"
+              title="Convert to event"
+            >
+              <CalendarPlus size={18} aria-hidden="true" />
             </button>
           ) : null}
         </div>

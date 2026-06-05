@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Pencil, Plus } from 'lucide-react';
 import { MarkdownBlock } from './MarkdownBlock';
 import { TodoEditor } from './TodoEditor';
 import type { TimelineTodo, TodoStatus } from '@/lib/types';
@@ -193,19 +194,26 @@ export function TodoBoard({
                 onNewStatusChange={setNewStatus}
                 onAddStatus={addStatus}
               />
-              <button type="button" onClick={() => addTodo()}>
-                Add todo
+              <button type="button" onClick={() => addTodo()} aria-label="Add todo" title="Add todo">
+                <Plus size={16} aria-hidden="true" />
+                <span>Add</span>
               </button>
             </div>
           </details>
-          <div className="desktop-control-group">
+          <div className="desktop-control-group todo-board-action-group">
             <StatusForm
               newStatus={newStatus}
               onNewStatusChange={setNewStatus}
               onAddStatus={addStatus}
             />
-            <button type="button" onClick={() => addTodo()}>
-              Add todo
+            <button
+              type="button"
+              className="icon-button todo-board-add-button"
+              onClick={() => addTodo()}
+              aria-label="Add todo"
+              title="Add todo"
+            >
+              <Plus size={18} aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -301,7 +309,7 @@ export function TodoBoard({
                       aria-label={`Rename ${formatTodoStatus(status)} column`}
                       title="Rename column"
                     >
-                      Edit
+                      <Pencil size={13} aria-hidden="true" />
                     </button>
                     <button
                       type="button"
@@ -311,6 +319,7 @@ export function TodoBoard({
                         addTodo(status);
                       }}
                       aria-label={`Add todo to ${formatTodoStatus(status)}`}
+                      title="Add todo"
                     >
                       +
                     </button>
@@ -327,6 +336,7 @@ export function TodoBoard({
                         nudgeStatus(status, -1);
                       }}
                       aria-label={`Move ${formatTodoStatus(status)} left`}
+                      title="Move column left"
                     >
                       &lt;
                     </button>
@@ -339,6 +349,7 @@ export function TodoBoard({
                         nudgeStatus(status, 1);
                       }}
                       aria-label={`Move ${formatTodoStatus(status)} right`}
+                      title="Move column right"
                     >
                       &gt;
                     </button>
@@ -353,6 +364,7 @@ export function TodoBoard({
                           }
                         }}
                         aria-label={`Remove ${formatTodoStatus(status)} column`}
+                        title="Remove column"
                       >
                         x
                       </button>
@@ -486,8 +498,15 @@ export function TodoBoard({
               ) : (
                 <div className="todo-empty">Drop here</div>
               )}
-              <button type="button" className="column-add-card" onClick={() => addTodo(status)}>
-                + Add todo
+              <button
+                type="button"
+                className="column-add-card"
+                onClick={() => addTodo(status)}
+                aria-label={`Add todo to ${formatTodoStatus(status)}`}
+                title="Add todo"
+              >
+                <Plus size={15} aria-hidden="true" />
+                <span>Add todo</span>
               </button>
             </div>
           );
@@ -520,7 +539,9 @@ function StatusForm({
         placeholder="New status"
         aria-label="New todo status"
       />
-      <button type="submit" className="secondary">Add column</button>
+      <button type="submit" className="icon-button secondary add-status-button" aria-label="Add column" title="Add column">
+        <Plus size={16} aria-hidden="true" />
+      </button>
     </form>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { CalendarPlus, CalendarX, Eye, EyeOff, ListTodo } from 'lucide-react';
 import { MarkdownBlock } from './MarkdownBlock';
 import { formatShortGermanDateRange } from '@/lib/dateFormat';
 import type { TimelineEvent } from '@/lib/types';
@@ -83,7 +84,7 @@ export function EventList({
           </button>
         </div>
         <div className="heading-actions">
-          <span>{sortedEventRows.length} / {events.length}</span>
+          <span className="section-counter">{sortedEventRows.length} / {events.length}</span>
           <label className="search-control event-search-control">
             <span>Search</span>
             <input
@@ -93,22 +94,15 @@ export function EventList({
             />
           </label>
           {canEdit ? (
-            <button type="button" onClick={onAdd}>
-              Add event
+            <button
+              type="button"
+              className="icon-button event-add-button"
+              onClick={onAdd}
+              aria-label="Add event"
+              title="Add event"
+            >
+              <CalendarPlus size={18} aria-hidden="true" />
             </button>
-          ) : null}
-          {canEdit ? (
-            <details className="mobile-control-menu inline-control-menu event-mobile-menu">
-              <summary>Timeline visibility</summary>
-              <div className="mobile-control-panel">
-                <button type="button" className="secondary" onClick={() => onSetAllTimeline(true)}>
-                  Show all
-                </button>
-                <button type="button" className="secondary" onClick={() => onSetAllTimeline(false)}>
-                  Hide all
-                </button>
-              </div>
-            </details>
           ) : null}
           {canEdit ? (
             <div className="desktop-control-group bulk-event-actions">
@@ -124,8 +118,11 @@ export function EventList({
             type="button"
             className={`event-table-toggle ${isMinimized ? 'collapsed' : 'expanded'}`}
             onClick={() => setIsMinimized((minimized) => !minimized)}
+            aria-expanded={!isMinimized}
+            aria-label={isMinimized ? 'Show event table' : 'Hide event table'}
+            title={isMinimized ? 'Show event table' : 'Hide event table'}
           >
-            {isMinimized ? 'Show event table' : 'Hide event table'}
+            {isMinimized ? <Eye size={18} aria-hidden="true" /> : <EyeOff size={18} aria-hidden="true" />}
           </button>
         </div>
       </div>
@@ -173,8 +170,10 @@ export function EventList({
                             type="button"
                             className="inline-date-add"
                             onClick={() => onChange({ ...event, endDate: event.date })}
+                            aria-label={`Add end date for ${event.what}`}
+                            title="Add end date"
                           >
-                            until
+                            <CalendarPlus size={15} aria-hidden="true" />
                           </button>
                         ) : null}
                       </div>
@@ -191,8 +190,9 @@ export function EventList({
                             className="inline-date-add"
                             onClick={() => onChange({ ...event, endDate: undefined })}
                             aria-label={`Remove end date for ${event.what}`}
+                            title="Remove end date"
                           >
-                            clear
+                            <CalendarX size={15} aria-hidden="true" />
                           </button>
                         </div>
                       ) : null}
@@ -291,7 +291,7 @@ export function EventList({
                         aria-label={`${event.showOnTimeline === false ? 'Show' : 'Hide'} ${event.what} on timeline`}
                         title={event.showOnTimeline === false ? 'Show on timeline' : 'Hide from timeline'}
                       >
-                        {event.showOnTimeline === false ? 'show' : 'hide'}
+                        {event.showOnTimeline === false ? <Eye size={17} aria-hidden="true" /> : <EyeOff size={17} aria-hidden="true" />}
                       </button>
                       <button
                         type="button"
@@ -301,8 +301,9 @@ export function EventList({
                           onConvertToTodo(event);
                         }}
                         aria-label={`Convert ${event.what} to todo`}
+                        title="Convert to todo"
                       >
-                        todo
+                        <ListTodo size={17} aria-hidden="true" />
                       </button>
                       <button
                         type="button"

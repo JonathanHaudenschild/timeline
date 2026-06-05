@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
+import { CalendarPlus, Eye, EyeOff, Maximize2 } from 'lucide-react';
 import {
   dayToDate,
   eventMatchesTimelineFilters,
@@ -149,7 +150,7 @@ export function TimelineCanvas({
     <div className="timeline-shell">
       <div className="timeline-toolbar">
         <div className="timeline-title">
-          <span>Timeline</span>
+          <span className="timeline-title-label">Timeline</span>
           <button
             type="button"
             className="icon-button secondary copy-link-icon"
@@ -159,7 +160,7 @@ export function TimelineCanvas({
           >
             {linkCopied ? 'ok' : '§'}
           </button>
-          <code>{project.startDate} / {project.endDate}</code>
+          <span className="section-counter timeline-range-chip">{project.startDate} / {project.endDate}</span>
         </div>
         <div className="timeline-actions">
           <div className="zoom-control-group">
@@ -174,29 +175,46 @@ export function TimelineCanvas({
           <details className="mobile-control-menu timeline-mobile-menu">
             <summary>Tools</summary>
             <div className="mobile-control-panel">
-              <button type="button" className="secondary today-button" onClick={panToNow}>
-                Jump to now
+              <button type="button" className="secondary today-button" onClick={panToNow} aria-label="Jump to now" title="Jump to now">
+                Now
               </button>
               <button type="button" className="secondary today-button" onClick={fitTimeline}>
                 Fit timeline
               </button>
               {canEdit ? (
-                <button type="button" onClick={() => onCreateEvent({ date: project.startDate, time: '09:00' })}>
-                  Add event
+                <button
+                  type="button"
+                  onClick={() => onCreateEvent({ date: project.startDate, time: '09:00' })}
+                  aria-label="Add event"
+                  title="Add event"
+                >
+                  Add
                 </button>
               ) : null}
             </div>
           </details>
           <div className="desktop-control-group">
-            <button type="button" className="secondary today-button" onClick={panToNow}>
-              Jump to now
+            <button type="button" className="secondary today-button" onClick={panToNow} aria-label="Jump to now" title="Jump to now">
+              Now
             </button>
-            <button type="button" className="secondary today-button" onClick={fitTimeline}>
-              Fit timeline
+            <button
+              type="button"
+              className="icon-button secondary timeline-tool-button"
+              onClick={fitTimeline}
+              aria-label="Fit timeline"
+              title="Fit timeline"
+            >
+              <Maximize2 size={18} aria-hidden="true" />
             </button>
             {canEdit ? (
-              <button type="button" onClick={() => onCreateEvent({ date: project.startDate, time: '09:00' })}>
-                Add event
+              <button
+                type="button"
+                className="icon-button timeline-tool-button"
+                onClick={() => onCreateEvent({ date: project.startDate, time: '09:00' })}
+                aria-label="Add event"
+                title="Add event"
+              >
+                <CalendarPlus size={18} aria-hidden="true" />
               </button>
             ) : null}
           </div>
@@ -205,8 +223,10 @@ export function TimelineCanvas({
             className={`event-table-toggle ${isMinimized ? 'collapsed' : 'expanded'}`}
             onClick={() => setIsMinimized((minimized) => !minimized)}
             aria-expanded={!isMinimized}
+            aria-label={isMinimized ? 'Show timeline' : 'Hide timeline'}
+            title={isMinimized ? 'Show timeline' : 'Hide timeline'}
           >
-            {isMinimized ? 'Show timeline' : 'Hide timeline'}
+            {isMinimized ? <Eye size={18} aria-hidden="true" /> : <EyeOff size={18} aria-hidden="true" />}
           </button>
         </div>
       </div>
