@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { Pencil, Plus } from 'lucide-react';
 import { MarkdownBlock } from './MarkdownBlock';
 import { TodoEditor } from './TodoEditor';
@@ -21,9 +22,10 @@ type TodoBoardProps = {
   onTodoOpened?: () => void;
   onChange: (todos: TimelineTodo[]) => void;
   onMoveTodoToBoard: (todo: TimelineTodo, targetBoardId: string) => void;
-  onConvertTodoToEvent: (todo: TimelineTodo) => void;
+  onConvertTodoToEvent: (todo: TimelineTodo) => boolean | void;
   onStatusesChange: (statuses: TodoStatus[]) => void;
   onRenameStatus: (fromStatus: TodoStatus, toStatus: TodoStatus) => void;
+  renderBoardActions?: () => ReactNode;
 };
 
 export function TodoBoard({
@@ -40,6 +42,7 @@ export function TodoBoard({
   onConvertTodoToEvent,
   onStatusesChange,
   onRenameStatus,
+  renderBoardActions,
 }: TodoBoardProps) {
   const [draftTodo, setDraftTodo] = useState<TimelineTodo | null>(null);
   const [draggedTodoId, setDraggedTodoId] = useState<string | null>(null);
@@ -189,6 +192,9 @@ export function TodoBoard({
           <details className="mobile-control-menu todo-mobile-menu">
             <summary>Actions</summary>
             <div className="mobile-control-panel">
+              {renderBoardActions ? (
+                <div className="todo-board-action-icons">{renderBoardActions()}</div>
+              ) : null}
               <StatusForm
                 newStatus={newStatus}
                 onNewStatusChange={setNewStatus}
@@ -215,6 +221,9 @@ export function TodoBoard({
             >
               <Plus size={18} aria-hidden="true" />
             </button>
+            {renderBoardActions ? (
+              <div className="todo-board-action-icons">{renderBoardActions()}</div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -230,7 +239,8 @@ export function TodoBoard({
           }}
           onSave={() => saveTodo(editorDraftTodo)}
           onConvertToEvent={() => {
-            onConvertTodoToEvent(editorDraftTodo);
+            const converted = onConvertTodoToEvent(editorDraftTodo);
+            if (converted === false) return;
             setDraftTodo(null);
             onTodoOpened?.();
           }}

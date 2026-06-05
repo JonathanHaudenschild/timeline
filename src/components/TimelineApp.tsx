@@ -427,7 +427,13 @@ export function TimelineApp() {
     setSelectedTodoId(todo.id);
   }
 
+  function confirmEventCreation(message: string) {
+    return window.confirm(message);
+  }
+
   function convertTodoToEvent(todo: TimelineTodo) {
+    if (!confirmEventCreation(`Create an event from todo "${todo.title || 'New todo'}"?`)) return false;
+
     const event: TimelineEvent = {
       id: crypto.randomUUID(),
       date: todo.dueDate || project.startDate,
@@ -454,6 +460,7 @@ export function TimelineApp() {
     );
     setSelectedTodoId(undefined);
     selectEvent(event.id);
+    return true;
   }
 
   function createTodoFromProtocol(source: {
@@ -519,6 +526,8 @@ export function TimelineApp() {
     protocolItemId?: string;
     protocolItemKind?: 'updates' | 'topics' | 'todos';
   }) {
+    if (!confirmEventCreation(`Create an event from "${source.title || 'this protocol'}"?`)) return;
+
     const event: TimelineEvent = {
       id: crypto.randomUUID(),
       date: source.date || project.startDate,
@@ -623,7 +632,58 @@ export function TimelineApp() {
     }
   }
 
+  function renderTodoBoardActions() {
+    if (!canEdit) return null;
+
+    return (
+      <>
+        <button
+          type="button"
+          className="icon-button secondary todo-board-tool-button"
+          onClick={() => renameTodoBoard(activeBoard)}
+          aria-label="Rename todo board"
+          title="Rename board"
+        >
+          <Pencil size={17} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          className="icon-button secondary todo-board-tool-button"
+          onClick={() => void changeTodoBoardPin(activeBoard)}
+          aria-label={activeBoard.pinHash ? 'Change board PIN' : 'Add board PIN'}
+          title={activeBoard.pinHash ? 'Change board PIN' : 'Add board PIN'}
+        >
+          <KeyRound size={17} aria-hidden="true" />
+        </button>
+        {activeBoard.pinHash ? (
+          <button
+            type="button"
+            className="icon-button secondary todo-board-tool-button"
+            onClick={() => void removeTodoBoardPin(activeBoard)}
+            aria-label="Remove board PIN"
+            title="Remove board PIN"
+          >
+            <Trash2 size={17} aria-hidden="true" />
+          </button>
+        ) : null}
+        {todoBoards.length > 1 ? (
+          <button
+            type="button"
+            className="icon-button danger todo-board-tool-button"
+            onClick={() => deleteTodoBoard(activeBoard)}
+            aria-label="Delete todo board"
+            title="Delete board"
+          >
+            <Trash2 size={17} aria-hidden="true" />
+          </button>
+        ) : null}
+      </>
+    );
+  }
+
   function createEvent(moment: { date: string; time: string }) {
+    if (!confirmEventCreation(`Create a new event on ${moment.date} at ${moment.time}?`)) return;
+
     setDraftEvent({
       id: crypto.randomUUID(),
       date: moment.date,
@@ -1372,49 +1432,8 @@ export function TimelineApp() {
               </button>
             ) : null}
           </div>
-          {canEdit ? (
-            <div className="todo-board-tools">
-              <button
-                type="button"
-                className="icon-button secondary todo-board-tool-button"
-                onClick={() => renameTodoBoard(activeBoard)}
-                aria-label="Rename todo board"
-                title="Rename board"
-              >
-                <Pencil size={17} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                className="icon-button secondary todo-board-tool-button"
-                onClick={() => void changeTodoBoardPin(activeBoard)}
-                aria-label={activeBoard.pinHash ? 'Change board PIN' : 'Add board PIN'}
-                title={activeBoard.pinHash ? 'Change board PIN' : 'Add board PIN'}
-              >
-                <KeyRound size={17} aria-hidden="true" />
-              </button>
-              {activeBoard.pinHash ? (
-                <button
-                  type="button"
-                  className="icon-button secondary todo-board-tool-button"
-                  onClick={() => void removeTodoBoardPin(activeBoard)}
-                  aria-label="Remove board PIN"
-                  title="Remove board PIN"
-                >
-                  <Trash2 size={17} aria-hidden="true" />
-                </button>
-              ) : null}
-              {todoBoards.length > 1 ? (
-                <button
-                  type="button"
-                  className="icon-button danger todo-board-tool-button"
-                  onClick={() => deleteTodoBoard(activeBoard)}
-                  aria-label="Delete todo board"
-                  title="Delete board"
-                >
-                  <Trash2 size={17} aria-hidden="true" />
-                </button>
-              ) : null}
-            </div>
+          {canEdit && isActiveBoardLocked ? (
+            <div className="todo-board-tools">{renderTodoBoardActions()}</div>
           ) : null}
           {isActiveBoardLocked ? (
             <section className="todo-board-locked">
@@ -1471,6 +1490,7 @@ export function TimelineApp() {
                   completedTodoStatus: renamed.completedStatus,
                 });
               }}
+              renderBoardActions={canEdit ? renderTodoBoardActions : undefined}
             />
           )}
             </>

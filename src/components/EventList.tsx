@@ -83,7 +83,7 @@ export function EventList({
             {linkCopied ? 'ok' : '§'}
           </button>
         </div>
-        <div className="heading-actions">
+        <div className="heading-actions event-heading-actions">
           <span className="section-counter">{sortedEventRows.length} / {events.length}</span>
           <label className="search-control event-search-control">
             <span>Search</span>

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
-import { BookOpen, CalendarPlus, Download, Eye, EyeOff, ListTodo, Pause, Pencil, Play, Plus, Square } from 'lucide-react';
+import { BookOpen, CalendarPlus, Download, Eye, EyeOff, ListTodo, Pause, Pencil, Play, Plus, Square, Trash2 } from 'lucide-react';
 import { MarkdownEditor } from './MarkdownEditor';
 import { MarkdownBlock, renderMarkdown } from './MarkdownBlock';
 import {
@@ -599,8 +599,14 @@ export function MeetingProtocols({
                 >
                   <Download size={17} aria-hidden="true" />
                 </button>
-                <button type="button" className="icon-button danger" onClick={deleteProtocol} aria-label="Delete protocol">
-                  x
+                <button
+                  type="button"
+                  className="icon-button danger protocol-action-button"
+                  onClick={deleteProtocol}
+                  aria-label="Delete protocol"
+                  title="Delete protocol"
+                >
+                  <Trash2 size={17} aria-hidden="true" />
                 </button>
               </div>
               {showInstruction ? (
@@ -838,7 +844,7 @@ function ProtocolStructuredSection({
                   ) : null}
                   <button
                     type="button"
-                    className="mini-button secondary protocol-edit-button"
+                    className="icon-button secondary protocol-entry-icon-button protocol-edit-button"
                     onClick={(event) => {
                       event.stopPropagation();
                       onEdit(item);
@@ -846,7 +852,7 @@ function ProtocolStructuredSection({
                     aria-label={`Edit ${item.title}`}
                     title="Edit"
                   >
-                    ✎
+                    <Pencil size={14} aria-hidden="true" />
                   </button>
                 </div>
               </div>
@@ -910,14 +916,15 @@ function ProtocolStructuredSection({
                 )}
                 <button
                   type="button"
-                  className="icon-button danger"
+                  className="icon-button danger protocol-entry-icon-button"
                   onClick={(event) => {
                     event.stopPropagation();
                     onDelete(item.id);
                   }}
                   aria-label={`Delete ${item.title}`}
+                  title="Delete"
                 >
-                  x
+                  <Trash2 size={14} aria-hidden="true" />
                 </button>
               </div>
             </article>
