@@ -114,15 +114,16 @@ export function MeetingProtocols({
   const selectedProtocolDuration = selectedProtocol ? currentProtocolDuration(selectedProtocol, timerTick) : 0;
   const isTimerRunning = Boolean(selectedProtocol?.timerStartedAt);
   const timerStartLabel = selectedProtocolDuration > 0 ? 'Resume' : 'Start';
+  const searchTimerTick = search.trim() ? timerTick : 0;
   const filteredProtocols = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return protocols;
 
-    return protocols.filter((protocol) => protocolMatchesQuery(protocol, query, timerTick));
-  }, [protocols, search, timerTick]);
+    return protocols.filter((protocol) => protocolMatchesQuery(protocol, query, searchTimerTick));
+  }, [protocols, search, searchTimerTick]);
   const overviewItems = useMemo(
-    () => buildProtocolOverviewItems(protocols, search, timerTick),
-    [protocols, search, timerTick],
+    () => buildProtocolOverviewItems(protocols, search, searchTimerTick),
+    [protocols, search, searchTimerTick],
   );
 
   useEffect(() => {

@@ -82,6 +82,7 @@ export function TimelineApp() {
   const saveStateRef = useRef(saveState);
   const loadSequenceRef = useRef(0);
   const syncPollInFlightRef = useRef(false);
+  const unsavedBackupTimeoutRef = useRef<number | undefined>(undefined);
   const projectPinRef = useRef<string | undefined>(undefined);
   const pinDialogResolverRef = useRef<((result: PinDialogResult | null) => void) | null>(null);
   const consumedUrlTargetRef = useRef('');
@@ -103,9 +104,19 @@ export function TimelineApp() {
 
   useEffect(() => {
     latestProjectRef.current = project;
-    if (canSaveRef.current && JSON.stringify(project) !== lastSavedJsonRef.current) {
-      saveUnsavedProjectBackup(project, parseProjectJson(lastSavedJsonRef.current));
-    }
+    if (unsavedBackupTimeoutRef.current) window.clearTimeout(unsavedBackupTimeoutRef.current);
+    if (!canSaveRef.current) return;
+
+    unsavedBackupTimeoutRef.current = window.setTimeout(() => {
+      const projectJson = JSON.stringify(latestProjectRef.current);
+      if (projectJson !== lastSavedJsonRef.current) {
+        saveUnsavedProjectBackup(latestProjectRef.current, parseProjectJson(lastSavedJsonRef.current));
+      }
+    }, 1200);
+
+    return () => {
+      if (unsavedBackupTimeoutRef.current) window.clearTimeout(unsavedBackupTimeoutRef.current);
+    };
   }, [project]);
 
   useEffect(() => {
