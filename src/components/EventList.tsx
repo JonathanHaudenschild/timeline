@@ -8,15 +8,15 @@ import { usePersistentState } from '@/lib/usePersistentState';
 
 type EventListProps = {
   events: TimelineEvent[];
-  selectedEventId?: string;
   canEdit: boolean;
   onAdd: () => void;
-  onSelect: (event: TimelineEvent) => void;
   onChange: (event: TimelineEvent) => void;
   onToggleTimeline: (event: TimelineEvent) => void;
   onSetAllTimeline: (visible: boolean) => void;
   onConvertToTodo: (event: TimelineEvent) => void;
   onDelete: (eventId: string) => void;
+  onCopyLink: () => void;
+  linkCopied: boolean;
 };
 
 type SortKey = 'date' | 'time' | 'what' | 'who' | 'type' | 'category' | 'timeline' | 'note';
@@ -35,15 +35,15 @@ const sortableColumns: Array<{ key: SortKey; label: string }> = [
 
 export function EventList({
   events,
-  selectedEventId,
   canEdit,
   onAdd,
-  onSelect,
   onChange,
   onToggleTimeline,
   onSetAllTimeline,
   onConvertToTodo,
   onDelete,
+  onCopyLink,
+  linkCopied,
 }: EventListProps) {
   const [sortKey, setSortKey] = usePersistentState<SortKey>('timeline:ui:event-list-sort-key', 'date');
   const [sortDirection, setSortDirection] = usePersistentState<SortDirection>('timeline:ui:event-list-sort-direction', 'asc');
@@ -70,7 +70,18 @@ export function EventList({
   return (
     <section className="event-list">
       <div className="section-heading">
-        <h2>Events</h2>
+        <div className="section-title-with-link">
+          <h2>Events</h2>
+          <button
+            type="button"
+            className="icon-button secondary copy-link-icon"
+            onClick={onCopyLink}
+            aria-label="Copy events link"
+            title={linkCopied ? 'Copied' : 'Copy events link'}
+          >
+            {linkCopied ? 'ok' : '§'}
+          </button>
+        </div>
         <div className="heading-actions">
           <span>{sortedEventRows.length} / {events.length}</span>
           <label className="search-control event-search-control">
@@ -145,11 +156,7 @@ export function EventList({
               <tr
                 key={event.id}
                 id={`event-row-${event.id}`}
-                className={[
-                  selectedEventId === event.id ? 'selected' : '',
-                  event.type.trim().toLowerCase() === 'alt' ? 'event-row-alt' : '',
-                ].filter(Boolean).join(' ')}
-                onClick={() => onSelect(event)}
+                className={event.type.trim().toLowerCase() === 'alt' ? 'event-row-alt' : ''}
               >
                 <td className="event-date-cell" data-label="Date">
                   {canEdit ? (

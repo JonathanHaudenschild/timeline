@@ -64,6 +64,7 @@ export function TimelineApp() {
   const lastSavedJsonRef = useRef('');
   const canSaveRef = useRef(false);
   const latestProjectRef = useRef(project);
+  const saveStateRef = useRef(saveState);
   const loadSequenceRef = useRef(0);
   const syncPollInFlightRef = useRef(false);
   const projectPinRef = useRef<string | undefined>(undefined);
@@ -91,6 +92,10 @@ export function TimelineApp() {
       saveUnsavedProjectBackup(project, parseProjectJson(lastSavedJsonRef.current));
     }
   }, [project]);
+
+  useEffect(() => {
+    saveStateRef.current = saveState;
+  }, [saveState]);
 
   useEffect(() => {
     function warnBeforeUnload(event: BeforeUnloadEvent) {
@@ -239,6 +244,7 @@ export function TimelineApp() {
 
     async function checkRemoteProject() {
       if (document.hidden || !canSaveRef.current || lockedHash) return;
+      if (saveStateRef.current === 'loading' || saveStateRef.current === 'saving') return;
       if (syncPollInFlightRef.current) return;
 
       syncPollInFlightRef.current = true;
@@ -1255,12 +1261,8 @@ export function TimelineApp() {
       <section className="events-area ordered-section ordered-section-events" ref={eventsRef}>
         <EventList
           events={project.events}
-          selectedEventId={selectedEventId}
           canEdit={canEdit}
           onAdd={() => createEvent({ date: selectedEvent?.date ?? project.startDate, time: selectedEvent?.time ?? '09:00' })}
-          onSelect={(event) => {
-            selectEvent(event.id);
-          }}
           onChange={(changedEvent) => {
             updateProject({
               ...project,
@@ -1282,6 +1284,8 @@ export function TimelineApp() {
             });
           }}
           onConvertToTodo={convertEventToTodo}
+          onCopyLink={() => copySectionLink({ section: 'events' })}
+          linkCopied={copiedSectionLink === 'events'}
           onDelete={(eventId) => {
             updateProject({ ...project, events: project.events.filter((event) => event.id !== eventId) });
             if (selectedEventId === eventId) selectEvent(undefined);

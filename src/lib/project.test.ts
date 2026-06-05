@@ -247,6 +247,54 @@ describe('project helpers', () => {
     );
   });
 
+  it('keeps a remotely edited event when local deletes the stale event', () => {
+    const baseProject = createDefaultProject('merge-event-remote-edit-local-delete');
+    const baseEvent = baseProject.events[0];
+    if (!baseEvent) throw new Error('Expected default project with events');
+
+    const localProject = {
+      ...baseProject,
+      events: baseProject.events.filter((event) => event.id !== baseEvent.id),
+    };
+    const remoteProject = {
+      ...baseProject,
+      revision: 2,
+      events: baseProject.events.map((event) =>
+        event.id === baseEvent.id ? { ...event, what: 'Remote edit survives' } : event,
+      ),
+    };
+
+    const merged = mergeProjectChanges(baseProject, localProject, remoteProject);
+
+    expect(merged.events).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: baseEvent.id, what: 'Remote edit survives' })]),
+    );
+  });
+
+  it('keeps a locally edited event when remote deletes the stale event', () => {
+    const baseProject = createDefaultProject('merge-event-local-edit-remote-delete');
+    const baseEvent = baseProject.events[0];
+    if (!baseEvent) throw new Error('Expected default project with events');
+
+    const localProject = {
+      ...baseProject,
+      events: baseProject.events.map((event) =>
+        event.id === baseEvent.id ? { ...event, what: 'Local edit survives' } : event,
+      ),
+    };
+    const remoteProject = {
+      ...baseProject,
+      revision: 2,
+      events: baseProject.events.filter((event) => event.id !== baseEvent.id),
+    };
+
+    const merged = mergeProjectChanges(baseProject, localProject, remoteProject);
+
+    expect(merged.events).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: baseEvent.id, what: 'Local edit survives' })]),
+    );
+  });
+
   it('moves todos between boards without losing source or target board state', () => {
     const movingTodo = {
       id: 'todo-move',
@@ -617,7 +665,7 @@ describe('project helpers', () => {
     expect(merged.updatedAt).toBe('2026-06-06T10:06:00.000Z');
   });
 
-  it('keeps both versions when the same protocol entry changes on two devices', () => {
+  it('keeps both body versions when the same protocol entry body changes on two devices', () => {
     const [baseProtocol] = normalizeMeetingProtocols([
       {
         id: 'protocol-1',
@@ -639,13 +687,97 @@ describe('project helpers', () => {
 
     const [merged] = mergeMeetingProtocols([baseProtocol], [localProtocol], [remoteProtocol]);
 
-    expect(merged.updates).toHaveLength(2);
-    expect(merged.updates[0]).toMatchObject({ id: 'update-1', body: 'local device update' });
-    expect(merged.updates[1]).toMatchObject({
-      id: 'update-1-other-device',
-      title: 'Weather (other device)',
-      body: 'remote device update',
+    expect(merged.updates).toHaveLength(1);
+    expect(merged.updates[0].body).toContain('local device update');
+    expect(merged.updates[0].body).toContain('remote device update');
+    expect(merged.updates[0].body).toContain('Version from another device');
+  });
+
+  it('combines independent protocol todo and event conversion links from different devices', () => {
+    const [baseProtocol] = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        todos: [{ id: 'todo-item-1', title: 'Build shelf', owner: 'Alex', body: 'base todo' }],
+        updatedAt: '2026-06-06T10:00:00.000Z',
+      },
+    ]);
+    const localProtocol = {
+      ...baseProtocol,
+      todos: [{ ...baseProtocol.todos[0], convertedTodoId: 'todo-1', updatedAt: '2026-06-06T10:05:00.000Z' }],
+      updatedAt: '2026-06-06T10:05:00.000Z',
+    };
+    const remoteProtocol = {
+      ...baseProtocol,
+      todos: [{ ...baseProtocol.todos[0], convertedEventId: 'event-1', updatedAt: '2026-06-06T10:06:00.000Z' }],
+      updatedAt: '2026-06-06T10:06:00.000Z',
+    };
+
+    const [merged] = mergeMeetingProtocols([baseProtocol], [localProtocol], [remoteProtocol]);
+
+    expect(merged.todos).toHaveLength(1);
+    expect(merged.todos[0]).toMatchObject({
+      id: 'todo-item-1',
+      convertedTodoId: 'todo-1',
+      convertedEventId: 'event-1',
     });
+  });
+
+  it('keeps both protocol entries when the same conversion link conflicts', () => {
+    const [baseProtocol] = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        todos: [{ id: 'todo-item-1', title: 'Build shelf', owner: 'Alex', body: 'base todo' }],
+        updatedAt: '2026-06-06T10:00:00.000Z',
+      },
+    ]);
+    const localProtocol = {
+      ...baseProtocol,
+      todos: [{ ...baseProtocol.todos[0], convertedTodoId: 'todo-local' }],
+      updatedAt: '2026-06-06T10:05:00.000Z',
+    };
+    const remoteProtocol = {
+      ...baseProtocol,
+      todos: [{ ...baseProtocol.todos[0], convertedTodoId: 'todo-remote' }],
+      updatedAt: '2026-06-06T10:06:00.000Z',
+    };
+
+    const [merged] = mergeMeetingProtocols([baseProtocol], [localProtocol], [remoteProtocol]);
+
+    expect(merged.todos).toHaveLength(2);
+    expect(merged.todos[0]).toMatchObject({ id: 'todo-item-1', convertedTodoId: 'todo-local' });
+    expect(merged.todos[1]).toMatchObject({
+      id: 'todo-item-1-other-device',
+      convertedTodoId: 'todo-remote',
+    });
+  });
+
+  it('keeps both protocol entry versions when headline edits conflict', () => {
+    const [baseProtocol] = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        updates: [{ id: 'update-1', title: 'Weather', owner: 'Alex', body: 'base update' }],
+        updatedAt: '2026-06-06T10:00:00.000Z',
+      },
+    ]);
+    const localProtocol = {
+      ...baseProtocol,
+      updates: [{ ...baseProtocol.updates[0], title: 'Local weather' }],
+      updatedAt: '2026-06-06T10:05:00.000Z',
+    };
+    const remoteProtocol = {
+      ...baseProtocol,
+      updates: [{ ...baseProtocol.updates[0], title: 'Remote weather' }],
+      updatedAt: '2026-06-06T10:06:00.000Z',
+    };
+
+    const [merged] = mergeMeetingProtocols([baseProtocol], [localProtocol], [remoteProtocol]);
+
+    expect(merged.updates).toHaveLength(2);
+    expect(merged.updates[0]).toMatchObject({ id: 'update-1', title: 'Local weather' });
+    expect(merged.updates[1]).toMatchObject({ id: 'update-1-other-device', title: 'Remote weather (other device)' });
   });
 
   it('keeps local protocol entry order when another device has no order change', () => {

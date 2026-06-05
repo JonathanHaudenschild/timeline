@@ -110,6 +110,7 @@ export function MeetingProtocols({
   const selectedProtocol = protocols.find((protocol) => protocol.id === selectedProtocolId) ?? protocols[0];
   const selectedProtocolDuration = selectedProtocol ? currentProtocolDuration(selectedProtocol, timerTick) : 0;
   const isTimerRunning = Boolean(selectedProtocol?.timerStartedAt);
+  const timerStartLabel = selectedProtocolDuration > 0 ? 'Resume' : 'Start';
   const filteredProtocols = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return protocols;
@@ -534,15 +535,20 @@ export function MeetingProtocols({
                 <span>Duration</span>
                 <div className="protocol-timer-control">
                   <strong>{formatProtocolDuration(selectedProtocolDuration)}</strong>
-                  <button type="button" className="mini-button secondary" onClick={startTimer} disabled={isTimerRunning}>
-                    Start
-                  </button>
-                  <button type="button" className="mini-button secondary" onClick={pauseTimer} disabled={!isTimerRunning}>
-                    Pause
-                  </button>
-                  <button type="button" className="mini-button secondary" onClick={stopTimer} disabled={!isTimerRunning}>
-                    Stop
-                  </button>
+                  {isTimerRunning ? (
+                    <>
+                      <button type="button" className="mini-button secondary" onClick={pauseTimer}>
+                        Pause
+                      </button>
+                      <button type="button" className="mini-button secondary" onClick={stopTimer}>
+                        Stop
+                      </button>
+                    </>
+                  ) : (
+                    <button type="button" className="mini-button secondary" onClick={startTimer}>
+                      {timerStartLabel}
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="protocol-actions">
