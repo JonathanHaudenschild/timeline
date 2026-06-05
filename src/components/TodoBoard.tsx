@@ -382,6 +382,7 @@ export function TodoBoard({
                 columnTodos.map((todo) => (
                   <article
                     className={`todo-item ${todoDueClass(todo, completedTodoStatus)} ${draggedTodoId === todo.id ? 'dragging' : ''}`}
+                    id={`todo-card-${todo.id}`}
                     key={todo.id}
                     draggable
                     onDragStart={(event) => {
@@ -413,14 +414,14 @@ export function TodoBoard({
                     <div className="todo-card-topline">
                       <div className="todo-card-title">{todo.title}</div>
                     </div>
-                    <div className="todo-card-meta">
-                      <span>{todo.who || 'No owner'}</span>
-                      {todo.dueDate ? (
-                        <time className={`todo-due-date ${todoDueClass(todo, completedTodoStatus)}`}>{formatTodoDueDate(todo.dueDate)}</time>
-                      ) : (
-                        <span>No due date</span>
-                      )}
-                    </div>
+                    {todo.who || todo.dueDate ? (
+                      <div className="todo-card-meta">
+                        {todo.who ? <span>{todo.who}</span> : null}
+                        {todo.dueDate ? (
+                          <time className={`todo-due-date ${todoDueClass(todo, completedTodoStatus)}`}>{formatTodoDueDate(todo.dueDate)}</time>
+                        ) : null}
+                      </div>
+                    ) : null}
                     {todo.body.trim() ? (
                       <div className="todo-card-note">
                         <MarkdownBlock markdown={todo.body} />
@@ -455,7 +456,7 @@ export function TodoBoard({
                       </button>
                       <button
                         type="button"
-                        className="icon-button secondary"
+                        className="icon-button secondary todo-edit-button"
                         onClick={(event) => {
                           event.stopPropagation();
                           setDraftTodo({ ...todo, boardId });
@@ -463,7 +464,7 @@ export function TodoBoard({
                         aria-label={`Edit ${todo.title}`}
                         title="Edit"
                       >
-                        Edit
+                        ✎
                       </button>
                       <button
                         type="button"

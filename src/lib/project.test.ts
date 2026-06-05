@@ -19,7 +19,7 @@ import {
   normalizeMeetingProtocols,
   protocolConversionBody,
 } from './meetingProtocols';
-import { ensureProjectHash } from './storage';
+import { buildProjectLocationHash, ensureProjectHash, parseProjectLocationHash } from './storage';
 import { moveTodoBetweenBoards, normalizeTodoBoards, syncProjectTodoBoard } from './todoBoards';
 import { isTodoCompleted, moveTodoWithinBoard, normalizeCompletedTodoStatus, normalizeTodoStatuses, renameTodoStatus } from './todos';
 
@@ -416,6 +416,18 @@ describe('project helpers', () => {
     expect(location.hash).toBe('timeline');
   });
 
+  it('keeps section and protocol targets separate from the project hash', () => {
+    expect(parseProjectLocationHash('#camp?timeline')).toEqual({
+      projectHash: 'camp',
+      target: { section: 'timeline' },
+    });
+    expect(parseProjectLocationHash('#camp?protocol=protocol-1')).toEqual({
+      projectHash: 'camp',
+      target: { section: 'protocol', protocolId: 'protocol-1' },
+    });
+    expect(buildProjectLocationHash('camp', { section: 'protocol', protocolId: 'protocol-1' })).toBe('camp?protocol=protocol-1');
+  });
+
   it('normalizes meeting protocols without losing saved body text', () => {
     const protocols = normalizeMeetingProtocols([
       {
@@ -435,6 +447,19 @@ describe('project helpers', () => {
     expect(protocols[0].updates[0].title).toBe('Update A');
     expect(protocols[0].topics[0].owner).toBe('Mika');
     expect(protocols[0].todos[0].body).toBe('- Do it');
+  });
+
+  it('normalizes meeting protocol item todo and event links without losing them', () => {
+    const [protocol] = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        todos: [{ id: 'item-1', title: 'Build', convertedTodoId: 'todo-1', convertedEventId: 'event-1' }],
+      },
+    ]);
+
+    expect(protocol.todos[0].convertedTodoId).toBe('todo-1');
+    expect(protocol.todos[0].convertedEventId).toBe('event-1');
   });
 
   it('preserves spaces in protocol titles and entry headlines', () => {

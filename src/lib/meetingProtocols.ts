@@ -303,6 +303,8 @@ function normalizeProtocolItems(
       title: item.title && item.title.trim() ? item.title : `${fallbackTitle} ${index + 1}`,
       owner: item.owner?.trim() || '',
       body: item.body ?? '',
+      convertedTodoId: item.convertedTodoId?.trim() || undefined,
+      convertedEventId: item.convertedEventId?.trim() || undefined,
       createdAt: item.createdAt || now,
       updatedAt: item.updatedAt || item.createdAt || now,
     };

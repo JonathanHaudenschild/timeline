@@ -68,6 +68,8 @@ export type MeetingProtocolItem = {
   title: string;
   owner: string;
   body: string;
+  convertedTodoId?: string;
+  convertedEventId?: string;
   createdAt: string;
   updatedAt: string;
 };

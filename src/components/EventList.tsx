@@ -12,7 +12,7 @@ type EventListProps = {
   canEdit: boolean;
   onAdd: () => void;
   onSelect: (event: TimelineEvent) => void;
-  onEdit: (event: TimelineEvent) => void;
+  onChange: (event: TimelineEvent) => void;
   onToggleTimeline: (event: TimelineEvent) => void;
   onSetAllTimeline: (visible: boolean) => void;
   onConvertToTodo: (event: TimelineEvent) => void;
@@ -39,7 +39,7 @@ export function EventList({
   canEdit,
   onAdd,
   onSelect,
-  onEdit,
+  onChange,
   onToggleTimeline,
   onSetAllTimeline,
   onConvertToTodo,
@@ -53,6 +53,9 @@ export function EventList({
     () => sortEvents(events.filter((event) => eventMatchesSearch(event, search)), sortKey, sortDirection),
     [events, search, sortDirection, sortKey],
   );
+  const visibleColumns = canEdit
+    ? sortableColumns.filter((column) => column.key !== 'timeline')
+    : sortableColumns;
 
   function changeSort(nextKey: SortKey) {
     if (nextKey === sortKey) {
@@ -119,7 +122,7 @@ export function EventList({
         <table>
           <thead>
             <tr>
-              {sortableColumns.map((column) => (
+              {visibleColumns.map((column) => (
                 <th
                   key={column.key}
                   aria-sort={sortKey === column.key ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
@@ -141,53 +144,147 @@ export function EventList({
             {sortedEventRows.map((event) => (
               <tr
                 key={event.id}
-                className={selectedEventId === event.id ? 'selected' : ''}
+                id={`event-row-${event.id}`}
+                className={[
+                  selectedEventId === event.id ? 'selected' : '',
+                  event.type.trim().toLowerCase() === 'alt' ? 'event-row-alt' : '',
+                ].filter(Boolean).join(' ')}
                 onClick={() => onSelect(event)}
               >
-                <td className="event-date-cell" data-label="Date">{formatShortGermanDateRange(event.date, event.endDate)}</td>
-                <td className="event-time-cell" data-label="Time">{event.time}</td>
-                <td className="event-what-cell" data-label="What">{event.what}</td>
-                <td data-label="Who">{event.who}</td>
+                <td className="event-date-cell" data-label="Date">
+                  {canEdit ? (
+                    <div className="inline-date-range" onClick={(click) => click.stopPropagation()}>
+                      <div className="inline-date-row">
+                        <input
+                          type="date"
+                          value={event.date}
+                          onChange={(change) => onChange({ ...event, date: change.target.value })}
+                          aria-label={`Date for ${event.what}`}
+                        />
+                        {!event.endDate ? (
+                          <button
+                            type="button"
+                            className="inline-date-add"
+                            onClick={() => onChange({ ...event, endDate: event.date })}
+                          >
+                            until
+                          </button>
+                        ) : null}
+                      </div>
+                      {event.endDate ? (
+                        <div className="inline-date-row">
+                          <input
+                            type="date"
+                            value={event.endDate}
+                            onChange={(change) => onChange({ ...event, endDate: change.target.value || undefined })}
+                            aria-label={`End date for ${event.what}`}
+                          />
+                          <button
+                            type="button"
+                            className="inline-date-add"
+                            onClick={() => onChange({ ...event, endDate: undefined })}
+                            aria-label={`Remove end date for ${event.what}`}
+                          >
+                            clear
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : formatShortGermanDateRange(event.date, event.endDate)}
+                </td>
+                <td className="event-time-cell" data-label="Time">
+                  {canEdit ? (
+                    <input
+                      className="event-inline-input"
+                      value={event.time}
+                      onClick={(click) => click.stopPropagation()}
+                      onChange={(change) => onChange({ ...event, time: change.target.value })}
+                      aria-label={`Time for ${event.what}`}
+                    />
+                  ) : event.time}
+                </td>
+                <td className="event-what-cell" data-label="What">
+                  {canEdit ? (
+                    <input
+                      className="event-inline-input"
+                      value={event.what}
+                      onClick={(click) => click.stopPropagation()}
+                      onChange={(change) => onChange({ ...event, what: change.target.value })}
+                      aria-label={`Title for ${event.what}`}
+                    />
+                  ) : event.what}
+                </td>
+                <td data-label="Who">
+                  {canEdit ? (
+                    <input
+                      className="event-inline-input"
+                      value={event.who}
+                      onClick={(click) => click.stopPropagation()}
+                      onChange={(change) => onChange({ ...event, who: change.target.value })}
+                      aria-label={`Person for ${event.what}`}
+                    />
+                  ) : event.who}
+                </td>
                 <td data-label="Type">
-                  <span className="event-badge type-badge">{event.type}</span>
+                  {canEdit ? (
+                    <input
+                      className="event-inline-input event-inline-type"
+                      value={event.type}
+                      onClick={(click) => click.stopPropagation()}
+                      onChange={(change) => onChange({ ...event, type: change.target.value })}
+                      aria-label={`Type for ${event.what}`}
+                    />
+                  ) : (
+                    <span className="event-badge type-badge">{event.type}</span>
+                  )}
                 </td>
                 <td data-label="Category">
-                  <span className="event-badge category-badge">{event.category || event.type || 'event'}</span>
-                </td>
-                <td data-label="Timeline">
                   {canEdit ? (
-                    <button
-                      type="button"
-                      className={`timeline-toggle ${event.showOnTimeline === false ? 'off' : 'on'}`}
-                      onClick={(click) => {
-                        click.stopPropagation();
-                        onToggleTimeline(event);
-                      }}
-                    >
-                      {event.showOnTimeline === false ? 'show' : 'hide'}
-                    </button>
+                    <input
+                      className="event-inline-input"
+                      value={event.category ?? ''}
+                      onClick={(click) => click.stopPropagation()}
+                      onChange={(change) => onChange({ ...event, category: change.target.value || undefined })}
+                      aria-label={`Category for ${event.what}`}
+                    />
                   ) : (
+                    <span className="event-badge category-badge">{event.category || event.type || 'event'}</span>
+                  )}
+                </td>
+                {!canEdit ? (
+                  <td data-label="Timeline">
                     <span className={`event-badge timeline-badge ${event.showOnTimeline === false ? 'hidden' : 'shown'}`}>
                       {event.showOnTimeline === false ? 'hidden' : 'shown'}
                     </span>
-                  )}
-                </td>
+                  </td>
+                ) : null}
                 <td className="event-note-cell" data-label="Note">
-                  {event.note.trim() ? <MarkdownBlock markdown={event.note} /> : null}
+                  {canEdit ? (
+                    <textarea
+                      className="event-inline-note"
+                      value={event.note}
+                      onClick={(click) => click.stopPropagation()}
+                      onChange={(change) => onChange({ ...event, note: change.target.value })}
+                      aria-label={`Note for ${event.what}`}
+                      placeholder="Note"
+                      rows={1}
+                    />
+                  ) : event.note.trim() ? <MarkdownBlock markdown={event.note} /> : null}
                 </td>
                 <td data-label="Actions">
                   {canEdit ? (
-                    <>
+                    <div className="event-row-actions">
                       <button
                         type="button"
-                        className="icon-button"
+                        className={`timeline-toggle action-toggle ${event.showOnTimeline === false ? 'off' : 'on'}`}
                         onClick={(click) => {
                           click.stopPropagation();
-                          onEdit(event);
+                          onToggleTimeline(event);
                         }}
-                        aria-label={`Edit ${event.what}`}
+                        aria-label={`${event.showOnTimeline === false ? 'Show' : 'Hide'} ${event.what} on timeline`}
+                        title={event.showOnTimeline === false ? 'Show on timeline' : 'Hide from timeline'}
                       >
-                        edit
+                        {event.showOnTimeline === false ? 'show' : 'hide'}
                       </button>
                       <button
                         type="button"
@@ -213,7 +310,7 @@ export function EventList({
                       >
                         x
                       </button>
-                    </>
+                    </div>
                   ) : null}
                 </td>
               </tr>

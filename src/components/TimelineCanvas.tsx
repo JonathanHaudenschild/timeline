@@ -27,6 +27,8 @@ type TimelineCanvasProps = {
   onSelectEvent: (event: TimelineEvent) => void;
   onSelectTodo: (todo: TimelineTodo) => void;
   onToggleTodoOverlay: (visible: boolean) => void;
+  onCopyLink: () => void;
+  linkCopied: boolean;
 };
 
 type HitBox = {
@@ -69,6 +71,8 @@ export function TimelineCanvas({
   onSelectEvent,
   onSelectTodo,
   onToggleTodoOverlay,
+  onCopyLink,
+  linkCopied,
 }: TimelineCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hitBoxesRef = useRef<HitBox[]>([]);
@@ -146,6 +150,15 @@ export function TimelineCanvas({
       <div className="timeline-toolbar">
         <div className="timeline-title">
           <span>Timeline</span>
+          <button
+            type="button"
+            className="icon-button secondary copy-link-icon"
+            onClick={onCopyLink}
+            aria-label="Copy timeline link"
+            title={linkCopied ? 'Copied' : 'Copy timeline link'}
+          >
+            {linkCopied ? 'ok' : '§'}
+          </button>
           <code>{project.startDate} / {project.endDate}</code>
         </div>
         <div className="timeline-actions">

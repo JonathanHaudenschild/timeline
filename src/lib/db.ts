@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+import { Pool, type PoolClient } from 'pg';
 import { createDefaultProject, normalizeHash } from './project';
 import { buildTypeColors } from './colors';
 import { defaultProtocolInstructionTemplate, normalizeMeetingProtocols } from './meetingProtocols';
@@ -65,6 +65,29 @@ async function ensureSchema() {
     ADD COLUMN IF NOT EXISTS revision BIGINT NOT NULL DEFAULT 0
   `);
 
+  await getPool().query(`
+    CREATE TABLE IF NOT EXISTS timeline_project_revisions (
+      id BIGSERIAL PRIMARY KEY,
+      hash TEXT NOT NULL REFERENCES timeline_projects(hash) ON DELETE CASCADE,
+      revision BIGINT NOT NULL,
+      data JSONB NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      UNIQUE (hash, revision)
+    )
+  `);
+
+  await getPool().query(`
+    CREATE INDEX IF NOT EXISTS timeline_project_revisions_hash_created_at_idx
+    ON timeline_project_revisions (hash, created_at DESC)
+  `);
+
+  await getPool().query(`
+    INSERT INTO timeline_project_revisions (hash, revision, data, created_at)
+    SELECT hash, revision, data, updated_at
+    FROM timeline_projects
+    ON CONFLICT (hash, revision) DO NOTHING
+  `);
+
   initialized = true;
 }
 
@@ -95,41 +118,68 @@ export async function saveProjectToDb(project: TimelineProject) {
   await ensureSchema();
 
   const normalizedHash = normalizeHash(project.hash);
-  const existing = await getPool().query<{ revision: string }>(
-    'SELECT revision FROM timeline_projects WHERE hash = $1',
-    [normalizedHash],
-  );
+  const client = await getPool().connect();
 
-  if (existing.rowCount) {
-    const currentRevision = Number(existing.rows[0].revision);
-    if (project.revision !== currentRevision) {
-      throw new ProjectConflictError();
+  try {
+    await client.query('BEGIN');
+
+    const existing = await client.query<{ revision: string }>(
+      'SELECT revision FROM timeline_projects WHERE hash = $1 FOR UPDATE',
+      [normalizedHash],
+    );
+
+    if (existing.rowCount) {
+      const currentRevision = Number(existing.rows[0].revision);
+      if (project.revision !== currentRevision) {
+        throw new ProjectConflictError();
+      }
+
+      const nextRevision = currentRevision + 1;
+      const normalizedProject = normalizeProject({ ...project, hash: normalizedHash, revision: nextRevision });
+      const update = await client.query(
+        `UPDATE timeline_projects
+         SET data = $2, revision = $3, updated_at = now()
+         WHERE hash = $1 AND revision = $4`,
+        [normalizedProject.hash, JSON.stringify(normalizedProject), nextRevision, currentRevision],
+      );
+      if (!update.rowCount) throw new ProjectConflictError();
+
+      await insertProjectRevision(client, normalizedProject);
+      await client.query('COMMIT');
+      return normalizedProject;
     }
 
-    const nextRevision = currentRevision + 1;
-    const normalizedProject = normalizeProject({ ...project, hash: normalizedHash, revision: nextRevision });
-    const update = await getPool().query(
-      `UPDATE timeline_projects
-       SET data = $2, revision = $3, updated_at = now()
-       WHERE hash = $1 AND revision = $4`,
-      [normalizedProject.hash, JSON.stringify(normalizedProject), nextRevision, currentRevision],
-    );
-    if (!update.rowCount) throw new ProjectConflictError();
-    return normalizedProject;
-  }
-
-  const normalizedProject = normalizeProject({ ...project, hash: normalizedHash, revision: 1 });
-  try {
-    await getPool().query(
+    const normalizedProject = normalizeProject({ ...project, hash: normalizedHash, revision: 1 });
+    await client.query(
       `INSERT INTO timeline_projects (hash, data, revision, updated_at)
        VALUES ($1, $2, $3, now())`,
       [normalizedProject.hash, JSON.stringify(normalizedProject), normalizedProject.revision],
     );
-  } catch {
-    throw new ProjectConflictError();
-  }
+    await insertProjectRevision(client, normalizedProject);
+    await client.query('COMMIT');
 
-  return normalizedProject;
+    return normalizedProject;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    if (error instanceof ProjectConflictError) throw error;
+    if (isUniqueViolation(error)) throw new ProjectConflictError();
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function insertProjectRevision(client: PoolClient, project: TimelineProject) {
+  await client.query(
+    `INSERT INTO timeline_project_revisions (hash, revision, data)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (hash, revision) DO NOTHING`,
+    [project.hash, project.revision, JSON.stringify(project)],
+  );
+}
+
+function isUniqueViolation(error: unknown) {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === '23505';
 }
 
 function normalizeProject(project: TimelineProject): TimelineProject {

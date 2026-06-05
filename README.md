@@ -64,3 +64,7 @@ docker compose -f docker-compose.traefik.yml up -d --build
 ```
 
 The app persists project data in the `timeline_postgres` Docker volume. Back that volume up before server migrations.
+
+## Project Backups
+
+Projects are stored canonically in `timeline_projects.data` as JSONB. Every successful save also writes an immutable snapshot to `timeline_project_revisions` with the project hash, revision number, full JSONB data, and timestamp. This keeps the current whole-project sync model while providing database-level recovery points if a bad save or conflicting edit needs to be inspected or restored.

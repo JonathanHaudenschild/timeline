@@ -10,12 +10,11 @@ import { ProjectHeader } from './ProjectHeader';
 import { StickyLinks } from './StickyLinks';
 import { TimelineCanvas } from './TimelineCanvas';
 import { TodoBoard } from './TodoBoard';
-import { TodoEditor } from './TodoEditor';
 import { fetchProject, importProjectFile, LockedProjectError, persistProject, ProjectConflictError } from '@/lib/api';
 import { formatShortGermanDateRange } from '@/lib/dateFormat';
 import { createDefaultProject, normalizeHash } from '@/lib/project';
 import { mergeMeetingProtocols, normalizeMeetingProtocols } from '@/lib/meetingProtocols';
-import { ensureProjectHash } from '@/lib/storage';
+import { buildProjectLocationHash, ensureProjectHash, parseProjectLocationHash, type ProjectUrlTarget } from '@/lib/storage';
 import { moveTodoBetweenBoards, normalizeTodoBoards, syncProjectTodoBoard } from '@/lib/todoBoards';
 import { normalizeCompletedTodoStatus, normalizeTodoStatuses, renameTodoStatus } from '@/lib/todos';
 import type { TimelineEvent, TimelineMode, TimelineProject, TimelineTodo, TimelineTodoBoard as TimelineTodoBoardData } from '@/lib/types';
@@ -40,7 +39,6 @@ export function TimelineApp() {
   const [selectedEventId, setSelectedEventId] = useState<string>();
   const [selectedTodoId, setSelectedTodoId] = useState<string>();
   const [draftEvent, setDraftEvent] = useState<TimelineEvent | null>(null);
-  const [draftProtocolTodo, setDraftProtocolTodo] = useState<TimelineTodo | null>(null);
   const [editingInfo, setEditingInfo] = useState(false);
   const [saveState, setSaveState] = useState<'loading' | 'saved' | 'saving' | 'error' | 'conflict'>('loading');
   const [collaborationNotice, setCollaborationNotice] = useState('');
@@ -54,6 +52,10 @@ export function TimelineApp() {
   const [pinDialogPin, setPinDialogPin] = useState('');
   const [pinDialogRepeat, setPinDialogRepeat] = useState('');
   const [selectedPopoverMinimized, setSelectedPopoverMinimized] = useState(false);
+  const [urlTarget, setUrlTarget] = useState<ProjectUrlTarget | undefined>(() =>
+    typeof window === 'undefined' ? undefined : parseProjectLocationHash(window.location.hash).target,
+  );
+  const [copiedSectionLink, setCopiedSectionLink] = useState<ProjectUrlTarget['section'] | ''>('');
   const [unlockedTodoBoardIds, setUnlockedTodoBoardIds] = useState<string[]>([]);
   const [isTodoSectionMinimized, setIsTodoSectionMinimized] = usePersistentState(
     `timeline:ui:todo-section-minimized:${project.hash}`,
@@ -66,6 +68,7 @@ export function TimelineApp() {
   const syncPollInFlightRef = useRef(false);
   const projectPinRef = useRef<string | undefined>(undefined);
   const pinDialogResolverRef = useRef<((result: PinDialogResult | null) => void) | null>(null);
+  const consumedUrlTargetRef = useRef('');
   const topRef = useRef<HTMLElement | null>(null);
   const protocolsRef = useRef<HTMLDivElement | null>(null);
   const timelineRef = useRef<HTMLDivElement | null>(null);
@@ -147,9 +150,11 @@ export function TimelineApp() {
     void load(activeHash, getProjectPinSession(activeHash));
 
     function handleHashChange() {
-      const hash = window.location.hash ? normalizeHash(window.location.hash) : 'timeline';
-      if (window.location.hash !== `#${hash}`) {
-        window.location.hash = hash;
+      const hash = ensureProjectHash(window.location);
+      const target = parseProjectLocationHash(window.location.hash).target;
+      consumedUrlTargetRef.current = '';
+      setUrlTarget(target);
+      if (hash === latestProjectRef.current.hash) {
         return;
       }
 
@@ -304,9 +309,6 @@ export function TimelineApp() {
   const completedTodoStatus = normalizeCompletedTodoStatus(todoStatuses, activeBoard.completedTodoStatus);
   const isActiveBoardLocked = Boolean(activeBoard.pinHash && !unlockedTodoBoardIds.includes(activeBoard.id));
   const meetingProtocols = normalizeMeetingProtocols(project.meetingProtocols);
-  const draftProtocolTodoBoardId = draftProtocolTodo?.boardId ?? activeBoard.id;
-  const draftProtocolTodoBoard = todoBoards.find((board) => board.id === draftProtocolTodoBoardId) ?? activeBoard;
-  const draftProtocolTodoStatuses = normalizeTodoStatuses(draftProtocolTodoBoard.statuses, draftProtocolTodoBoard.todos);
   const timelineProject = {
     ...project,
     todos: isActiveBoardLocked ? [] : activeBoard.todos,
@@ -338,6 +340,39 @@ export function TimelineApp() {
   function selectTodo(todo: TimelineTodo) {
     setSelectedTodoId(todo.id);
     scrollToElement(todoRef.current);
+  }
+
+  function openTodoFromProtocol(todoId: string) {
+    const board = todoBoards.find((item) => item.todos.some((todo) => todo.id === todoId));
+    if (!board) {
+      window.alert('The linked todo could not be found. It may have been deleted.');
+      return;
+    }
+    if (board.pinHash && !unlockedTodoBoardIds.includes(board.id)) {
+      window.alert('Unlock that todo board before opening the linked todo.');
+      return;
+    }
+
+    setIsTodoSectionMinimized(false);
+    updateProject(syncProjectTodoBoard(project, todoBoards, board.id));
+    setSelectedTodoId(todoId);
+    window.setTimeout(() => {
+      document.getElementById(`todo-card-${todoId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    }, 0);
+  }
+
+  function openEventFromProtocol(eventId: string) {
+    const event = project.events.find((item) => item.id === eventId);
+    if (!event) {
+      window.alert('The linked event could not be found. It may have been deleted.');
+      return;
+    }
+
+    selectEvent(event.id);
+    scrollToElement(eventsRef.current);
+    window.setTimeout(() => {
+      document.getElementById(`event-row-${event.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    }, 0);
   }
 
   function updateTodoBoards(boards: TimelineTodoBoardData[], activeBoardId = activeBoard.id) {
@@ -414,11 +449,23 @@ export function TimelineApp() {
     selectEvent(event.id);
   }
 
-  function createTodoFromProtocol(source: { title: string; body: string; date: string; who?: string; protocolId?: string }) {
+  function createTodoFromProtocol(source: {
+    title: string;
+    body: string;
+    date: string;
+    who?: string;
+    protocolId?: string;
+    protocolItemId?: string;
+    protocolItemKind?: 'updates' | 'topics' | 'todos';
+  }) {
+    if (isActiveBoardLocked) {
+      window.alert('Unlock the active todo board before adding a protocol todo to it.');
+      return;
+    }
+
     const targetStatus = todoStatuses[0] ?? 'open';
-    setDraftProtocolTodo({
+    const todoForSave = {
       id: crypto.randomUUID(),
-      boardId: activeBoard.id,
       protocolId: source.protocolId,
       title: source.title || 'Protocol todo',
       who: source.who ?? '',
@@ -427,46 +474,44 @@ export function TimelineApp() {
       dueDate: source.date,
       showOnTimeline: true,
       order: nextTodoOrder(activeBoard.todos, targetStatus),
-    });
-  }
-
-  function saveProtocolTodo() {
-    if (!draftProtocolTodo) return;
-
-    const targetBoardId = draftProtocolTodo.boardId ?? activeBoard.id;
-    const targetBoard = todoBoards.find((board) => board.id === targetBoardId) ?? activeBoard;
-    if (targetBoard.pinHash && !unlockedTodoBoardIds.includes(targetBoard.id)) {
-      window.alert('Unlock that todo board before adding a protocol todo to it.');
-      return;
-    }
-
-    const targetStatuses = normalizeTodoStatuses(targetBoard.statuses, targetBoard.todos);
-    const targetStatus = targetStatuses.includes(draftProtocolTodo.status)
-      ? draftProtocolTodo.status
-      : targetStatuses[0] ?? 'open';
-    const todoForSave = {
-      ...draftProtocolTodo,
-      boardId: undefined,
-      status: targetStatus,
-      order: nextTodoOrder(targetBoard.todos, targetStatus),
     };
     const nextBoard = {
-      ...targetBoard,
-      todos: [...targetBoard.todos, todoForSave],
-      statuses: normalizeTodoStatuses(targetBoard.statuses, [...targetBoard.todos, todoForSave]),
+      ...activeBoard,
+      todos: [...activeBoard.todos, todoForSave],
+      statuses: normalizeTodoStatuses(activeBoard.statuses, [...activeBoard.todos, todoForSave]),
     };
+    const now = new Date().toISOString();
+    const protocolItemKind = source.protocolItemKind;
+    const nextProtocols =
+      source.protocolId && source.protocolItemId && protocolItemKind
+        ? meetingProtocols.map((protocol) =>
+          protocol.id === source.protocolId
+            ? {
+              ...protocol,
+              [protocolItemKind]: protocol[protocolItemKind].map((item) =>
+                item.id === source.protocolItemId ? { ...item, convertedTodoId: todoForSave.id, updatedAt: now } : item,
+              ),
+              updatedAt: now,
+            }
+            : protocol,
+        )
+        : meetingProtocols;
 
     updateProject(syncProjectTodoBoard(
-      project,
-      todoBoards.map((board) => (board.id === targetBoard.id ? nextBoard : board)),
-      targetBoard.id,
+      { ...project, meetingProtocols: nextProtocols },
+      todoBoards.map((board) => (board.id === activeBoard.id ? nextBoard : board)),
+      activeBoard.id,
     ));
-    setDraftProtocolTodo(null);
-    setSelectedTodoId(todoForSave.id);
-    scrollToElement(todoRef.current);
   }
 
-  function createEventFromProtocol(source: { title: string; body: string; date: string }) {
+  function createEventFromProtocol(source: {
+    title: string;
+    body: string;
+    date: string;
+    protocolId?: string;
+    protocolItemId?: string;
+    protocolItemKind?: 'updates' | 'topics' | 'todos';
+  }) {
     const event: TimelineEvent = {
       id: crypto.randomUUID(),
       date: source.date || project.startDate,
@@ -479,10 +524,28 @@ export function TimelineApp() {
       showOnTimeline: true,
       note: source.body,
     };
+    const now = new Date().toISOString();
+    const protocolItemKind = source.protocolItemKind;
+    const nextProtocols =
+      source.protocolId && source.protocolItemId && protocolItemKind
+        ? meetingProtocols.map((protocol) =>
+          protocol.id === source.protocolId
+            ? {
+              ...protocol,
+              [protocolItemKind]: protocol[protocolItemKind].map((item) =>
+                item.id === source.protocolItemId ? { ...item, convertedEventId: event.id, updatedAt: now } : item,
+              ),
+              updatedAt: now,
+            }
+            : protocol,
+        )
+        : meetingProtocols;
 
-    updateProject({ ...project, events: [...project.events, event] });
-    selectEvent(event.id);
-    scrollToElement(timelineRef.current);
+    updateProject({ ...project, events: [...project.events, event], meetingProtocols: nextProtocols });
+    if (!source.protocolItemId) {
+      selectEvent(event.id);
+      scrollToElement(timelineRef.current);
+    }
   }
 
   function switchTodoBoard(boardId: string) {
@@ -847,6 +910,69 @@ export function TimelineApp() {
     element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  function navigateToTarget(target: ProjectUrlTarget) {
+    const nextHash = buildProjectLocationHash(project.hash, target);
+    if (window.location.hash !== `#${nextHash}`) {
+      window.location.hash = nextHash;
+      return;
+    }
+
+    consumedUrlTargetRef.current = '';
+    setUrlTarget(target);
+  }
+
+  function sectionLink(target: ProjectUrlTarget) {
+    const hash = buildProjectLocationHash(project.hash, target);
+    return `${window.location.origin}${window.location.pathname}${window.location.search}#${hash}`;
+  }
+
+  function copySectionLink(target: ProjectUrlTarget) {
+    const link = sectionLink(target);
+    const copy = navigator.clipboard?.writeText
+      ? navigator.clipboard.writeText(link)
+      : fallbackCopyText(link);
+
+    void copy
+      .then(() => {
+        setCopiedSectionLink(target.section);
+        window.setTimeout(() => setCopiedSectionLink(''), 1800);
+      })
+      .catch(() => {
+        window.prompt('Copy this link', link);
+      });
+  }
+
+  useEffect(() => {
+    if (saveState === 'loading' || lockedHash) return;
+    if (!urlTarget) return;
+    const targetKey = projectUrlTargetKey(project.hash, urlTarget);
+    if (consumedUrlTargetRef.current === targetKey) return;
+    consumedUrlTargetRef.current = targetKey;
+
+    const timeout = window.setTimeout(() => {
+      switch (urlTarget.section) {
+        case 'top':
+          scrollToElement(topRef.current);
+          break;
+        case 'todos':
+          setIsTodoSectionMinimized(false);
+          scrollToElement(todoRef.current);
+          break;
+        case 'timeline':
+          scrollToElement(timelineRef.current);
+          break;
+        case 'events':
+          scrollToElement(eventsRef.current);
+          break;
+        case 'protocol':
+          scrollToElement(protocolsRef.current);
+          break;
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [lockedHash, project.hash, saveState, setIsTodoSectionMinimized, urlTarget]);
+
   if (lockedHash) {
     return (
       <main className="app-shell locked-shell">
@@ -908,19 +1034,19 @@ export function TimelineApp() {
   return (
     <main className="app-shell" ref={topRef}>
       <nav className="quick-jump" aria-label="Quick navigation">
-        <button type="button" className="secondary" onClick={() => scrollToElement(topRef.current)}>
+        <button type="button" className="secondary" onClick={() => navigateToTarget({ section: 'top' })}>
           Top
         </button>
-        <button type="button" onClick={() => scrollToElement(todoRef.current)}>
+        <button type="button" onClick={() => navigateToTarget({ section: 'todos' })}>
           Todos
         </button>
-        <button type="button" className="secondary" onClick={() => scrollToElement(timelineRef.current)}>
+        <button type="button" className="secondary" onClick={() => navigateToTarget({ section: 'timeline' })}>
           Timeline
         </button>
-        <button type="button" className="secondary" onClick={() => scrollToElement(eventsRef.current)}>
+        <button type="button" className="secondary" onClick={() => navigateToTarget({ section: 'events' })}>
           Events
         </button>
-        <button type="button" className="secondary" onClick={() => scrollToElement(protocolsRef.current)}>
+        <button type="button" className="secondary" onClick={() => navigateToTarget({ section: 'protocol' })}>
           Protocols
         </button>
       </nav>
@@ -1012,11 +1138,17 @@ export function TimelineApp() {
           canEdit={canEdit}
           protocols={meetingProtocols}
           instructionTemplate={project.protocolInstructionTemplate}
+          requestedProtocolId={urlTarget?.section === 'protocol' && 'protocolId' in urlTarget ? urlTarget.protocolId : undefined}
+          onProtocolSelect={(protocolId) => navigateToTarget({ section: 'protocol', protocolId })}
           onChange={(protocols) => updateProject({ ...project, meetingProtocols: protocols })}
           onInstructionTemplateChange={(protocolInstructionTemplate) =>
             updateProject({ ...project, protocolInstructionTemplate })
           }
           onCreateTodo={createTodoFromProtocol}
+          onOpenTodo={openTodoFromProtocol}
+          onOpenEvent={openEventFromProtocol}
+          onCopyLink={() => copySectionLink({ section: 'protocol' })}
+          linkCopied={copiedSectionLink === 'protocol'}
           onCreateEvent={createEventFromProtocol}
         />
       </div>
@@ -1041,6 +1173,8 @@ export function TimelineApp() {
               },
             })
           }
+          onCopyLink={() => copySectionLink({ section: 'timeline' })}
+          linkCopied={copiedSectionLink === 'timeline'}
         />
       </div>
 
@@ -1053,32 +1187,6 @@ export function TimelineApp() {
           onCancel={() => setDraftEvent(null)}
           onSave={saveEvent}
           modal
-        />
-      ) : null}
-
-      {draftProtocolTodo ? (
-        <TodoEditor
-          draft={draftProtocolTodo}
-          statuses={draftProtocolTodoStatuses}
-          title="Create todo on board"
-          saveLabel="Add to board"
-          forceBoardSelect
-          boards={todoBoards.map((board) => ({
-            id: board.id,
-            name: board.name,
-            locked: Boolean(board.pinHash && !unlockedTodoBoardIds.includes(board.id)),
-          }))}
-          protocolOptions={meetingProtocols.map((protocol) => ({ id: protocol.id, title: protocol.title }))}
-          onChange={(todo) => {
-            const targetBoard = todoBoards.find((board) => board.id === (todo.boardId ?? activeBoard.id)) ?? activeBoard;
-            const targetStatuses = normalizeTodoStatuses(targetBoard.statuses, targetBoard.todos);
-            setDraftProtocolTodo({
-              ...todo,
-              status: targetStatuses.includes(todo.status) ? todo.status : targetStatuses[0] ?? 'open',
-            });
-          }}
-          onCancel={() => setDraftProtocolTodo(null)}
-          onSave={saveProtocolTodo}
         />
       ) : null}
 
@@ -1153,7 +1261,12 @@ export function TimelineApp() {
           onSelect={(event) => {
             selectEvent(event.id);
           }}
-          onEdit={(event) => setDraftEvent({ ...event })}
+          onChange={(changedEvent) => {
+            updateProject({
+              ...project,
+              events: project.events.map((event) => (event.id === changedEvent.id ? changedEvent : event)),
+            });
+          }}
           onToggleTimeline={(event) => {
             updateProject({
               ...project,
@@ -1181,6 +1294,15 @@ export function TimelineApp() {
           <div className="section-heading todo-section-heading">
             <div className="todo-section-title">
               <h2>Todos</h2>
+              <button
+                type="button"
+                className="icon-button secondary copy-link-icon"
+                onClick={() => copySectionLink({ section: 'todos' })}
+                aria-label="Copy todos link"
+                title={copiedSectionLink === 'todos' ? 'Copied' : 'Copy todos link'}
+              >
+                {copiedSectionLink === 'todos' ? 'ok' : '§'}
+              </button>
               <span>{activeBoard.todos.length} cards</span>
             </div>
             <div className="heading-actions">
@@ -1396,6 +1518,31 @@ function nextTodoOrder(todos: readonly TimelineTodo[], status: string) {
   return todos
     .filter((todo) => todo.status === status)
     .reduce((max, todo) => Math.max(max, todo.order ?? 0), 0) + 1;
+}
+
+function fallbackCopyText(text: string) {
+  return new Promise<void>((resolve, reject) => {
+    const input = document.createElement('textarea');
+    input.value = text;
+    input.setAttribute('readonly', '');
+    input.style.position = 'fixed';
+    input.style.opacity = '0';
+    document.body.appendChild(input);
+    input.select();
+
+    const copied = document.execCommand('copy');
+    document.body.removeChild(input);
+    if (copied) {
+      resolve();
+      return;
+    }
+
+    reject(new Error('Copy failed'));
+  });
+}
+
+function projectUrlTargetKey(projectHash: string, target: ProjectUrlTarget) {
+  return buildProjectLocationHash(projectHash, target);
 }
 
 function unsavedProjectBackupKey(projectHash: string) {

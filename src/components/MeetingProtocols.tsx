@@ -24,10 +24,31 @@ type MeetingProtocolsProps = {
   canEdit: boolean;
   protocols: MeetingProtocol[];
   instructionTemplate: string;
+  requestedProtocolId?: string;
+  onProtocolSelect: (protocolId: string) => void;
+  onCopyLink: () => void;
+  linkCopied: boolean;
   onChange: (protocols: MeetingProtocol[]) => void;
   onInstructionTemplateChange: (template: string) => void;
-  onCreateTodo: (source: { title: string; body: string; date: string; who?: string; protocolId?: string }) => void;
-  onCreateEvent: (source: { title: string; body: string; date: string }) => void;
+  onCreateTodo: (source: {
+    title: string;
+    body: string;
+    date: string;
+    who?: string;
+    protocolId?: string;
+    protocolItemId?: string;
+    protocolItemKind?: ProtocolItemKind;
+  }) => void;
+  onOpenTodo: (todoId: string) => void;
+  onOpenEvent: (eventId: string) => void;
+  onCreateEvent: (source: {
+    title: string;
+    body: string;
+    date: string;
+    protocolId?: string;
+    protocolItemId?: string;
+    protocolItemKind?: ProtocolItemKind;
+  }) => void;
 };
 
 type ProtocolOverviewItem = {
@@ -55,15 +76,25 @@ export function MeetingProtocols({
   canEdit,
   protocols,
   instructionTemplate,
+  requestedProtocolId,
+  onProtocolSelect,
+  onCopyLink,
+  linkCopied,
   onChange,
   onInstructionTemplateChange,
   onCreateTodo,
+  onOpenTodo,
+  onOpenEvent,
   onCreateEvent,
 }: MeetingProtocolsProps) {
   const [isMinimized, setIsMinimized] = usePersistentState(`timeline:ui:meeting-protocols-minimized:${projectHash}`, false);
   const [showInstruction, setShowInstruction] = usePersistentState(`timeline:ui:meeting-protocols-instruction:${projectHash}`, true);
   const [isEditingInstruction, setIsEditingInstruction] = usePersistentState(`timeline:ui:meeting-protocols-edit-instruction:${projectHash}`, false);
   const [showProtocolEntries, setShowProtocolEntries] = usePersistentState(`timeline:ui:meeting-protocols-left-entries:${projectHash}`, false);
+  const [collapsedProtocolSections, setCollapsedProtocolSections] = usePersistentState<Record<ProtocolItemKind, boolean>>(
+    `timeline:ui:meeting-protocols-collapsed-sections:${projectHash}`,
+    { updates: false, topics: false, todos: false },
+  );
   const [selectedProtocolId, setSelectedProtocolId] = useState(protocols[0]?.id ?? '');
   const [selectedOverviewItemId, setSelectedOverviewItemId] = useState('');
   const [editingItem, setEditingItem] = useState<{
@@ -107,11 +138,26 @@ export function MeetingProtocols({
     };
   }, []);
 
+  useEffect(() => {
+    if (!requestedProtocolId) return;
+    if (!protocols.some((protocol) => protocol.id === requestedProtocolId)) return;
+
+    const timeout = window.setTimeout(() => {
+      setSelectedProtocolId(requestedProtocolId);
+      setSelectedOverviewItemId('');
+      setShowProtocolEntries(false);
+      setIsMinimized(false);
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [protocols, requestedProtocolId, setIsMinimized, setShowProtocolEntries]);
+
   function addProtocol() {
     const protocol = createMeetingProtocol();
     onChange([protocol, ...protocols]);
     setSelectedProtocolId(protocol.id);
     setSelectedOverviewItemId('');
+    onProtocolSelect(protocol.id);
   }
 
   function showProtocols() {
@@ -128,6 +174,7 @@ export function MeetingProtocols({
   function selectOverviewItem(item: ProtocolOverviewItem) {
     setSelectedProtocolId(item.protocolId);
     setSelectedOverviewItemId(item.id);
+    onProtocolSelect(item.protocolId);
     if (entryScrollTimeoutRef.current) window.clearTimeout(entryScrollTimeoutRef.current);
     entryScrollTimeoutRef.current = window.setTimeout(() => {
       document.getElementById(item.id)?.scrollIntoView({ block: 'center' });
@@ -293,32 +340,65 @@ export function MeetingProtocols({
     window.setTimeout(() => printWindow.print(), 250);
   }
 
-  function createTodoFromItem(_kind: ProtocolItemKind, item: MeetingProtocolItem) {
+  function createTodoFromItem(kind: ProtocolItemKind, item: MeetingProtocolItem) {
     if (!selectedProtocol) return;
+    if (item.convertedTodoId) {
+      onOpenTodo(item.convertedTodoId);
+      return;
+    }
 
     onCreateTodo({
       title: item.title,
       body: item.body,
       who: item.owner,
       protocolId: selectedProtocol.id,
+      protocolItemId: item.id,
+      protocolItemKind: kind,
       date: selectedProtocol.date,
     });
   }
 
   function createEventFromItem(kind: ProtocolItemKind, item: MeetingProtocolItem) {
     if (!selectedProtocol) return;
+    if (item.convertedEventId) {
+      onOpenEvent(item.convertedEventId);
+      return;
+    }
 
     onCreateEvent({
       title: item.title,
       body: protocolItemConversionBody(selectedProtocol, kind, item),
       date: selectedProtocol.date,
+      protocolId: selectedProtocol.id,
+      protocolItemId: item.id,
+      protocolItemKind: kind,
     });
+  }
+
+  function toggleProtocolSection(kind: ProtocolItemKind) {
+    setCollapsedProtocolSections((sections) => ({
+      updates: Boolean(sections.updates),
+      topics: Boolean(sections.topics),
+      todos: Boolean(sections.todos),
+      [kind]: !sections[kind],
+    }));
   }
 
   return (
     <section className="protocol-section">
       <div className="section-heading">
-        <h2>Protocols</h2>
+        <div className="section-title-with-link">
+          <h2>Protocols</h2>
+          <button
+            type="button"
+            className="icon-button secondary copy-link-icon"
+            onClick={onCopyLink}
+            aria-label="Copy protocols link"
+            title={linkCopied ? 'Copied' : 'Copy protocols link'}
+          >
+            {linkCopied ? 'ok' : '§'}
+          </button>
+        </div>
         <div className="heading-actions protocol-heading-actions">
           <span>{filteredProtocols.length} / {protocols.length}</span>
           <button type="button" onClick={addProtocol}>
@@ -391,6 +471,7 @@ export function MeetingProtocols({
                   onClick={() => {
                     setSelectedProtocolId(protocol.id);
                     setSelectedOverviewItemId('');
+                    onProtocolSelect(protocol.id);
                   }}
                 >
                   <b>{protocol.title}</b>
@@ -506,8 +587,10 @@ export function MeetingProtocols({
                     kind={section.kind}
                     title={section.title}
                     addLabel={section.addLabel}
+                    collapsed={Boolean(collapsedProtocolSections[section.kind])}
                     search={search}
                     onAdd={() => addItem(section.kind)}
+                    onToggleCollapsed={() => toggleProtocolSection(section.kind)}
                     onEdit={(item) => editItem(section.kind, item)}
                     onDelete={(itemId) => deleteItem(section.kind, itemId)}
                     draggedItem={draggedProtocolItem}
@@ -520,6 +603,8 @@ export function MeetingProtocols({
                     }}
                     onDrop={(targetItemId) => dropProtocolItem(section.kind, targetItemId)}
                     onCreateTodo={(item) => createTodoFromItem(section.kind, item)}
+                    onOpenTodo={onOpenTodo}
+                    onOpenEvent={onOpenEvent}
                     onCreateEvent={(item) => createEventFromItem(section.kind, item)}
                   />
                 ))}
@@ -596,8 +681,10 @@ function ProtocolStructuredSection({
   kind,
   title,
   addLabel,
+  collapsed,
   search,
   onAdd,
+  onToggleCollapsed,
   onEdit,
   onDelete,
   draggedItem,
@@ -607,14 +694,18 @@ function ProtocolStructuredSection({
   onDragEnd,
   onDrop,
   onCreateTodo,
+  onOpenTodo,
+  onOpenEvent,
   onCreateEvent,
 }: {
   protocol: MeetingProtocol;
   kind: ProtocolItemKind;
   title: string;
   addLabel: string;
+  collapsed: boolean;
   search: string;
   onAdd: () => void;
+  onToggleCollapsed: () => void;
   onEdit: (item: MeetingProtocolItem) => void;
   onDelete: (itemId: string) => void;
   draggedItem: DraggedProtocolItem | null;
@@ -624,6 +715,8 @@ function ProtocolStructuredSection({
   onDragEnd: () => void;
   onDrop: (targetItemId?: string) => void;
   onCreateTodo: (item: MeetingProtocolItem) => void;
+  onOpenTodo: (todoId: string) => void;
+  onOpenEvent: (eventId: string) => void;
   onCreateEvent: (item: MeetingProtocolItem) => void;
 }) {
   const query = search.trim().toLowerCase();
@@ -643,17 +736,27 @@ function ProtocolStructuredSection({
       <div className="protocol-section-title">
         <div>
           <h3>{title}</h3>
-          <span>{items.length} entries</span>
+          <span>{collapsed ? `${items.length} entries hidden` : `${items.length} entries`}</span>
         </div>
-        <button type="button" className="secondary mini-button" onClick={onAdd}>
-          {addLabel}
-        </button>
+        <div className="protocol-section-title-actions">
+          <button type="button" className="secondary mini-button" onClick={onAdd}>
+            {addLabel}
+          </button>
+          <button
+            type="button"
+            className={`event-table-toggle mini-button ${collapsed ? 'collapsed' : 'expanded'}`}
+            onClick={onToggleCollapsed}
+            aria-expanded={!collapsed}
+          >
+            {collapsed ? 'Show' : 'Hide'}
+          </button>
+        </div>
       </div>
-      {items.length ? (
+      {collapsed ? null : items.length ? (
         <div className="protocol-entry-list">
           {items.map((item) => (
             <article
-              className={`protocol-entry ${kind} ${draggedItem?.itemId === item.id ? 'dragging' : ''}`}
+              className={`protocol-entry ${kind} ${item.convertedTodoId || item.convertedEventId ? 'converted' : ''} ${draggedItem?.itemId === item.id ? 'dragging' : ''}`}
               draggable
               id={`protocol-${protocol.id}-${kind}-${item.id}`}
               key={item.id}
@@ -669,27 +772,98 @@ function ProtocolStructuredSection({
                 event.stopPropagation();
                 onDrop(item.id);
               }}
+              onClick={() => onEdit(item)}
             >
               <div className="protocol-entry-summary">
                 <div>
                   <h4>{item.title}</h4>
-                  <span>{item.owner || 'No name'}</span>
+                  {item.owner ? <span>{item.owner}</span> : null}
                 </div>
-                <button type="button" className="mini-button secondary" onClick={() => onEdit(item)}>
-                  Edit
-                </button>
+                <div className="protocol-entry-controls">
+                  {item.convertedTodoId || item.convertedEventId ? (
+                    <span className="protocol-converted-label">
+                      {item.convertedTodoId && item.convertedEventId
+                        ? 'Todo + event'
+                        : item.convertedTodoId
+                          ? 'Todo'
+                          : 'Event'}
+                    </span>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="mini-button secondary protocol-edit-button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onEdit(item);
+                    }}
+                    aria-label={`Edit ${item.title}`}
+                    title="Edit"
+                  >
+                    ✎
+                  </button>
+                </div>
               </div>
               <div className="protocol-entry-preview">
                 <MarkdownBlock markdown={item.body || '_No details yet._'} />
               </div>
               <div className="protocol-entry-actions">
-                <button type="button" className="mini-button secondary" onClick={() => onCreateTodo(item)}>
-                  Todo
-                </button>
-                <button type="button" className="mini-button secondary" onClick={() => onCreateEvent(item)}>
-                  Event
-                </button>
-                <button type="button" className="icon-button danger" onClick={() => onDelete(item.id)} aria-label={`Delete ${item.title}`}>
+                {item.convertedTodoId ? (
+                  <button
+                    type="button"
+                    className="mini-button protocol-convert-action protocol-linked-todo"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onOpenTodo(item.convertedTodoId!);
+                    }}
+                    title="Open linked todo"
+                  >
+                    Open todo
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="mini-button protocol-convert-action protocol-create-todo"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onCreateTodo(item);
+                    }}
+                  >
+                    Create todo
+                  </button>
+                )}
+                {item.convertedEventId ? (
+                  <button
+                    type="button"
+                    className="mini-button protocol-convert-action protocol-linked-event"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onOpenEvent(item.convertedEventId!);
+                    }}
+                    title="Open linked event"
+                  >
+                    Open event
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="mini-button protocol-convert-action protocol-create-event"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onCreateEvent(item);
+                    }}
+                  >
+                    Create event
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="icon-button danger"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDelete(item.id);
+                  }}
+                  aria-label={`Delete ${item.title}`}
+                >
                   x
                 </button>
               </div>

@@ -78,6 +78,8 @@ button.secondary:hover,
 
 .ordered-section-todos {
   order: 20;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .ordered-section-timeline {
@@ -782,6 +784,30 @@ textarea {
   font-weight: 850;
 }
 
+.section-title-with-link {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+}
+
+.copy-link-icon {
+  min-width: 26px;
+  min-height: 24px;
+  border-color: rgba(36, 34, 29, 0.28);
+  background: #fffdf8;
+  box-shadow: none;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.copy-link-icon:hover,
+.copy-link-icon:focus {
+  background: var(--primary);
+}
+
 .todo-section-heading {
   align-items: center;
   margin-bottom: 0;
@@ -790,8 +816,8 @@ textarea {
 .todo-section-title {
   display: flex;
   min-width: 0;
-  align-items: baseline;
-  gap: 10px;
+  align-items: center;
+  gap: 7px;
 }
 
 .todo-section-title span {
@@ -1288,6 +1314,19 @@ textarea {
   text-transform: uppercase;
 }
 
+.protocol-section-title-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.protocol-section-title-actions .event-table-toggle {
+  min-height: 28px;
+  padding-inline: 8px;
+}
+
 .protocol-structured-section.updates .protocol-section-title {
   background: #f2fbfe;
   border-bottom-color: rgba(36, 34, 29, 0.18);
@@ -1312,13 +1351,13 @@ textarea {
 .protocol-entry {
   position: relative;
   display: grid;
-  gap: 8px;
+  gap: 5px;
   min-width: 0;
   border: 1px solid rgba(36, 34, 29, 0.18);
   border-radius: 2px;
   background: #fffdf8;
   box-shadow: 0 1px 0 rgba(36, 34, 29, 0.14), 0 6px 14px rgba(36, 34, 29, 0.06);
-  padding: 9px 9px 9px 13px;
+  padding: 7px 7px 7px 11px;
   cursor: grab;
   overflow: hidden;
 }
@@ -1329,6 +1368,11 @@ textarea {
 
 .protocol-entry.dragging {
   opacity: 0.48;
+}
+
+.protocol-entry.converted {
+  border-color: rgba(36, 34, 29, 0.3);
+  box-shadow: 0 1px 0 rgba(36, 34, 29, 0.16), 0 6px 14px rgba(36, 34, 29, 0.06);
 }
 
 .protocol-entry:hover {
@@ -1371,19 +1415,28 @@ textarea {
   background: var(--primary-strong);
 }
 
+.protocol-entry.converted {
+  background-image:
+    repeating-linear-gradient(
+      135deg,
+      rgba(36, 34, 29, 0.05) 0 7px,
+      rgba(221, 248, 90, 0.3) 7px 13px
+    );
+}
+
 .protocol-entry-summary {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
+  gap: 6px;
   align-items: start;
   min-width: 0;
 }
 
 .protocol-entry-summary h4 {
-  margin: 0 0 3px;
+  margin: 0;
   font-size: 14px;
   font-weight: 950;
-  line-height: 1.2;
+  line-height: 1.15;
   overflow-wrap: anywhere;
   text-transform: uppercase;
 }
@@ -1393,34 +1446,96 @@ textarea {
   border: 1px solid rgba(36, 34, 29, 0.22);
   background: #f7f3ea;
   color: var(--muted);
-  padding: 2px 5px;
-  font-size: 11px;
+  padding: 1px 5px;
+  font-size: 9px;
   font-weight: 900;
   text-transform: uppercase;
 }
 
+.protocol-entry-controls {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.protocol-entry-controls .mini-button {
+  min-width: 22px;
+  min-height: 20px;
+  padding: 0 6px;
+  font-size: 9px;
+}
+
+.protocol-entry-controls .protocol-edit-button {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.protocol-entry-summary .protocol-converted-label {
+  border-color: rgba(36, 34, 29, 0.34);
+  background: var(--primary);
+  color: var(--text);
+}
+
 .protocol-entry-preview {
   min-width: 0;
-  max-height: 150px;
+  max-height: 72px;
   overflow: auto;
-  border-top: 1px solid rgba(36, 34, 29, 0.13);
   background: transparent;
-  padding-top: 6px;
+  padding-top: 2px;
 }
 
 .protocol-entry-preview .markdown {
   font-size: 12px;
-  line-height: 1.35;
+  line-height: 1.25;
   overflow-wrap: anywhere;
 }
 
 .protocol-entry-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 5px;
+  gap: 4px;
   align-items: center;
   flex-wrap: wrap;
   min-width: 0;
+  padding-top: 1px;
+}
+
+.protocol-convert-action {
+  min-height: 20px;
+  border-color: rgba(36, 34, 29, 0.34);
+  box-shadow: 0 1px 0 rgba(36, 34, 29, 0.16);
+  padding-inline: 7px;
+  font-size: 9px;
+  text-align: center;
+}
+
+.protocol-entry-actions .icon-button {
+  min-width: 22px;
+  min-height: 20px;
+  padding: 0;
+  font-size: 9px;
+}
+
+.protocol-create-todo {
+  background: #fbffcf;
+}
+
+.protocol-create-event {
+  background: #eafaff;
+}
+
+.protocol-linked-todo {
+  background: var(--primary);
+  border-color: rgba(36, 34, 29, 0.34);
+  box-shadow: 0 1px 0 rgba(36, 34, 29, 0.18);
+}
+
+.protocol-linked-event {
+  background: var(--cyan);
+  border-color: rgba(36, 34, 29, 0.34);
+  box-shadow: 0 1px 0 rgba(36, 34, 29, 0.18);
 }
 
 .protocol-editor,
@@ -1503,8 +1618,8 @@ textarea {
 
 .timeline-title {
   display: flex;
-  align-items: baseline;
-  gap: 10px;
+  align-items: center;
+  gap: 7px;
   min-width: 0;
 }
 
@@ -1957,6 +2072,19 @@ tr.selected td {
   background: #fff0f8;
 }
 
+.event-row-alt td {
+  background: #eef7ff;
+}
+
+.event-row-alt .event-date-cell,
+.event-row-alt .event-time-cell {
+  background: #dff1ff;
+}
+
+tr.event-row-alt.selected td {
+  background: #e6f0ff;
+}
+
 .event-date-cell,
 .event-time-cell {
   width: 92px;
@@ -2012,6 +2140,76 @@ tr.selected td {
   border-radius: 2px;
   background: #fff8d8;
   padding: 10px;
+}
+
+.inline-date-range {
+  display: grid;
+  gap: 4px;
+  min-width: 150px;
+}
+
+.inline-date-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px;
+  align-items: center;
+}
+
+.event-inline-input,
+.event-inline-note,
+.inline-date-range input {
+  width: 100%;
+  min-width: 0;
+  min-height: 28px;
+  border: 1px solid rgba(36, 34, 29, 0.22);
+  border-radius: 2px;
+  background: #fffef8;
+  box-shadow: none;
+  padding: 4px 6px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.inline-date-add {
+  min-height: 28px;
+  border-width: 1px;
+  background: #fff;
+  box-shadow: none;
+  padding: 0 6px;
+  font-size: 10px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.event-inline-input:focus,
+.event-inline-note:focus,
+.inline-date-range input:focus {
+  border-color: var(--text);
+  outline: 2px solid rgba(24, 206, 232, 0.24);
+}
+
+.event-inline-note {
+  min-height: 30px;
+  max-height: 34px;
+  resize: vertical;
+  line-height: 1.25;
+  font-weight: 650;
+  overflow: hidden;
+}
+
+.event-inline-note:focus {
+  min-height: 92px;
+  max-height: 160px;
+  overflow: auto;
+}
+
+.event-inline-type {
+  text-transform: uppercase;
+}
+
+.event-row-alt .event-inline-type,
+.event-row-alt .type-badge {
+  background: var(--cyan);
 }
 
 .event-badge {
@@ -2082,6 +2280,23 @@ tr:has(.timeline-badge.hidden) td {
   font-weight: 950;
 }
 
+.event-row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 5px;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.event-row-actions .icon-button,
+.event-row-actions .timeline-toggle {
+  min-width: 34px;
+}
+
+.event-row-actions .action-toggle {
+  padding-inline: 7px;
+}
+
 .toggle-chip.active,
 .timeline-toggle.on {
   background: var(--primary);
@@ -2127,6 +2342,9 @@ tr:has(.timeline-badge.hidden) td {
 .todo-board-frame {
   display: grid;
   gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .todo-board-tabs,
@@ -2135,6 +2353,7 @@ tr:has(.timeline-badge.hidden) td {
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .todo-board-tabs {
@@ -2231,6 +2450,12 @@ tr:has(.timeline-badge.hidden) td {
 .todo-board-heading .todo-board-summary {
   margin-top: 1px;
   font-size: 11px;
+}
+
+.todo-board {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .todo-board-actions {
@@ -2350,10 +2575,15 @@ tr:has(.timeline-badge.hidden) td {
 .todo-columns {
   display: flex;
   gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
-  padding-bottom: 8px;
+  overscroll-behavior-inline: contain;
+  padding: 0 2px 10px 0;
   scroll-snap-type: x proximity;
+  scrollbar-gutter: stable;
 }
 
 .todo-column {
@@ -2488,10 +2718,10 @@ tr:has(.timeline-badge.hidden) td {
 .todo-item {
   position: relative;
   display: grid;
-  gap: 8px;
+  gap: 5px;
   border: 1px solid rgba(36, 34, 29, 0.18);
   border-radius: 2px;
-  padding: 9px 9px 9px 13px;
+  padding: 7px 7px 7px 11px;
   background: #fffdf8;
   margin-bottom: 8px;
   box-shadow: 0 1px 0 rgba(36, 34, 29, 0.14), 0 6px 14px rgba(36, 34, 29, 0.06);
@@ -2569,7 +2799,7 @@ tr:has(.timeline-badge.hidden) td {
 .todo-card-title {
   font-size: 14px;
   font-weight: 950;
-  line-height: 1.2;
+  line-height: 1.15;
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -2579,13 +2809,13 @@ tr:has(.timeline-badge.hidden) td {
   gap: 4px;
   align-items: center;
   justify-content: flex-end;
-  margin-top: 2px;
+  padding-top: 1px;
   margin-left: auto;
 }
 
 .todo-card-actions .icon-button {
-  min-width: 24px;
-  min-height: 22px;
+  min-width: 22px;
+  min-height: 20px;
   padding: 0;
   font-size: 9px;
 }
@@ -2596,13 +2826,20 @@ tr:has(.timeline-badge.hidden) td {
   transform: none;
 }
 
+.todo-card-actions .todo-edit-button {
+  font-size: 12px;
+  line-height: 1;
+}
+
 .todo-card-meta {
   display: flex;
   justify-content: flex-start;
-  gap: 6px;
+  gap: 4px;
   flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 900;
   text-transform: uppercase;
 }
@@ -2616,7 +2853,7 @@ tr:has(.timeline-badge.hidden) td {
 .todo-card-meta > span {
   border: 1px solid rgba(36, 34, 29, 0.22);
   background: #f7f3ea;
-  padding: 2px 5px;
+  padding: 1px 5px;
 }
 
 .todo-due-date {
@@ -2624,7 +2861,7 @@ tr:has(.timeline-badge.hidden) td {
   border-radius: 2px;
   background: var(--primary);
   color: var(--text);
-  padding: 2px 5px;
+  padding: 1px 5px;
   font-weight: 950;
   line-height: 1;
 }
@@ -2645,11 +2882,10 @@ tr:has(.timeline-badge.hidden) td {
 }
 
 .todo-card-note {
-  max-height: 98px;
+  max-height: 72px;
   overflow: auto;
-  border-top: 1px solid rgba(36, 34, 29, 0.13);
   background: transparent;
-  padding-top: 6px;
+  padding-top: 2px;
 }
 
 .todo-card-note .markdown {
@@ -3013,6 +3249,11 @@ tr:has(.timeline-badge.hidden) td {
     margin-inline: 0;
     padding-inline: 0;
     scroll-snap-type: none;
+  }
+
+  .todo-card-actions {
+    width: 100%;
+    justify-content: flex-end;
   }
 
   .todo-board-tabs {
