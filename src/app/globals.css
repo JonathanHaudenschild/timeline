@@ -345,6 +345,7 @@ button.danger:hover {
 }
 
 label span,
+.field-label,
 .timeline-hint,
 .footer-line {
   color: var(--muted);
@@ -693,6 +694,12 @@ textarea {
   width: 16px;
   height: 16px;
   padding: 0;
+}
+
+.readonly-input {
+  background: #f3f0e7;
+  color: var(--muted);
+  cursor: default;
 }
 
 .check-control.compact {
@@ -3126,6 +3133,37 @@ tr:has(.timeline-badge.hidden) td {
   padding: 0;
 }
 
+.todo-tag-filter-control {
+  display: grid;
+  grid-template-columns: auto minmax(96px, 1fr);
+  gap: 6px;
+  align-items: center;
+  width: auto;
+  min-width: 150px;
+  border: 0;
+  border-bottom: 1px solid rgba(36, 34, 29, 0.18);
+  border-radius: 2px;
+  background: transparent;
+  box-shadow: none;
+  padding: 4px 7px;
+}
+
+.todo-tag-filter-control span {
+  color: var(--text);
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.todo-tag-filter-control select {
+  min-width: 0;
+  min-height: 28px;
+  border-width: 0 0 2px;
+  background: #fffef8;
+  padding: 3px 6px;
+  font-size: 12px;
+  box-shadow: none;
+}
+
 .todo-sort-control {
   display: grid;
   grid-template-columns: auto minmax(116px, 1fr);
@@ -3541,6 +3579,120 @@ tr:has(.timeline-badge.hidden) td {
   padding: 1px 5px;
 }
 
+.todo-card-tags,
+.todo-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  min-width: 0;
+}
+
+.todo-card-tags {
+  margin-top: -1px;
+}
+
+.todo-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  min-height: 19px;
+  min-width: 0;
+  border: 1px solid rgba(36, 34, 29, 0.22);
+  border-radius: 2px;
+  background: #eff8e5;
+  box-shadow: none;
+  color: var(--text);
+  padding: 1px 6px;
+  font-size: 9px;
+  font-weight: 950;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.todo-tag-chip span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.todo-tag-chip:hover,
+.todo-tag-chip.active {
+  background: var(--primary);
+  color: var(--text);
+}
+
+.todo-tag-remove {
+  background: #fffdf8;
+  cursor: default;
+  text-transform: none;
+}
+
+.todo-tag-remove:hover {
+  background: #fffdf8;
+}
+
+.todo-tag-remove-button {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  min-width: 16px;
+  height: 16px;
+  min-height: 16px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  padding: 0;
+}
+
+.todo-tag-remove-button:hover,
+.todo-tag-remove-button:focus-visible {
+  background: var(--danger);
+  color: #fff;
+}
+
+.todo-tags-field {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.todo-editor-tags {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  border: 1px solid rgba(36, 34, 29, 0.18);
+  border-radius: 2px;
+  background: #fffdf8;
+  padding: 5px;
+}
+
+.todo-tag-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--icon-button-size);
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.todo-tag-input-row input {
+  min-width: 0;
+  min-height: 28px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 3px 4px;
+  font-size: 13px;
+}
+
+.todo-tag-input-row .icon-button {
+  width: var(--icon-button-size);
+  min-width: var(--icon-button-size);
+  min-height: var(--icon-button-size);
+  padding: 0;
+}
+
 .todo-due-date {
   border: 0;
   border-radius: 2px;
@@ -3639,6 +3791,10 @@ tr:has(.timeline-badge.hidden) td {
   .todo-board-actions .todo-search-control {
     flex: 1 1 260px;
     max-width: 360px;
+  }
+
+  .todo-board-actions .todo-tag-filter-control {
+    flex: 0 1 180px;
   }
 
   .todo-board-action-group {
@@ -4251,7 +4407,8 @@ tr:has(.timeline-badge.hidden) td {
     grid-template-columns: 1fr;
   }
 
-  .todo-search-control {
+  .todo-search-control,
+  .todo-tag-filter-control {
     flex: 0 0 100%;
     display: block;
     width: 100%;
@@ -4267,7 +4424,8 @@ tr:has(.timeline-badge.hidden) td {
     line-height: 1;
   }
 
-  .todo-search-control span {
+  .todo-search-control span,
+  .todo-tag-filter-control span {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -4284,7 +4442,8 @@ tr:has(.timeline-badge.hidden) td {
     font-size: 16px;
   }
 
-  .todo-search-control input {
+  .todo-search-control input,
+  .todo-tag-filter-control select {
     width: 100%;
     min-width: 0;
     min-height: 38px;
@@ -4388,7 +4547,8 @@ tr:has(.timeline-badge.hidden) td {
   }
 
   .todo-sort-control,
-  .todo-search-control {
+  .todo-search-control,
+  .todo-tag-filter-control {
     width: 100%;
   }
 

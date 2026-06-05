@@ -1,4 +1,4 @@
-import { defaultTodoStatuses, normalizeCompletedTodoStatus, normalizeTodoStatuses } from './todos';
+import { defaultTodoStatuses, normalizeCompletedTodoStatus, normalizeTodo, normalizeTodoStatuses } from './todos';
 import type { TimelineProject, TimelineTodo, TimelineTodoBoard } from './types';
 
 export const defaultTodoBoardId = 'board-main';
@@ -19,13 +19,14 @@ export function normalizeTodoBoards(project: TimelineProject) {
 
   return sourceBoards.map((board, index) => {
     const id = board.id || `${defaultTodoBoardId}-${index + 1}`;
-    const statuses = normalizeTodoStatuses(board.statuses, board.todos);
+    const todos = (board.todos ?? []).map(normalizeTodo);
+    const statuses = normalizeTodoStatuses(board.statuses, todos);
 
     return {
       ...board,
       id,
       name: board.name?.trim() || `Board ${index + 1}`,
-      todos: board.todos ?? [],
+      todos,
       statuses,
       completedTodoStatus: normalizeCompletedTodoStatus(statuses, board.completedTodoStatus),
     };
@@ -40,9 +41,11 @@ export function activeTodoBoard(project: TimelineProject) {
 export function syncProjectTodoBoard(project: TimelineProject, boards: TimelineTodoBoard[], activeBoardId: string) {
   const normalizedBoards = boards.length
     ? boards.map((board) => {
-        const statuses = normalizeTodoStatuses(board.statuses, board.todos);
+        const todos = (board.todos ?? []).map(normalizeTodo);
+        const statuses = normalizeTodoStatuses(board.statuses, todos);
         return {
           ...board,
+          todos,
           statuses,
           completedTodoStatus: normalizeCompletedTodoStatus(statuses, board.completedTodoStatus),
         };
@@ -78,10 +81,12 @@ export function moveTodoBetweenBoards(
   targetBoardId: string,
 ) {
   const normalizedBoards = boards.map((board) => {
-    const statuses = normalizeTodoStatuses(board.statuses, board.todos);
+    const todos = (board.todos ?? []).map(normalizeTodo);
+    const statuses = normalizeTodoStatuses(board.statuses, todos);
 
     return {
       ...board,
+      todos,
       statuses,
       completedTodoStatus: normalizeCompletedTodoStatus(statuses, board.completedTodoStatus),
     };

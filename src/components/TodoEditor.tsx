@@ -1,21 +1,23 @@
 'use client';
 
-import { CalendarPlus, Save, Trash2, X } from 'lucide-react';
+import { CalendarPlus, Plus, Save, Trash2, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { MarkdownEditor } from './MarkdownEditor';
 import type { TimelineTodo, TodoStatus } from '@/lib/types';
-import { formatTodoStatus } from '@/lib/todos';
+import { formatTodoStatus, normalizeTodoTag, normalizeTodoTags, todoWithPendingTag } from '@/lib/todos';
 
 type TodoEditorProps = {
   draft: TimelineTodo;
   statuses: TodoStatus[];
   boards?: Array<{ id: string; name: string; locked?: boolean }>;
   protocolOptions?: Array<{ id: string; title: string }>;
+  availableTags?: string[];
   title?: string;
   saveLabel?: string;
   forceBoardSelect?: boolean;
   onChange: (todo: TimelineTodo) => void;
   onCancel: () => void;
-  onSave: () => void;
+  onSave: (todo?: TimelineTodo) => void;
   onDelete?: () => void;
   onConvertToEvent?: () => void;
 };
@@ -25,6 +27,7 @@ export function TodoEditor({
   statuses,
   boards = [],
   protocolOptions = [],
+  availableTags = [],
   title = 'Todo',
   saveLabel = 'Save todo',
   forceBoardSelect = false,
@@ -34,13 +37,46 @@ export function TodoEditor({
   onDelete,
   onConvertToEvent,
 }: TodoEditorProps) {
+  const [tagInput, setTagInput] = useState('');
+  const selectedTags = normalizeTodoTags(draft.tags);
+  const suggestionTags = useMemo(() => {
+    const selected = new Set(selectedTags.map((tag) => tag.toLocaleLowerCase()));
+    return normalizeTodoTags(availableTags)
+      .filter((tag) => !selected.has(tag.toLocaleLowerCase()))
+      .sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' }));
+  }, [availableTags, selectedTags]);
+  const tagOptionsId = `todo-tag-options-${draft.id}`;
+
+  function addTag(tag: string) {
+    const normalizedTag = normalizeTodoTag(tag);
+    if (!normalizedTag) return;
+    onChange({ ...draft, tags: normalizeTodoTags([...selectedTags, normalizedTag]) });
+    setTagInput('');
+  }
+
+  function removeTag(tag: string) {
+    onChange({
+      ...draft,
+      tags: selectedTags.filter((item) => item.toLocaleLowerCase() !== tag.toLocaleLowerCase()),
+    });
+  }
+
+  function saveWithPendingTag() {
+    const todoToSave = todoWithPendingTag(draft, tagInput);
+    if (tagInput.trim()) {
+      onChange(todoToSave);
+      setTagInput('');
+    }
+    onSave(todoToSave);
+  }
+
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Edit todo">
       <form
         className="editor-panel modal-panel"
         onSubmit={(event) => {
           event.preventDefault();
-          onSave();
+          saveWithPendingTag();
         }}
       >
         <div className="panel-title">{title}</div>
@@ -109,6 +145,64 @@ export function TodoEditor({
               onChange={(event) => onChange({ ...draft, dueDate: event.target.value })}
             />
           </label>
+          <label>
+            <span>Created</span>
+            <input className="readonly-input" value={formatTodoCreatedAt(draft.createdAt)} readOnly />
+          </label>
+          <div className="todo-tags-field">
+            <span className="field-label">Tags</span>
+            <div className="todo-editor-tags">
+              {selectedTags.length ? (
+                <div className="todo-tag-list" aria-label="Todo tags">
+                  {selectedTags.map((tag) => (
+                    <span
+                      className="todo-tag-chip todo-tag-remove"
+                      key={tag}
+                    >
+                      <span>{tag}</span>
+                      <button
+                        type="button"
+                        className="todo-tag-remove-button"
+                        onClick={() => removeTag(tag)}
+                        aria-label={`Remove tag ${tag}`}
+                        title="Remove tag"
+                      >
+                        <X size={12} aria-hidden="true" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+              <div className="todo-tag-input-row">
+                <input
+                  value={tagInput}
+                  onChange={(event) => setTagInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter' && event.key !== ',') return;
+                    event.preventDefault();
+                    addTag(tagInput);
+                  }}
+                  list={tagOptionsId}
+                  placeholder={selectedTags.length ? 'Add tag' : 'Add or reuse tag'}
+                  aria-label="Add todo tag"
+                />
+                <datalist id={tagOptionsId}>
+                  {suggestionTags.map((tag) => (
+                    <option key={tag} value={tag} />
+                  ))}
+                </datalist>
+                <button
+                  type="button"
+                  className="icon-button secondary"
+                  onClick={() => addTag(tagInput)}
+                  aria-label="Add tag"
+                  title="Add tag"
+                >
+                  <Plus size={16} aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
         <label>
           <span>Markdown note</span>
@@ -145,4 +239,18 @@ export function TodoEditor({
       </form>
     </div>
   );
+}
+
+function formatTodoCreatedAt(createdAt?: string) {
+  if (!createdAt) return 'Unknown';
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return 'Unknown';
+
+  return date.toLocaleString([], {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }

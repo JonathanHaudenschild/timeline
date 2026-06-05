@@ -21,7 +21,15 @@ import {
 } from './meetingProtocols';
 import { buildProjectLocationHash, ensureProjectHash, parseProjectLocationHash } from './storage';
 import { moveTodoBetweenBoards, normalizeTodoBoards, syncProjectTodoBoard } from './todoBoards';
-import { isTodoCompleted, moveTodoWithinBoard, normalizeCompletedTodoStatus, normalizeTodoStatuses, renameTodoStatus } from './todos';
+import {
+  isTodoCompleted,
+  moveTodoWithinBoard,
+  normalizeCompletedTodoStatus,
+  normalizeTodoTags,
+  normalizeTodoStatuses,
+  renameTodoStatus,
+  todoWithPendingTag,
+} from './todos';
 
 describe('project helpers', () => {
   it('normalizes hashes from url fragments and plain strings', () => {
@@ -208,6 +216,52 @@ describe('project helpers', () => {
     const [mergedBoard] = normalizeTodoBoards(merged);
 
     expect(mergedBoard.todos.map((todo) => todo.id)).toEqual(expect.arrayContaining(['local-todo', 'remote-todo']));
+  });
+
+  it('normalizes todo tags without changing legacy todos that have none', () => {
+    const project = createDefaultProject('todo-tags');
+    const baseBoard = project.todoBoards?.[0];
+    if (!baseBoard) throw new Error('Expected default board');
+
+    const taggedTodo = {
+      id: 'todo-tagged',
+      title: 'Tagged todo',
+      who: '',
+      body: '',
+      status: 'open',
+      dueDate: '',
+      showOnTimeline: true,
+      tags: ['  Bar ', 'bar', 'Urgent Work'],
+    };
+    const boards = normalizeTodoBoards({
+      ...project,
+      todoBoards: [{ ...baseBoard, todos: [...baseBoard.todos, taggedTodo] }],
+    });
+    const normalizedTaggedTodo = boards[0].todos.find((todo) => todo.id === taggedTodo.id);
+
+    expect(normalizedTaggedTodo?.tags).toEqual(['Bar', 'Urgent Work']);
+    expect(boards[0].todos.find((todo) => todo.id !== taggedTodo.id && !todo.tags)?.tags).toBeUndefined();
+    expect(normalizeTodoTags(['Foo', ' foo ', '', 'Team Ops'])).toEqual(['Foo', 'Team Ops']);
+  });
+
+  it('keeps a pending typed todo tag when saving without pressing add first', () => {
+    const todo = {
+      id: 'todo-pending-tag',
+      title: 'Tagged todo',
+      who: '',
+      body: '',
+      status: 'open',
+      dueDate: '',
+      showOnTimeline: true,
+      tags: ['Ops'],
+    };
+
+    expect(todoWithPendingTag(todo, '  urgent  ')).toMatchObject({
+      tags: ['Ops', 'urgent'],
+    });
+    expect(todoWithPendingTag(todo, 'ops')).toMatchObject({
+      tags: ['Ops'],
+    });
   });
 
   it('keeps both todo versions when the same todo changes on different devices', () => {

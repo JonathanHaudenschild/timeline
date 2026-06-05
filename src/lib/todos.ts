@@ -10,6 +10,41 @@ export function normalizeTodoStatus(input: string) {
     .replace(/^-+|-+$/g, '');
 }
 
+export function normalizeTodoTag(input: string) {
+  return input.trim().replace(/\s+/g, ' ');
+}
+
+export function normalizeTodoTags(tags: readonly string[] | undefined) {
+  const seen = new Set<string>();
+  const normalizedTags: string[] = [];
+
+  for (const tag of tags ?? []) {
+    const normalizedTag = normalizeTodoTag(tag);
+    const key = normalizedTag.toLocaleLowerCase();
+    if (!normalizedTag || seen.has(key)) continue;
+    seen.add(key);
+    normalizedTags.push(normalizedTag);
+  }
+
+  return normalizedTags;
+}
+
+export function normalizeTodo(todo: TimelineTodo): TimelineTodo {
+  const tags = normalizeTodoTags(todo.tags);
+
+  return {
+    ...todo,
+    tags: tags.length ? tags : undefined,
+  };
+}
+
+export function todoWithPendingTag(todo: TimelineTodo, pendingTag: string): TimelineTodo {
+  return normalizeTodo({
+    ...todo,
+    tags: normalizeTodoTags([...(todo.tags ?? []), pendingTag]),
+  });
+}
+
 export function normalizeTodoStatuses(statuses: readonly string[] | undefined, todos: readonly TimelineTodo[] = []) {
   const values = [...(statuses?.length ? statuses : defaultTodoStatuses), ...todos.map((todo) => todo.status)]
     .map(normalizeTodoStatus)

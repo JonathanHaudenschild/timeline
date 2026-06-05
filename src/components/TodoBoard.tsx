@@ -1,13 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Pencil, Plus } from 'lucide-react';
 import { useAppDialog } from './AppDialog';
 import { MarkdownBlock } from './MarkdownBlock';
 import { TodoEditor } from './TodoEditor';
 import type { TimelineTodo, TodoStatus } from '@/lib/types';
-import { defaultTodoStatuses, formatTodoStatus, isTodoCompleted, moveTodoWithinBoard, normalizeTodoStatus } from '@/lib/todos';
+import {
+  defaultTodoStatuses,
+  formatTodoStatus,
+  isTodoCompleted,
+  moveTodoWithinBoard,
+  normalizeTodo,
+  normalizeTodoStatus,
+  normalizeTodoTags,
+} from '@/lib/todos';
 import { usePersistentState } from '@/lib/usePersistentState';
 
 type TodoSortKey = 'manual' | 'due-date' | 'a-z' | 'owner' | 'created';
@@ -57,9 +65,16 @@ export function TodoBoard({
     {},
   );
   const [search, setSearch] = useState('');
+  const [tagFilter, setTagFilter] = usePersistentState(`timeline:ui:todo-tag-filter:${boardId}`, '');
   const selectedTodo = selectedTodoId ? todos.find((todo) => todo.id === selectedTodoId) ?? null : null;
   const activeDraftTodo = selectedTodo && selectedTodo.id !== draftTodo?.id ? selectedTodo : draftTodo;
   const editorDraftTodo = activeDraftTodo ? { ...activeDraftTodo, boardId: activeDraftTodo.boardId ?? boardId } : null;
+  const availableTags = useMemo(
+    () =>
+      normalizeTodoTags(todos.flatMap((todo) => todo.tags ?? []))
+        .sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' })),
+    [todos],
+  );
 
   function addTodo(status: TodoStatus = visibleStatuses[0] ?? 'open') {
     setDraftTodo({
@@ -70,6 +85,8 @@ export function TodoBoard({
       body: '- Add details',
       status,
       dueDate: '',
+      createdAt: new Date().toISOString(),
+      tags: [],
       showOnTimeline: true,
       order: nextTodoOrder(todos, status),
     });
@@ -78,7 +95,7 @@ export function TodoBoard({
   function saveTodo(todoToSave: TimelineTodo | null) {
     if (!todoToSave) return;
     const targetBoardId = todoToSave.boardId ?? boardId;
-    const todoForSave = { ...todoToSave, boardId: undefined };
+    const todoForSave = normalizeTodo({ ...todoToSave, boardId: undefined });
 
     if (targetBoardId !== boardId) {
       onMoveTodoToBoard(todoForSave, targetBoardId);
@@ -155,7 +172,7 @@ export function TodoBoard({
 
   const totalOpen = todos.filter((todo) => !isTodoCompleted(todo, completedTodoStatus)).length;
   const visibleStatuses = statuses.length ? statuses : defaultTodoStatuses;
-  const filteredTodos = todos.filter((todo) => todoMatchesSearch(todo, search));
+  const filteredTodos = todos.filter((todo) => todoMatchesSearch(todo, search) && todoMatchesTag(todo, tagFilter));
 
   function addStatus() {
     const status = normalizeTodoStatus(newStatus);
@@ -213,8 +230,22 @@ export function TodoBoard({
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Todo, owner, status"
+              placeholder="Todo, owner, status, tag"
             />
+          </label>
+          <label className="todo-tag-filter-control">
+            <span>Tag</span>
+            <select value={tagFilter} onChange={(event) => setTagFilter(event.target.value)}>
+              <option value="">All tags</option>
+              {tagFilter && !availableTags.some((tag) => tagsEqual(tag, tagFilter)) ? (
+                <option value={tagFilter}>{tagFilter}</option>
+              ) : null}
+              {availableTags.map((tag) => (
+                <option key={tag} value={tag}>
+                  {tag}
+                </option>
+              ))}
+            </select>
           </label>
           <details className="mobile-control-menu todo-mobile-menu">
             <summary>Actions</summary>
@@ -259,12 +290,13 @@ export function TodoBoard({
           draft={editorDraftTodo}
           statuses={visibleStatuses}
           boards={boards}
+          availableTags={availableTags}
           onChange={setDraftTodo}
           onCancel={() => {
             setDraftTodo(null);
             onTodoOpened?.();
           }}
-          onSave={() => saveTodo(editorDraftTodo)}
+          onSave={(todoToSave) => saveTodo(todoToSave ?? editorDraftTodo)}
           onDelete={() => void deleteTodo(editorDraftTodo)}
           onConvertToEvent={async () => {
             const converted = await onConvertTodoToEvent(editorDraftTodo);
@@ -472,6 +504,25 @@ export function TodoBoard({
                         ) : null}
                       </div>
                     ) : null}
+                    {todo.tags?.length ? (
+                      <div className="todo-card-tags" aria-label="Todo tags">
+                        {normalizeTodoTags(todo.tags).map((tag) => (
+                          <button
+                            type="button"
+                            className={`todo-tag-chip ${tagsEqual(tag, tagFilter) ? 'active' : ''}`}
+                            key={tag}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setTagFilter(tagsEqual(tag, tagFilter) ? '' : tag);
+                            }}
+                            aria-label={`Filter by tag ${tag}`}
+                            title="Filter by tag"
+                          >
+                            {tag}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
                     {todo.body.trim() ? (
                       <div className="todo-card-note">
                         <MarkdownBlock markdown={todo.body} />
@@ -655,9 +706,21 @@ function todoMatchesSearch(todo: TimelineTodo, search: string) {
     todo.body,
     todo.status,
     todo.dueDate ?? '',
+    ...(todo.tags ?? []),
     formatTodoStatus(todo.status),
   ]
     .join(' ')
     .toLowerCase()
     .includes(query);
+}
+
+function todoMatchesTag(todo: TimelineTodo, tagFilter: string) {
+  const filter = tagFilter.trim();
+  if (!filter) return true;
+
+  return normalizeTodoTags(todo.tags).some((tag) => tagsEqual(tag, filter));
+}
+
+function tagsEqual(left: string, right: string) {
+  return left.trim().toLocaleLowerCase() === right.trim().toLocaleLowerCase();
 }

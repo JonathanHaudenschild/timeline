@@ -457,6 +457,7 @@ export function TimelineApp() {
       body: event.note,
       status: targetStatus,
       dueDate: event.date,
+      createdAt: new Date().toISOString(),
       showOnTimeline: true,
       order: nextTodoOrder(activeBoard.todos, targetStatus),
     };
@@ -543,6 +544,7 @@ export function TimelineApp() {
       body: source.body,
       status: targetStatus,
       dueDate: source.date,
+      createdAt: new Date().toISOString(),
       showOnTimeline: true,
       order: nextTodoOrder(activeBoard.todos, targetStatus),
     };
