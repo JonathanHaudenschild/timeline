@@ -12,6 +12,12 @@ export type ProjectRevisionSummary = {
   protocolCount: number;
 };
 
+export type ProjectMetadata = {
+  hash: string;
+  revision: number;
+  updatedAt: string;
+};
+
 export class LockedProjectError extends Error {
   constructor() {
     super('Project is locked');
@@ -48,6 +54,22 @@ export async function fetchProject(hash: string, projectPin?: string) {
   }
 
   return (await response.json()) as TimelineProject;
+}
+
+export async function fetchProjectMetadata(hash: string, projectPin?: string) {
+  const response = await fetch(`/api/projects/${encodeURIComponent(hash)}?meta=1`, {
+    cache: 'no-store',
+    headers: projectPinHeaders(projectPin),
+  });
+
+  if (response.status === 423) throw new LockedProjectError();
+  if (response.status === 409) throw new ProjectConflictError();
+
+  if (!response.ok) {
+    throw new Error(`Unable to load project metadata (${response.status})`);
+  }
+
+  return (await response.json()) as ProjectMetadata;
 }
 
 export async function persistProject(project: TimelineProject, projectPin?: string) {

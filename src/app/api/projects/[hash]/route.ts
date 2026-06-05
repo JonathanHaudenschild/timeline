@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getProject, ProjectConflictError, saveProjectToDb } from '@/lib/db';
-import { canAccessProject } from '@/lib/projectAccess';
+import { getProject, getProjectMetadata, ProjectConflictError, saveProjectToDb } from '@/lib/db';
+import { canAccessProject, canAccessProjectPin } from '@/lib/projectAccess';
 import { normalizeHash } from '@/lib/project';
 import type { TimelineProject } from '@/lib/types';
 
@@ -13,6 +13,19 @@ type RouteContext = {
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
     const { hash } = await context.params;
+    if (request.nextUrl.searchParams.get('meta') === '1') {
+      const metadata = await getProjectMetadata(hash);
+      if (!canAccessProjectPin(metadata.hash, metadata.viewPinHash, request)) {
+        return NextResponse.json({ locked: true, hash: metadata.hash }, { status: 423 });
+      }
+
+      return NextResponse.json({
+        hash: metadata.hash,
+        revision: metadata.revision,
+        updatedAt: metadata.updatedAt,
+      });
+    }
+
     const project = await getProject(hash);
     if (!canAccessProject(project, request)) {
       return NextResponse.json({ locked: true, hash: project.hash }, { status: 423 });

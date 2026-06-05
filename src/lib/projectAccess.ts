@@ -7,9 +7,12 @@ export function hashProjectPin(projectHash: string, pin: string) {
 }
 
 export function canAccessProject(project: TimelineProject, request: NextRequest) {
-  const viewPinHash = project.settings.viewPinHash;
+  return canAccessProjectPin(project.hash, project.settings.viewPinHash, request);
+}
+
+export function canAccessProjectPin(projectHash: string, viewPinHash: string | undefined, request: NextRequest) {
   if (!viewPinHash) return true;
 
   const pin = request.headers.get('x-project-pin');
-  return Boolean(pin && hashProjectPin(project.hash, pin) === viewPinHash);
+  return Boolean(pin && hashProjectPin(projectHash, pin) === viewPinHash);
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { CalendarPlus, CalendarX, Eye, EyeOff, ListTodo } from 'lucide-react';
+import { CalendarPlus, CalendarX, Eye, EyeOff, History, ListTodo } from 'lucide-react';
 import { useAppDialog } from './AppDialog';
 import { MarkdownBlock } from './MarkdownBlock';
 import { formatShortGermanDateRange } from '@/lib/dateFormat';
@@ -51,10 +51,17 @@ export function EventList({
   const [sortKey, setSortKey] = usePersistentState<SortKey>('timeline:ui:event-list-sort-key', 'date');
   const [sortDirection, setSortDirection] = usePersistentState<SortDirection>('timeline:ui:event-list-sort-direction', 'asc');
   const [isMinimized, setIsMinimized] = usePersistentState('timeline:ui:event-list-minimized', true);
+  const [hidePastEvents, setHidePastEvents] = usePersistentState('timeline:ui:event-list-hide-past', false);
   const [search, setSearch] = useState('');
+  const pastEventCount = useMemo(() => events.filter(isPastEvent).length, [events]);
   const sortedEventRows = useMemo(
-    () => sortEvents(events.filter((event) => eventMatchesSearch(event, search)), sortKey, sortDirection),
-    [events, search, sortDirection, sortKey],
+    () =>
+      sortEvents(
+        events.filter((event) => (!hidePastEvents || !isPastEvent(event)) && eventMatchesSearch(event, search)),
+        sortKey,
+        sortDirection,
+      ),
+    [events, hidePastEvents, search, sortDirection, sortKey],
   );
   const visibleColumns = canEdit
     ? sortableColumns.filter((column) => column.key !== 'timeline')
@@ -118,6 +125,16 @@ export function EventList({
           ) : null}
           <button
             type="button"
+            className={`event-table-toggle event-past-toggle ${hidePastEvents ? 'collapsed' : 'expanded'}`}
+            onClick={() => setHidePastEvents((hidden) => !hidden)}
+            aria-pressed={hidePastEvents}
+            aria-label={hidePastEvents ? `Show ${pastEventCount} old events` : `Hide ${pastEventCount} old events`}
+            title={hidePastEvents ? `Show ${pastEventCount} old events` : `Hide ${pastEventCount} old events`}
+          >
+            <History size={18} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
             className={`event-table-toggle ${isMinimized ? 'collapsed' : 'expanded'}`}
             onClick={() => setIsMinimized((minimized) => !minimized)}
             aria-expanded={!isMinimized}
@@ -155,7 +172,10 @@ export function EventList({
               <tr
                 key={event.id}
                 id={`event-row-${event.id}`}
-                className={event.type.trim().toLowerCase() === 'alt' ? 'event-row-alt' : ''}
+                className={[
+                  event.type.trim().toLowerCase() === 'alt' ? 'event-row-alt' : '',
+                  isPastEvent(event) ? 'event-row-past' : '',
+                ].filter(Boolean).join(' ')}
               >
                 <td className="event-date-cell" data-label="Date">
                   {canEdit ? (
@@ -390,4 +410,13 @@ function eventMatchesSearch(event: TimelineEvent, search: string) {
     .join(' ')
     .toLowerCase()
     .includes(query);
+}
+
+function isPastEvent(event: TimelineEvent) {
+  const compareDate = event.endDate || event.date;
+  return Boolean(compareDate) && compareDate < localDateString(new Date());
+}
+
+function localDateString(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }

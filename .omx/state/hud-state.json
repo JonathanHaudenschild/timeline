@@ -1,5 +1,5 @@
 {
-  "last_turn_at": "2026-06-05T13:54:42.224Z",
-  "turn_count": 240,
-  "last_agent_output": "The slowdown was mainly from two things we added while hardening sync/data safety:\n\n1. Every project"
+  "last_turn_at": "2026-06-05T14:11:55.124Z",
+  "turn_count": 245,
+  "last_agent_output": "Yes, eventually. Right now revisions are great for “don’t lose data”, but unlimited history will kee"
 }

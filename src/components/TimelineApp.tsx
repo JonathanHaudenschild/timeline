@@ -15,6 +15,7 @@ import { TimelineCanvas } from './TimelineCanvas';
 import { TodoBoard } from './TodoBoard';
 import {
   fetchProject,
+  fetchProjectMetadata,
   fetchProjectRevisions,
   importProjectFile,
   LockedProjectError,
@@ -77,6 +78,7 @@ export function TimelineApp() {
     false,
   );
   const lastSavedJsonRef = useRef('');
+  const lastSavedRevisionRef = useRef<number | undefined>(undefined);
   const canSaveRef = useRef(false);
   const latestProjectRef = useRef(project);
   const saveStateRef = useRef(saveState);
@@ -152,6 +154,13 @@ export function TimelineApp() {
     [showConfirm],
   );
 
+  const setLastSavedProject = useCallback((project: TimelineProject) => {
+    const projectJson = JSON.stringify(project);
+    lastSavedJsonRef.current = projectJson;
+    lastSavedRevisionRef.current = project.revision;
+    return projectJson;
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     const activeHash = ensureProjectHash(window.location);
@@ -166,7 +175,7 @@ export function TimelineApp() {
           const projectToDisplay = await projectWithOptionalLocalBackup(loadedProject);
           projectPinRef.current = projectPin;
           if (projectPin) saveProjectPinSession(hash, projectPin);
-          lastSavedJsonRef.current = JSON.stringify(loadedProject);
+          setLastSavedProject(loadedProject);
           if (projectToDisplay === loadedProject) clearUnsavedProjectBackup(loadedProject.hash);
           canSaveRef.current = true;
           setLockedHash(null);
@@ -215,16 +224,16 @@ export function TimelineApp() {
       cancelled = true;
       window.removeEventListener('hashchange', handleHashChange);
     };
-  }, [projectWithOptionalLocalBackup]);
+  }, [projectWithOptionalLocalBackup, setLastSavedProject]);
 
-  async function rebaseUnsavedChanges() {
+  const rebaseUnsavedChanges = useCallback(async () => {
     try {
       const localProject = latestProjectRef.current;
       const baseProject = parseProjectJson(lastSavedJsonRef.current) ?? localProject;
       const remoteProject = await fetchProject(localProject.hash, projectPinRef.current);
       const mergedProject = mergeProjectChanges(baseProject, localProject, remoteProject);
 
-      lastSavedJsonRef.current = JSON.stringify(remoteProject);
+      setLastSavedProject(remoteProject);
       canSaveRef.current = true;
       setProject(mergedProject);
       setSaveState('conflict');
@@ -234,7 +243,7 @@ export function TimelineApp() {
       setSaveState('conflict');
       setCollaborationNotice('Could not merge newer server changes. Your unsaved edits are kept in this browser.');
     }
-  }
+  }, [setLastSavedProject]);
 
   useEffect(() => {
     if (!canSaveRef.current || saveState === 'loading' || saveState === 'saving' || lockedHash) return;
@@ -247,8 +256,7 @@ export function TimelineApp() {
       persistProject(project, projectPinRef.current)
         .then((savedProject) => {
           if (projectPinRef.current) saveProjectPinSession(project.hash, projectPinRef.current);
-          const savedJson = JSON.stringify(savedProject);
-          lastSavedJsonRef.current = savedJson;
+          setLastSavedProject(savedProject);
           if (JSON.stringify(latestProjectRef.current) === projectJson) {
             setProject(savedProject);
             clearUnsavedProjectBackup(savedProject.hash);
@@ -271,7 +279,7 @@ export function TimelineApp() {
     }, 350);
 
     return () => window.clearTimeout(timeout);
-  }, [project, saveState, lockedHash]);
+  }, [project, saveState, lockedHash, rebaseUnsavedChanges, setLastSavedProject]);
 
   useEffect(() => {
     if (!canSaveRef.current || lockedHash) return;
@@ -287,19 +295,26 @@ export function TimelineApp() {
       setSyncState('checking');
       try {
         const currentProject = latestProjectRef.current;
+        const metadata = await fetchProjectMetadata(currentProject.hash, projectPinRef.current);
+        if (cancelled) return;
+
+        setLastSyncCheckAt(formatSyncTime(new Date()));
+        if (metadata.revision === lastSavedRevisionRef.current) {
+          setSyncState('idle');
+          return;
+        }
+
         const remoteProject = await fetchProject(currentProject.hash, projectPinRef.current);
         if (cancelled) return;
 
-        const remoteJson = JSON.stringify(remoteProject);
-        setLastSyncCheckAt(formatSyncTime(new Date()));
-        if (remoteJson === lastSavedJsonRef.current) {
+        if (remoteProject.revision === lastSavedRevisionRef.current) {
           setSyncState('idle');
           return;
         }
 
         const localJson = JSON.stringify(latestProjectRef.current);
         if (localJson === lastSavedJsonRef.current) {
-          lastSavedJsonRef.current = remoteJson;
+          setLastSavedProject(remoteProject);
           setProject(remoteProject);
           clearUnsavedProjectBackup(remoteProject.hash);
           setCollaborationNotice('Updated from another device.');
@@ -310,7 +325,7 @@ export function TimelineApp() {
 
         const baseProject = parseProjectJson(lastSavedJsonRef.current) ?? latestProjectRef.current;
         const mergedProject = mergeProjectChanges(baseProject, latestProjectRef.current, remoteProject);
-        lastSavedJsonRef.current = remoteJson;
+        setLastSavedProject(remoteProject);
         canSaveRef.current = true;
         setProject(mergedProject);
         saveUnsavedProjectBackup(mergedProject, remoteProject);
@@ -341,7 +356,7 @@ export function TimelineApp() {
       window.removeEventListener('focus', checkWhenVisible);
       document.removeEventListener('visibilitychange', checkWhenVisible);
     };
-  }, [lockedHash]);
+  }, [lockedHash, setLastSavedProject]);
 
   const selectedEvent = project.events.find((event) => event.id === selectedEventId);
   const canEdit = project.settings.mode === 'edit';
@@ -942,7 +957,7 @@ export function TimelineApp() {
       setRestoringRevision(revision.revision);
       setSaveState('saving');
       const restoredProject = await restoreProjectRevision(project.hash, revision.revision, projectPinRef.current);
-      lastSavedJsonRef.current = JSON.stringify(restoredProject);
+      setLastSavedProject(restoredProject);
       clearUnsavedProjectBackup(restoredProject.hash);
       canSaveRef.current = true;
       setProject(restoredProject);
@@ -1201,7 +1216,7 @@ export function TimelineApp() {
                   const projectToDisplay = await projectWithOptionalLocalBackup(loadedProject);
                   projectPinRef.current = unlockPin;
                   saveProjectPinSession(lockedHash, unlockPin);
-                  lastSavedJsonRef.current = JSON.stringify(loadedProject);
+                  setLastSavedProject(loadedProject);
                   if (projectToDisplay === loadedProject) clearUnsavedProjectBackup(loadedProject.hash);
                   canSaveRef.current = true;
                   setProject(projectToDisplay);
@@ -1294,7 +1309,7 @@ export function TimelineApp() {
           importProjectFile(project.hash, file, projectPinRef.current)
             .then((result) => {
               if (projectPinRef.current) saveProjectPinSession(project.hash, projectPinRef.current);
-              lastSavedJsonRef.current = JSON.stringify(result.project);
+              setLastSavedProject(result.project);
               clearUnsavedProjectBackup(result.project.hash);
               canSaveRef.current = true;
               setProject(result.project);

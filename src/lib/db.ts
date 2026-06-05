@@ -114,6 +114,42 @@ export async function getProject(hash: string) {
   return project;
 }
 
+export async function getProjectMetadata(hash: string) {
+  await ensureSchema();
+
+  const normalizedHash = normalizeHash(hash);
+  const result = await getPool().query<{
+    revision: string;
+    updated_at: Date;
+    view_pin_hash: string | null;
+  }>(
+    `SELECT
+       revision,
+       updated_at,
+       data #>> '{settings,viewPinHash}' AS view_pin_hash
+     FROM timeline_projects
+     WHERE hash = $1`,
+    [normalizedHash],
+  );
+
+  if (result.rowCount) {
+    return {
+      hash: normalizedHash,
+      revision: Number(result.rows[0].revision),
+      updatedAt: result.rows[0].updated_at.toISOString(),
+      viewPinHash: result.rows[0].view_pin_hash ?? undefined,
+    };
+  }
+
+  const project = await getProject(normalizedHash);
+  return {
+    hash: project.hash,
+    revision: project.revision ?? 1,
+    updatedAt: new Date().toISOString(),
+    viewPinHash: project.settings.viewPinHash,
+  };
+}
+
 export async function saveProjectToDb(project: TimelineProject) {
   await ensureSchema();
 
