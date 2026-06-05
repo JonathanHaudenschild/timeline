@@ -108,6 +108,9 @@ button.danger:hover {
 
 .ordered-section-protocols {
   order: 50;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .footer-line {
@@ -792,6 +795,9 @@ textarea {
 .protocol-section {
   margin-top: 16px;
   padding: 14px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .section-heading {
@@ -1351,20 +1357,25 @@ textarea {
   display: grid;
   gap: 14px;
   min-width: 0;
-  overflow: visible;
+  max-width: 100%;
+  overflow-x: clip;
+  overflow-y: visible;
 }
 
 .protocol-structured-section {
   position: relative;
   display: grid;
   gap: 10px;
+  min-width: 0;
+  max-width: 100%;
   border: 0;
   border-left: 4px solid #c9c4b8;
   border-radius: 0;
   background: transparent;
   padding: 0 0 0 10px;
   box-shadow: none;
-  overflow: visible;
+  overflow-x: clip;
+  overflow-y: visible;
   z-index: 0;
 }
 
@@ -1475,6 +1486,8 @@ textarea {
 .protocol-entry-list {
   display: grid;
   gap: 8px;
+  min-width: 0;
+  max-width: 100%;
   padding-left: 0;
 }
 
@@ -1483,13 +1496,15 @@ textarea {
   display: grid;
   gap: 5px;
   min-width: 0;
+  max-width: 100%;
   border: 1px solid rgba(36, 34, 29, 0.18);
   border-radius: 2px;
   background: #fffdf8;
   box-shadow: 0 1px 0 rgba(36, 34, 29, 0.14), 0 6px 14px rgba(36, 34, 29, 0.06);
   padding: 7px 7px 7px 11px;
   cursor: grab;
-  overflow: visible;
+  overflow-x: clip;
+  overflow-y: visible;
 }
 
 .protocol-entry:active {
@@ -1560,14 +1575,24 @@ textarea {
   gap: 6px;
   align-items: start;
   min-width: 0;
+  max-width: 100%;
+}
+
+.protocol-entry-summary > div:first-child {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .protocol-entry-summary h4 {
   margin: 0;
+  min-width: 0;
+  max-width: 100%;
   font-size: 14px;
   font-weight: 950;
   line-height: 1.15;
   overflow-wrap: anywhere;
+  word-break: break-word;
   text-transform: uppercase;
 }
 

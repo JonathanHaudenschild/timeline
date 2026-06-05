@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { RotateCcw, Search, X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import type { ProjectRevisionSummary } from '@/lib/api';
 
 type RevisionRestoreDialogProps = {
