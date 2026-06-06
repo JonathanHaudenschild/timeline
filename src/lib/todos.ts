@@ -34,7 +34,15 @@ export function normalizeTodo(todo: TimelineTodo): TimelineTodo {
 
   return {
     ...todo,
+    updatedAt: todo.updatedAt ?? todo.createdAt,
     tags: tags.length ? tags : undefined,
+  };
+}
+
+export function touchTodo(todo: TimelineTodo, updatedAt = new Date().toISOString()): TimelineTodo {
+  return {
+    ...todo,
+    updatedAt,
   };
 }
 
@@ -134,7 +142,7 @@ export function moveTodoWithinBoard(
   return todos.map((todo) => {
     if (todo.id === todoId) {
       return {
-        ...todo,
+        ...touchTodo(todo),
         status: targetStatus,
         order: nextOrders.get(todo.id),
       };

@@ -32,6 +32,7 @@ export function titleFromHash(hash: string) {
 
 export function createDefaultProject(hash: string): TimelineProject {
   const normalizedHash = normalizeHash(hash);
+  const defaultTodoCreatedAt = '2026-06-01T09:00:00.000Z';
 
   return {
     version: 1,
@@ -78,6 +79,8 @@ export function createDefaultProject(hash: string): TimelineProject {
         body: '- Switch to edit mode\n- Click the timeline\n- Save the event',
         status: 'open',
         dueDate: '2026-06-05',
+        createdAt: defaultTodoCreatedAt,
+        updatedAt: defaultTodoCreatedAt,
         showOnTimeline: true,
       },
     ],
@@ -93,6 +96,8 @@ export function createDefaultProject(hash: string): TimelineProject {
             body: '- Switch to edit mode\n- Click the timeline\n- Save the event',
             status: 'open',
             dueDate: '2026-06-05',
+            createdAt: defaultTodoCreatedAt,
+            updatedAt: defaultTodoCreatedAt,
             showOnTimeline: true,
           },
         ],

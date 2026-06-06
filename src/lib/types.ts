@@ -26,6 +26,7 @@ export type TimelineTodo = {
   status: TodoStatus;
   dueDate?: string;
   createdAt?: string;
+  updatedAt?: string;
   tags?: string[];
   showOnTimeline: boolean;
   order?: number;

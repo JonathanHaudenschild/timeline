@@ -8,6 +8,7 @@ import {
 import { renderMarkdown } from '@/components/MarkdownBlock';
 import { mergeProjectChanges } from '@/components/TimelineApp';
 import { formatShortGermanDate, formatShortGermanDateRange } from './dateFormat';
+import { eventCategoryOptions, eventTypeOptions } from './eventOptions';
 import {
   createMeetingProtocol,
   createMeetingProtocolTemplate,
@@ -20,7 +21,13 @@ import {
   protocolConversionBody,
 } from './meetingProtocols';
 import { buildProjectLocationHash, ensureProjectHash, parseProjectLocationHash } from './storage';
-import { moveTodoBetweenBoards, normalizeTodoBoards, syncProjectTodoBoard } from './todoBoards';
+import {
+  findTodoBoardContainingTodo,
+  moveTodoBetweenBoards,
+  normalizeTodoBoards,
+  replaceTodoInBoard,
+  syncProjectTodoBoard,
+} from './todoBoards';
 import {
   isTodoCompleted,
   moveTodoWithinBoard,
@@ -264,7 +271,7 @@ describe('project helpers', () => {
     });
   });
 
-  it('keeps both todo versions when the same todo changes on different devices', () => {
+  it('merges concurrent edits to the same todo without creating duplicate cards', () => {
     const baseProject = createDefaultProject('merge-todo-conflict');
     const baseBoard = baseProject.todoBoards?.[0];
     const baseTodo = baseBoard?.todos[0];
@@ -275,7 +282,11 @@ describe('project helpers', () => {
       todoBoards: [
         {
           ...baseBoard,
-          todos: baseBoard.todos.map((todo) => (todo.id === baseTodo.id ? { ...todo, title: 'Local title' } : todo)),
+          todos: baseBoard.todos.map((todo) =>
+            todo.id === baseTodo.id
+              ? { ...todo, title: 'Local title', tags: ['local'], body: 'Local body', updatedAt: '2026-06-06T10:00:00.000Z' }
+              : todo,
+          ),
         },
       ],
     };
@@ -285,20 +296,115 @@ describe('project helpers', () => {
       todoBoards: [
         {
           ...baseBoard,
-          todos: baseBoard.todos.map((todo) => (todo.id === baseTodo.id ? { ...todo, title: 'Remote title' } : todo)),
+          todos: baseBoard.todos.map((todo) =>
+            todo.id === baseTodo.id
+              ? { ...todo, title: 'Remote title', tags: ['remote'], dueDate: '2026-06-30', updatedAt: '2026-06-06T10:05:00.000Z' }
+              : todo,
+          ),
         },
       ],
     };
 
     const merged = mergeProjectChanges(baseProject, localProject, remoteProject);
     const [mergedBoard] = normalizeTodoBoards(merged);
+    const mergedTodos = mergedBoard.todos.filter((todo) => todo.id === baseTodo.id || todo.id.startsWith(`${baseTodo.id}-other-device`));
 
-    expect(mergedBoard.todos).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: baseTodo.id, title: 'Local title' }),
-        expect.objectContaining({ id: `${baseTodo.id}-other-device`, title: 'Remote title (other device)' }),
-      ]),
-    );
+    expect(mergedTodos).toHaveLength(1);
+    expect(mergedTodos[0]).toMatchObject({
+      id: baseTodo.id,
+      title: 'Remote title',
+      body: 'Local body',
+      dueDate: '2026-06-30',
+      updatedAt: '2026-06-06T10:05:00.000Z',
+      tags: ['remote', 'local'],
+    });
+  });
+
+  it('does not create todo duplicates across repeated autosave conflict merges', () => {
+    const baseProject = createDefaultProject('repeated-todo-conflicts');
+    const baseBoard = baseProject.todoBoards?.[0];
+    const baseTodo = baseBoard?.todos[0];
+    if (!baseBoard || !baseTodo) throw new Error('Expected default todo board with todos');
+
+    const localProject = {
+      ...baseProject,
+      todoBoards: [
+        {
+          ...baseBoard,
+          todos: baseBoard.todos.map((todo) =>
+            todo.id === baseTodo.id ? { ...todo, title: 'Local title', tags: ['local'] } : todo,
+          ),
+        },
+      ],
+    };
+    const firstRemoteProject = {
+      ...baseProject,
+      revision: 2,
+      todoBoards: [
+        {
+          ...baseBoard,
+          todos: baseBoard.todos.map((todo) =>
+            todo.id === baseTodo.id ? { ...todo, dueDate: '2026-06-30', tags: ['remote'] } : todo,
+          ),
+        },
+      ],
+    };
+
+    const firstMerge = mergeProjectChanges(baseProject, localProject, firstRemoteProject);
+    const secondRemoteProject = {
+      ...firstMerge,
+      revision: 3,
+      todoBoards: normalizeTodoBoards(firstMerge).map((board) =>
+        board.id === baseBoard.id
+          ? {
+            ...board,
+            todos: [
+              ...board.todos,
+              {
+                id: 'remote-added-todo',
+                title: 'Remote added todo',
+                who: '',
+                body: '',
+                status: 'open',
+                dueDate: '',
+                showOnTimeline: true,
+              },
+            ],
+          }
+          : board,
+      ),
+    };
+    const secondMerge = mergeProjectChanges(firstRemoteProject, firstMerge, secondRemoteProject);
+    const [mergedBoard] = normalizeTodoBoards(secondMerge);
+    const repeatedTodoIds = mergedBoard.todos
+      .filter((todo) => todo.id === baseTodo.id || todo.id.startsWith(`${baseTodo.id}-other-device`))
+      .map((todo) => todo.id);
+
+    expect(repeatedTodoIds).toEqual([baseTodo.id]);
+    expect(mergedBoard.todos.map((todo) => todo.id)).toContain('remote-added-todo');
+  });
+
+  it('drops generated other-device todo duplicates when the original todo still exists', () => {
+    const project = createDefaultProject('dedupe-generated-todos');
+    const baseBoard = project.todoBoards?.[0];
+    const baseTodo = baseBoard?.todos[0];
+    if (!baseBoard || !baseTodo) throw new Error('Expected default todo board with todos');
+
+    const boards = normalizeTodoBoards({
+      ...project,
+      todoBoards: [
+        {
+          ...baseBoard,
+          todos: [
+            baseTodo,
+            { ...baseTodo, id: `${baseTodo.id}-other-device`, title: `${baseTodo.title} (other device)` },
+            { ...baseTodo, id: `${baseTodo.id}-other-device-2`, title: `${baseTodo.title} (other device)` },
+          ],
+        },
+      ],
+    });
+
+    expect(boards[0].todos.map((todo) => todo.id)).toEqual([baseTodo.id]);
   });
 
   it('keeps a remotely edited event when local deletes the stale event', () => {
@@ -347,6 +453,37 @@ describe('project helpers', () => {
     expect(merged.events).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: baseEvent.id, what: 'Local edit survives' })]),
     );
+  });
+
+  it('merges concurrent edits to the same event without creating duplicate events', () => {
+    const baseProject = createDefaultProject('merge-event-conflict');
+    const baseEvent = baseProject.events[0];
+    if (!baseEvent) throw new Error('Expected default project with events');
+
+    const localProject = {
+      ...baseProject,
+      events: baseProject.events.map((event) =>
+        event.id === baseEvent.id ? { ...event, what: 'Local kickoff', note: 'local note' } : event,
+      ),
+    };
+    const remoteProject = {
+      ...baseProject,
+      revision: 2,
+      events: baseProject.events.map((event) =>
+        event.id === baseEvent.id ? { ...event, what: 'Remote kickoff', note: 'remote note', who: 'Remote team' } : event,
+      ),
+    };
+
+    const merged = mergeProjectChanges(baseProject, localProject, remoteProject);
+    const mergedEvents = merged.events.filter((event) => event.id === baseEvent.id || event.id.startsWith(`${baseEvent.id}-other-device`));
+
+    expect(mergedEvents).toHaveLength(1);
+    expect(mergedEvents[0]).toMatchObject({
+      id: baseEvent.id,
+      what: 'Local kickoff\n\n--- Version from another device ---\n\nRemote kickoff',
+      who: 'Remote team',
+      note: 'local note\n\n--- Version from another device ---\n\nremote note',
+    });
   });
 
   it('moves todos between boards without losing source or target board state', () => {
@@ -411,6 +548,58 @@ describe('project helpers', () => {
     expect(movedTodo?.status).toBe('queued');
     expect(movedTodo?.order).toBe(5);
     expect(movedTodo?.boardId).toBeUndefined();
+  });
+
+  it('finds and replaces a todo in a specific board without changing other boards', () => {
+    const boards = [
+      {
+        id: 'board-a',
+        name: 'Ops',
+        statuses: ['open', 'done'],
+        completedTodoStatus: 'done',
+        todos: [
+          { id: 'todo-a', title: 'A', who: '', body: '', status: 'open', dueDate: '', showOnTimeline: true },
+        ],
+      },
+      {
+        id: 'board-b',
+        name: 'Crew',
+        statuses: ['todo', 'finished'],
+        completedTodoStatus: 'finished',
+        todos: [
+          { id: 'todo-b', title: 'B', who: '', body: '', status: 'todo', dueDate: '', showOnTimeline: true },
+        ],
+      },
+    ];
+
+    expect(findTodoBoardContainingTodo(boards, 'todo-b')?.id).toBe('board-b');
+
+    const updatedBoards = replaceTodoInBoard(boards, 'board-b', {
+      id: 'todo-b',
+      title: 'Updated B',
+      who: '',
+      body: '',
+      status: 'finished',
+      dueDate: '',
+      showOnTimeline: true,
+      boardId: 'board-a',
+    });
+
+    expect(updatedBoards.find((board) => board.id === 'board-a')?.todos.map((todo) => todo.id)).toEqual(['todo-a']);
+    expect(updatedBoards.find((board) => board.id === 'board-b')?.todos).toEqual([
+      expect.objectContaining({ id: 'todo-b', title: 'Updated B', status: 'finished', boardId: undefined }),
+    ]);
+
+    const project = createDefaultProject('external-todo-edit');
+    const synced = syncProjectTodoBoard(
+      { ...project, settings: { ...project.settings, activeTodoBoardId: 'board-a' } },
+      updatedBoards,
+      'board-a',
+    );
+
+    expect(synced.settings.activeTodoBoardId).toBe('board-a');
+    expect(synced.todos).toEqual(boards[0].todos);
+    expect(synced.todoBoards?.find((board) => board.id === 'board-b')?.todos[0].title).toBe('Updated B');
   });
 
   it('reorders todo cards inside the same column by target card', () => {
@@ -497,6 +686,18 @@ describe('project helpers', () => {
   it('formats dates for German short display', () => {
     expect(formatShortGermanDate('2026-06-09')).toBe('Di 09.06');
     expect(formatShortGermanDateRange('2026-06-09', '2026-06-12')).toBe('Di 09.06 - Fr 12.06');
+  });
+
+  it('builds event type and category options from defaults and existing events', () => {
+    const events = [
+      { id: 'a', date: '2026-06-09', time: '10:00', what: 'A', who: '', type: 'Workshop', category: 'Session', showOnTimeline: true, note: '' },
+      { id: 'b', date: '2026-06-10', time: '11:00', what: 'B', who: '', type: ' workshop ', category: '', showOnTimeline: true, note: '' },
+      { id: 'c', date: '2026-06-11', time: '12:00', what: 'C', who: '', type: 'Ops', showOnTimeline: true, note: '' },
+    ];
+
+    expect(eventTypeOptions(events)).toEqual(expect.arrayContaining(['milestone', 'meeting', 'Workshop', 'workshop', 'Ops']));
+    expect(eventCategoryOptions(events)).toEqual(expect.arrayContaining(['event', 'deadline', 'Session', 'Ops']));
+    expect(eventCategoryOptions(events)).not.toContain('');
   });
 
   it('renders extended markdown formatting safely', () => {
@@ -777,7 +978,7 @@ describe('project helpers', () => {
     });
   });
 
-  it('keeps both protocol entries when the same conversion link conflicts', () => {
+  it('keeps one protocol entry when the same conversion link conflicts', () => {
     const [baseProtocol] = normalizeMeetingProtocols([
       {
         id: 'protocol-1',
@@ -788,26 +989,25 @@ describe('project helpers', () => {
     ]);
     const localProtocol = {
       ...baseProtocol,
-      todos: [{ ...baseProtocol.todos[0], convertedTodoId: 'todo-local' }],
+      todos: [{ ...baseProtocol.todos[0], convertedTodoId: 'todo-local', updatedAt: '2026-06-06T10:05:00.000Z' }],
       updatedAt: '2026-06-06T10:05:00.000Z',
     };
     const remoteProtocol = {
       ...baseProtocol,
-      todos: [{ ...baseProtocol.todos[0], convertedTodoId: 'todo-remote' }],
+      todos: [{ ...baseProtocol.todos[0], convertedTodoId: 'todo-remote', updatedAt: '2026-06-06T10:06:00.000Z' }],
       updatedAt: '2026-06-06T10:06:00.000Z',
     };
 
     const [merged] = mergeMeetingProtocols([baseProtocol], [localProtocol], [remoteProtocol]);
 
-    expect(merged.todos).toHaveLength(2);
-    expect(merged.todos[0]).toMatchObject({ id: 'todo-item-1', convertedTodoId: 'todo-local' });
-    expect(merged.todos[1]).toMatchObject({
-      id: 'todo-item-1-other-device',
+    expect(merged.todos).toHaveLength(1);
+    expect(merged.todos[0]).toMatchObject({
+      id: 'todo-item-1',
       convertedTodoId: 'todo-remote',
     });
   });
 
-  it('keeps both protocol entry versions when headline edits conflict', () => {
+  it('keeps one protocol entry and uses newer headline when headline edits conflict', () => {
     const [baseProtocol] = normalizeMeetingProtocols([
       {
         id: 'protocol-1',
@@ -818,20 +1018,38 @@ describe('project helpers', () => {
     ]);
     const localProtocol = {
       ...baseProtocol,
-      updates: [{ ...baseProtocol.updates[0], title: 'Local weather' }],
+      updates: [{ ...baseProtocol.updates[0], title: 'Local weather', updatedAt: '2026-06-06T10:05:00.000Z' }],
       updatedAt: '2026-06-06T10:05:00.000Z',
     };
     const remoteProtocol = {
       ...baseProtocol,
-      updates: [{ ...baseProtocol.updates[0], title: 'Remote weather' }],
+      updates: [{ ...baseProtocol.updates[0], title: 'Remote weather', updatedAt: '2026-06-06T10:06:00.000Z' }],
       updatedAt: '2026-06-06T10:06:00.000Z',
     };
 
     const [merged] = mergeMeetingProtocols([baseProtocol], [localProtocol], [remoteProtocol]);
 
-    expect(merged.updates).toHaveLength(2);
-    expect(merged.updates[0]).toMatchObject({ id: 'update-1', title: 'Local weather' });
-    expect(merged.updates[1]).toMatchObject({ id: 'update-1-other-device', title: 'Remote weather (other device)' });
+    expect(merged.updates).toHaveLength(1);
+    expect(merged.updates[0]).toMatchObject({
+      id: 'update-1',
+      title: 'Remote weather',
+    });
+  });
+
+  it('drops generated other-device protocol entry duplicates when the original entry still exists', () => {
+    const [protocol] = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        updates: [
+          { id: 'update-1', title: 'Weather' },
+          { id: 'update-1-other-device', title: 'Weather (other device)' },
+          { id: 'update-1-other-device-2', title: 'Weather (other device)' },
+        ],
+      },
+    ]);
+
+    expect(protocol.updates.map((item) => item.id)).toEqual(['update-1']);
   });
 
   it('keeps local protocol entry order when another device has no order change', () => {

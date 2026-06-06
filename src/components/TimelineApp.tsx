@@ -13,6 +13,7 @@ import { RevisionRestoreDialog } from './RevisionRestoreDialog';
 import { StickyLinks } from './StickyLinks';
 import { TimelineCanvas } from './TimelineCanvas';
 import { TodoBoard } from './TodoBoard';
+import { TodoEditor } from './TodoEditor';
 import {
   fetchProject,
   fetchProjectMetadata,
@@ -28,8 +29,14 @@ import { formatShortGermanDateRange } from '@/lib/dateFormat';
 import { createDefaultProject, normalizeHash } from '@/lib/project';
 import { mergeMeetingProtocols, normalizeMeetingProtocols } from '@/lib/meetingProtocols';
 import { buildProjectLocationHash, ensureProjectHash, parseProjectLocationHash, type ProjectUrlTarget } from '@/lib/storage';
-import { moveTodoBetweenBoards, normalizeTodoBoards, syncProjectTodoBoard } from '@/lib/todoBoards';
-import { normalizeCompletedTodoStatus, normalizeTodoStatuses, renameTodoStatus } from '@/lib/todos';
+import {
+  findTodoBoardContainingTodo,
+  moveTodoBetweenBoards,
+  normalizeTodoBoards,
+  replaceTodoInBoard,
+  syncProjectTodoBoard,
+} from '@/lib/todoBoards';
+import { normalizeCompletedTodoStatus, normalizeTodoStatuses, normalizeTodoTags, renameTodoStatus, touchTodo } from '@/lib/todos';
 import type { TimelineEvent, TimelineMode, TimelineProject, TimelineTodo, TimelineTodoBoard as TimelineTodoBoardData } from '@/lib/types';
 import { usePersistentState } from '@/lib/usePersistentState';
 
@@ -52,6 +59,7 @@ export function TimelineApp() {
   const [project, setProject] = useState<TimelineProject>(() => createDefaultProject('timeline'));
   const [selectedEventId, setSelectedEventId] = useState<string>();
   const [selectedTodoId, setSelectedTodoId] = useState<string>();
+  const [externalTodoDraft, setExternalTodoDraft] = useState<TimelineTodo | null>(null);
   const [draftEvent, setDraftEvent] = useState<TimelineEvent | null>(null);
   const [editingInfo, setEditingInfo] = useState(false);
   const [saveState, setSaveState] = useState<'loading' | 'saved' | 'saving' | 'error' | 'conflict'>('loading');
@@ -365,6 +373,10 @@ export function TimelineApp() {
   const todoStatuses = normalizeTodoStatuses(activeBoard.statuses, activeBoard.todos);
   const completedTodoStatus = normalizeCompletedTodoStatus(todoStatuses, activeBoard.completedTodoStatus);
   const isActiveBoardLocked = Boolean(activeBoard.pinHash && !unlockedTodoBoardIds.includes(activeBoard.id));
+  const externalTodoBoard = externalTodoDraft?.id ? findTodoBoardContainingTodo(todoBoards, externalTodoDraft.id) : undefined;
+  const externalTodoStatuses = externalTodoBoard
+    ? normalizeTodoStatuses(externalTodoBoard.statuses, externalTodoBoard.todos)
+    : todoStatuses;
   const meetingProtocols = normalizeMeetingProtocols(project.meetingProtocols);
   const timelineProject = {
     ...project,
@@ -395,12 +407,14 @@ export function TimelineApp() {
   }
 
   function selectTodo(todo: TimelineTodo) {
+    setExternalTodoDraft(null);
     setSelectedTodoId(todo.id);
     scrollToElement(todoRef.current);
   }
 
   function openTodoFromProtocol(todoId: string) {
-    const board = todoBoards.find((item) => item.todos.some((todo) => todo.id === todoId));
+    const board = findTodoBoardContainingTodo(todoBoards, todoId);
+    const todo = board?.todos.find((item) => item.id === todoId);
     if (!board) {
       void showAlert({ title: 'Todo not found', message: 'The linked todo could not be found. It may have been deleted.' });
       return;
@@ -411,8 +425,9 @@ export function TimelineApp() {
     }
 
     setIsTodoSectionMinimized(false);
-    updateProject(syncProjectTodoBoard(project, todoBoards, board.id));
     setSelectedTodoId(todoId);
+    setExternalTodoDraft(board.id === activeBoard.id || !todo ? null : { ...todo, boardId: board.id });
+    scrollToElement(todoRef.current);
     window.setTimeout(() => {
       document.getElementById(`todo-card-${todoId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
     }, 0);
@@ -448,8 +463,47 @@ export function TimelineApp() {
     setSelectedTodoId(undefined);
   }
 
+  function saveExternalTodo(todoToSave: TimelineTodo) {
+    if (!externalTodoBoard) return;
+
+    const targetBoardId = todoToSave.boardId ?? externalTodoBoard.id;
+    const todoForSave = touchTodo({ ...todoToSave, boardId: undefined });
+    const nextBoards =
+      targetBoardId === externalTodoBoard.id
+        ? replaceTodoInBoard(todoBoards, externalTodoBoard.id, todoForSave)
+        : moveTodoBetweenBoards(todoBoards, todoForSave, externalTodoBoard.id, targetBoardId);
+
+    updateProject(syncProjectTodoBoard(project, nextBoards, activeBoard.id));
+    setExternalTodoDraft(null);
+    setSelectedTodoId(undefined);
+  }
+
+  async function deleteExternalTodo() {
+    if (!externalTodoBoard || !externalTodoDraft) return;
+    if (
+      !(await showConfirm({
+        title: 'Delete todo?',
+        message: `Delete "${externalTodoDraft.title || 'New todo'}"?`,
+        confirmLabel: 'Delete todo',
+        tone: 'danger',
+      }))
+    ) {
+      return;
+    }
+
+    const nextBoards = todoBoards.map((board) =>
+      board.id === externalTodoBoard.id
+        ? { ...board, todos: board.todos.filter((todo) => todo.id !== externalTodoDraft.id) }
+        : board,
+    );
+    updateProject(syncProjectTodoBoard(project, nextBoards, activeBoard.id));
+    setExternalTodoDraft(null);
+    setSelectedTodoId(undefined);
+  }
+
   function convertEventToTodo(event: TimelineEvent) {
     const targetStatus = todoStatuses[0] ?? 'open';
+    const now = new Date().toISOString();
     const todo: TimelineTodo = {
       id: crypto.randomUUID(),
       title: event.what || 'New todo',
@@ -457,7 +511,8 @@ export function TimelineApp() {
       body: event.note,
       status: targetStatus,
       dueDate: event.date,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
       showOnTimeline: true,
       order: nextTodoOrder(activeBoard.todos, targetStatus),
     };
@@ -536,6 +591,7 @@ export function TimelineApp() {
     }
 
     const targetStatus = todoStatuses[0] ?? 'open';
+    const now = new Date().toISOString();
     const todoForSave = {
       id: crypto.randomUUID(),
       protocolId: source.protocolId,
@@ -544,7 +600,8 @@ export function TimelineApp() {
       body: source.body,
       status: targetStatus,
       dueDate: source.date,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
       showOnTimeline: true,
       order: nextTodoOrder(activeBoard.todos, targetStatus),
     };
@@ -553,7 +610,6 @@ export function TimelineApp() {
       todos: [...activeBoard.todos, todoForSave],
       statuses: normalizeTodoStatuses(activeBoard.statuses, [...activeBoard.todos, todoForSave]),
     };
-    const now = new Date().toISOString();
     const protocolItemKind = source.protocolItemKind;
     const nextProtocols =
       source.protocolId && source.protocolItemId && protocolItemKind
@@ -1426,6 +1482,26 @@ export function TimelineApp() {
         />
       ) : null}
 
+      {externalTodoDraft && externalTodoBoard ? (
+        <TodoEditor
+          draft={externalTodoDraft}
+          statuses={externalTodoStatuses}
+          boards={todoBoards.map((board) => ({
+            id: board.id,
+            name: board.name,
+            locked: Boolean(board.pinHash && !unlockedTodoBoardIds.includes(board.id)),
+          }))}
+          availableTags={normalizeTodoTags(externalTodoBoard.todos.flatMap((todo) => todo.tags ?? []))}
+          onChange={setExternalTodoDraft}
+          onCancel={() => {
+            setExternalTodoDraft(null);
+            setSelectedTodoId(undefined);
+          }}
+          onSave={(todoToSave) => saveExternalTodo(todoToSave ?? externalTodoDraft)}
+          onDelete={() => void deleteExternalTodo()}
+        />
+      ) : null}
+
       {selectedEvent && !draftEvent ? (
         <aside
           className={`selected-popover ${selectedPopoverMinimized ? 'minimized' : ''}`}
@@ -1853,7 +1929,7 @@ export function mergeProjectChanges(baseProject: TimelineProject, localProject: 
       localProject.protocolInstructionTemplate,
       remoteProject.protocolInstructionTemplate,
     ),
-    events: mergeById(baseProject.events, localProject.events, remoteProject.events, copyRemoteEventConflict),
+    events: mergeEventsById(baseProject.events, localProject.events, remoteProject.events),
     meetingProtocols: mergeMeetingProtocols(
       normalizeMeetingProtocols(baseProject.meetingProtocols),
       normalizeMeetingProtocols(localProject.meetingProtocols),
@@ -1904,7 +1980,6 @@ function mergeSettings(baseProject: TimelineProject, localProject: TimelineProje
       baseSettings.stickyLinks ?? [],
       localSettings.stickyLinks ?? [],
       remoteSettings.stickyLinks ?? [],
-      (link, id) => ({ ...link, id, label: `${link.label} (other device)` }),
     ),
   };
 }
@@ -1924,7 +1999,7 @@ function mergeTodoBoards(
 
     return {
       ...board,
-      todos: mergeById(baseBoard.todos, localBoard.todos, remoteBoard.todos, copyRemoteTodoConflict),
+      todos: mergeTodosById(baseBoard.todos, localBoard.todos, remoteBoard.todos),
       statuses: mergeStringList(baseBoard.statuses ?? [], localBoard.statuses ?? [], remoteBoard.statuses ?? []),
       completedTodoStatus: changed(baseBoard.completedTodoStatus, localBoard.completedTodoStatus)
         ? localBoard.completedTodoStatus
@@ -1937,7 +2012,6 @@ function mergeById<T extends { id: string }>(
   baseItems: readonly T[],
   localItems: readonly T[],
   remoteItems: readonly T[],
-  copyRemoteConflict?: (item: T, id: string) => T,
 ) {
   const result = new Map(remoteItems.map((item) => [item.id, item]));
   const baseById = new Map(baseItems.map((item) => [item.id, item]));
@@ -1945,19 +2019,7 @@ function mergeById<T extends { id: string }>(
 
   for (const [id, localItem] of localById) {
     const baseItem = baseById.get(id);
-    const remoteItem = result.get(id);
-    if (
-      baseItem &&
-      remoteItem &&
-      copyRemoteConflict &&
-      changed(baseItem, localItem) &&
-      changed(baseItem, remoteItem) &&
-      changed(localItem, remoteItem)
-    ) {
-      result.set(id, localItem);
-      const conflictId = uniqueConflictId(id, result);
-      result.set(conflictId, copyRemoteConflict(remoteItem, conflictId));
-    } else if (!baseItem || changed(baseItem, localItem)) {
+    if (!baseItem || changed(baseItem, localItem)) {
       result.set(id, localItem);
     }
   }
@@ -1969,6 +2031,146 @@ function mergeById<T extends { id: string }>(
   }
 
   return [...result.values()];
+}
+
+function mergeEventsById(
+  baseEvents: readonly TimelineEvent[],
+  localEvents: readonly TimelineEvent[],
+  remoteEvents: readonly TimelineEvent[],
+) {
+  const result = new Map(remoteEvents.map((event) => [event.id, event]));
+  const baseById = new Map(baseEvents.map((event) => [event.id, event]));
+  const localById = new Map(localEvents.map((event) => [event.id, event]));
+
+  for (const [id, localEvent] of localById) {
+    const baseEvent = baseById.get(id);
+    const remoteEvent = result.get(id);
+
+    if (baseEvent && remoteEvent && changed(baseEvent, localEvent) && changed(baseEvent, remoteEvent)) {
+      result.set(id, mergeEventFields(baseEvent, localEvent, remoteEvent));
+    } else if (!baseEvent || changed(baseEvent, localEvent)) {
+      result.set(id, localEvent);
+    }
+  }
+
+  for (const [id, baseEvent] of baseById) {
+    if (localById.has(id)) continue;
+    const remoteEvent = result.get(id);
+    if (!remoteEvent || !changed(baseEvent, remoteEvent)) result.delete(id);
+  }
+
+  return [...result.values()];
+}
+
+function mergeEventFields(baseEvent: TimelineEvent, localEvent: TimelineEvent, remoteEvent: TimelineEvent): TimelineEvent {
+  return {
+    ...remoteEvent,
+    date: mergeField(baseEvent.date, localEvent.date, remoteEvent.date),
+    endDate: mergeField(baseEvent.endDate, localEvent.endDate, remoteEvent.endDate),
+    time: mergeField(baseEvent.time, localEvent.time, remoteEvent.time),
+    what: mergeTextField(baseEvent.what, localEvent.what, remoteEvent.what),
+    who: mergeTextField(baseEvent.who, localEvent.who, remoteEvent.who),
+    type: mergeField(baseEvent.type, localEvent.type, remoteEvent.type),
+    category: mergeField(baseEvent.category, localEvent.category, remoteEvent.category),
+    color: mergeField(baseEvent.color, localEvent.color, remoteEvent.color),
+    showOnTimeline: mergeField(baseEvent.showOnTimeline, localEvent.showOnTimeline, remoteEvent.showOnTimeline),
+    note: mergeTextField(baseEvent.note, localEvent.note, remoteEvent.note),
+  };
+}
+
+function mergeTodosById(
+  baseTodos: readonly TimelineTodo[],
+  localTodos: readonly TimelineTodo[],
+  remoteTodos: readonly TimelineTodo[],
+) {
+  const result = new Map(remoteTodos.map((todo) => [todo.id, todo]));
+  const baseById = new Map(baseTodos.map((todo) => [todo.id, todo]));
+  const localById = new Map(localTodos.map((todo) => [todo.id, todo]));
+
+  for (const [id, localTodo] of localById) {
+    const baseTodo = baseById.get(id);
+    const remoteTodo = result.get(id);
+
+    if (baseTodo && remoteTodo && changed(baseTodo, localTodo) && changed(baseTodo, remoteTodo)) {
+      result.set(id, mergeTodoFields(baseTodo, localTodo, remoteTodo));
+    } else if (!baseTodo || changed(baseTodo, localTodo)) {
+      result.set(id, localTodo);
+    }
+  }
+
+  for (const [id, baseTodo] of baseById) {
+    if (localById.has(id)) continue;
+    const remoteTodo = result.get(id);
+    if (!remoteTodo || !changed(baseTodo, remoteTodo)) result.delete(id);
+  }
+
+  return [...result.values()];
+}
+
+function mergeTodoFields(baseTodo: TimelineTodo, localTodo: TimelineTodo, remoteTodo: TimelineTodo): TimelineTodo {
+  return {
+    ...remoteTodo,
+    protocolId: mergeField(baseTodo.protocolId, localTodo.protocolId, remoteTodo.protocolId),
+    title: mergeTodoChoiceField(baseTodo.title, localTodo.title, remoteTodo.title, localTodo, remoteTodo),
+    who: mergeTodoChoiceField(baseTodo.who, localTodo.who, remoteTodo.who, localTodo, remoteTodo),
+    body: mergeTodoTextField(baseTodo.body, localTodo.body, remoteTodo.body),
+    status: mergeTodoChoiceField(baseTodo.status, localTodo.status, remoteTodo.status, localTodo, remoteTodo),
+    dueDate: mergeTodoChoiceField(baseTodo.dueDate, localTodo.dueDate, remoteTodo.dueDate, localTodo, remoteTodo),
+    createdAt: mergeField(baseTodo.createdAt, localTodo.createdAt, remoteTodo.createdAt),
+    updatedAt: latestTodoUpdatedAt(localTodo, remoteTodo) ?? mergeField(baseTodo.updatedAt, localTodo.updatedAt, remoteTodo.updatedAt),
+    showOnTimeline: mergeTodoChoiceField(
+      baseTodo.showOnTimeline,
+      localTodo.showOnTimeline,
+      remoteTodo.showOnTimeline,
+      localTodo,
+      remoteTodo,
+    ),
+    order: mergeTodoChoiceField(baseTodo.order, localTodo.order, remoteTodo.order, localTodo, remoteTodo),
+    tags: normalizeTodoTags([...(remoteTodo.tags ?? []), ...(localTodo.tags ?? [])]),
+  };
+}
+
+function mergeField<T>(baseValue: T, localValue: T, remoteValue: T) {
+  return changed(baseValue, localValue) ? localValue : remoteValue;
+}
+
+function mergeTodoTextField(baseValue: string | undefined, localValue: string | undefined, remoteValue: string | undefined) {
+  return mergeTextField(baseValue, localValue, remoteValue);
+}
+
+function mergeTodoChoiceField<T>(
+  baseValue: T,
+  localValue: T,
+  remoteValue: T,
+  localTodo: TimelineTodo,
+  remoteTodo: TimelineTodo,
+) {
+  const localChanged = changed(baseValue, localValue);
+  const remoteChanged = changed(baseValue, remoteValue);
+  if (localChanged && remoteChanged && changed(localValue, remoteValue)) {
+    return isLocalTodoNewer(localTodo, remoteTodo) ? localValue : remoteValue;
+  }
+
+  return localChanged ? localValue : remoteValue;
+}
+
+function latestTodoUpdatedAt(localTodo: TimelineTodo, remoteTodo: TimelineTodo) {
+  const localUpdatedAt = todoUpdatedAt(localTodo);
+  const remoteUpdatedAt = todoUpdatedAt(remoteTodo);
+  if (!localUpdatedAt) return remoteUpdatedAt;
+  if (!remoteUpdatedAt) return localUpdatedAt;
+  return localUpdatedAt >= remoteUpdatedAt ? localUpdatedAt : remoteUpdatedAt;
+}
+
+function isLocalTodoNewer(localTodo: TimelineTodo, remoteTodo: TimelineTodo) {
+  const localUpdatedAt = todoUpdatedAt(localTodo);
+  const remoteUpdatedAt = todoUpdatedAt(remoteTodo);
+  if (!localUpdatedAt || !remoteUpdatedAt) return true;
+  return localUpdatedAt >= remoteUpdatedAt;
+}
+
+function todoUpdatedAt(todo: TimelineTodo) {
+  return todo.updatedAt ?? todo.createdAt ?? '';
 }
 
 function mergeStringList(baseItems: readonly string[], localItems: readonly string[], remoteItems: readonly string[]) {
@@ -1998,32 +2200,6 @@ function mergeTextField(baseText: string | undefined, localText: string | undefi
   }
 
   return localChanged ? localValue : remoteValue;
-}
-
-function copyRemoteEventConflict(event: TimelineEvent, id: string): TimelineEvent {
-  return {
-    ...event,
-    id,
-    what: `${event.what} (other device)`,
-  };
-}
-
-function copyRemoteTodoConflict(todo: TimelineTodo, id: string): TimelineTodo {
-  return {
-    ...todo,
-    id,
-    title: `${todo.title} (other device)`,
-  };
-}
-
-function uniqueConflictId(baseId: string, items: ReadonlyMap<string, unknown>) {
-  let index = 1;
-  let id = `${baseId}-other-device`;
-  while (items.has(id)) {
-    index += 1;
-    id = `${baseId}-other-device-${index}`;
-  }
-  return id;
 }
 
 function changed(left: unknown, right: unknown) {

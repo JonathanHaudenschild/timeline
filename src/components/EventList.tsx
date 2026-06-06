@@ -5,6 +5,7 @@ import { CalendarPlus, CalendarX, Eye, EyeOff, History, ListTodo } from 'lucide-
 import { useAppDialog } from './AppDialog';
 import { MarkdownBlock } from './MarkdownBlock';
 import { formatShortGermanDateRange } from '@/lib/dateFormat';
+import { eventCategoryOptions, eventTypeOptions } from '@/lib/eventOptions';
 import type { TimelineEvent } from '@/lib/types';
 import { usePersistentState } from '@/lib/usePersistentState';
 
@@ -54,6 +55,8 @@ export function EventList({
   const [hidePastEvents, setHidePastEvents] = usePersistentState('timeline:ui:event-list-hide-past', false);
   const [search, setSearch] = useState('');
   const pastEventCount = useMemo(() => events.filter(isPastEvent).length, [events]);
+  const eventTypes = useMemo(() => eventTypeOptions(events), [events]);
+  const eventCategories = useMemo(() => eventCategoryOptions(events), [events]);
   const sortedEventRows = useMemo(
     () =>
       sortEvents(
@@ -146,6 +149,16 @@ export function EventList({
         </div>
       </div>
       <div className={`table-wrap ${isMinimized ? 'minimized-table' : ''}`}>
+        <datalist id="event-list-type-suggestions">
+          {eventTypes.map((type) => (
+            <option key={type} value={type} />
+          ))}
+        </datalist>
+        <datalist id="event-list-category-suggestions">
+          {eventCategories.map((category) => (
+            <option key={category} value={category} />
+          ))}
+        </datalist>
         <table>
           <thead>
             <tr>
@@ -258,9 +271,10 @@ export function EventList({
                   {canEdit ? (
                     <input
                       className="event-inline-input event-inline-type"
+                      list="event-list-type-suggestions"
                       value={event.type}
                       onClick={(click) => click.stopPropagation()}
-                      onChange={(change) => onChange({ ...event, type: change.target.value })}
+                      onChange={(change) => onChange({ ...event, type: change.target.value, color: '' })}
                       aria-label={`Type for ${event.what}`}
                     />
                   ) : (
@@ -271,6 +285,7 @@ export function EventList({
                   {canEdit ? (
                     <input
                       className="event-inline-input"
+                      list="event-list-category-suggestions"
                       value={event.category ?? ''}
                       onClick={(click) => click.stopPropagation()}
                       onChange={(change) => onChange({ ...event, category: change.target.value || undefined })}

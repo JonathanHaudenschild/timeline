@@ -919,72 +919,77 @@ function ProtocolStructuredSection({
                 <MarkdownBlock markdown={item.body || '_No details yet._'} />
               </div>
               <div className="protocol-entry-actions">
-                {item.convertedTodoId ? (
+                <time className="protocol-updated-meta" dateTime={item.updatedAt}>
+                  upd {formatProtocolUpdatedAt(item.updatedAt)}
+                </time>
+                <div className="protocol-entry-action-buttons">
+                  {item.convertedTodoId ? (
+                    <button
+                      type="button"
+                      className="icon-button protocol-convert-action protocol-linked-todo"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onOpenTodo(item.convertedTodoId!);
+                      }}
+                      aria-label="Open linked todo"
+                      title="Open linked todo"
+                    >
+                      <ListTodo size={16} aria-hidden="true" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="icon-button protocol-convert-action protocol-create-todo"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onCreateTodo(item);
+                      }}
+                      aria-label="Create todo"
+                      title="Create todo"
+                    >
+                      <ListTodo size={16} aria-hidden="true" />
+                    </button>
+                  )}
+                  {item.convertedEventId ? (
+                    <button
+                      type="button"
+                      className="icon-button protocol-convert-action protocol-linked-event"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onOpenEvent(item.convertedEventId!);
+                      }}
+                      aria-label="Open linked event"
+                      title="Open linked event"
+                    >
+                      <CalendarPlus size={16} aria-hidden="true" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="icon-button protocol-convert-action protocol-create-event"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onCreateEvent(item);
+                      }}
+                      aria-label="Create event"
+                      title="Create event"
+                    >
+                      <CalendarPlus size={16} aria-hidden="true" />
+                    </button>
+                  )}
                   <button
                     type="button"
-                    className="icon-button protocol-convert-action protocol-linked-todo"
+                    className="icon-button danger protocol-entry-icon-button"
                     onClick={(event) => {
                       event.stopPropagation();
-                      onOpenTodo(item.convertedTodoId!);
+                      onDelete(item.id);
                     }}
-                    aria-label="Open linked todo"
-                    title="Open linked todo"
+                    aria-label={`Delete ${item.title}`}
+                    title="Delete"
                   >
-                    <ListTodo size={16} aria-hidden="true" />
+                    <Trash2 size={14} aria-hidden="true" />
                   </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="icon-button protocol-convert-action protocol-create-todo"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onCreateTodo(item);
-                    }}
-                    aria-label="Create todo"
-                    title="Create todo"
-                  >
-                    <ListTodo size={16} aria-hidden="true" />
-                  </button>
-                )}
-                {item.convertedEventId ? (
-                  <button
-                    type="button"
-                    className="icon-button protocol-convert-action protocol-linked-event"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onOpenEvent(item.convertedEventId!);
-                    }}
-                    aria-label="Open linked event"
-                    title="Open linked event"
-                  >
-                    <CalendarPlus size={16} aria-hidden="true" />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="icon-button protocol-convert-action protocol-create-event"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onCreateEvent(item);
-                    }}
-                    aria-label="Create event"
-                    title="Create event"
-                  >
-                    <CalendarPlus size={16} aria-hidden="true" />
-                  </button>
-                )}
-                <button
-                  type="button"
-                  className="icon-button danger protocol-entry-icon-button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onDelete(item.id);
-                  }}
-                  aria-label={`Delete ${item.title}`}
-                  title="Delete"
-                >
-                  <Trash2 size={14} aria-hidden="true" />
-                </button>
+                </div>
               </div>
             </article>
           ))}
@@ -1063,6 +1068,20 @@ function itemMatchesQuery(item: MeetingProtocolItem, query: string) {
 
 function formatProtocolOverviewMeta(protocol: MeetingProtocol, now: number) {
   return `${formatProtocolOverviewDate(protocol.date)} - ${formatProtocolDuration(currentProtocolDuration(protocol, now))}`;
+}
+
+function formatProtocolUpdatedAt(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (localDateString(date) === localDateString(new Date())) return time;
+
+  return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')} ${time}`;
+}
+
+function localDateString(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
 function protocolPdfHtml(protocol: MeetingProtocol) {

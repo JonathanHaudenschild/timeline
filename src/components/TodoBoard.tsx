@@ -15,6 +15,7 @@ import {
   normalizeTodo,
   normalizeTodoStatus,
   normalizeTodoTags,
+  touchTodo,
 } from '@/lib/todos';
 import { usePersistentState } from '@/lib/usePersistentState';
 
@@ -77,6 +78,7 @@ export function TodoBoard({
   );
 
   function addTodo(status: TodoStatus = visibleStatuses[0] ?? 'open') {
+    const now = new Date().toISOString();
     setDraftTodo({
       id: crypto.randomUUID(),
       boardId,
@@ -85,7 +87,8 @@ export function TodoBoard({
       body: '- Add details',
       status,
       dueDate: '',
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
       tags: [],
       showOnTimeline: true,
       order: nextTodoOrder(todos, status),
@@ -95,7 +98,7 @@ export function TodoBoard({
   function saveTodo(todoToSave: TimelineTodo | null) {
     if (!todoToSave) return;
     const targetBoardId = todoToSave.boardId ?? boardId;
-    const todoForSave = normalizeTodo({ ...todoToSave, boardId: undefined });
+    const todoForSave = normalizeTodo(touchTodo({ ...todoToSave, boardId: undefined }));
 
     if (targetBoardId !== boardId) {
       onMoveTodoToBoard(todoForSave, targetBoardId);
@@ -528,66 +531,73 @@ export function TodoBoard({
                         <MarkdownBlock markdown={todo.body} />
                       </div>
                     ) : null}
-                    <div className="todo-card-actions">
-                      <button
-                        type="button"
-                        className="icon-button secondary"
-                        disabled={allColumnTodos[0]?.id === todo.id}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          nudgeTodo(todo.id, status, -1);
-                        }}
-                        aria-label={`Move ${todo.title} up`}
-                        title="Move up"
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        className="icon-button secondary"
-                        disabled={allColumnTodos.at(-1)?.id === todo.id}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          nudgeTodo(todo.id, status, 1);
-                        }}
-                        aria-label={`Move ${todo.title} down`}
-                        title="Move down"
-                      >
-                        ↓
-                      </button>
-                      <button
-                        type="button"
-                        className="icon-button secondary todo-edit-button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setDraftTodo({ ...todo, boardId });
-                        }}
-                        aria-label={`Edit ${todo.title}`}
-                        title="Edit"
-                      >
-                        ✎
-                      </button>
-                      <button
-                        type="button"
-                        className="icon-button danger"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          void appDialog
-                            .confirm({
-                              title: 'Delete todo?',
-                              message: `Delete "${todo.title}"?`,
-                              confirmLabel: 'Delete todo',
-                              tone: 'danger',
-                            })
-                            .then((confirmed) => {
-                              if (confirmed) onChange(todos.filter((item) => item.id !== todo.id));
-                            });
-                        }}
-                        aria-label={`Delete ${todo.title}`}
-                        title="Delete"
-                      >
-                        x
-                      </button>
+                    <div className="todo-card-footer">
+                      {todo.updatedAt || todo.createdAt ? (
+                        <time className="todo-updated-meta" dateTime={todo.updatedAt ?? todo.createdAt}>
+                          upd {formatTodoUpdatedAt(todo.updatedAt ?? todo.createdAt)}
+                        </time>
+                      ) : <span />}
+                      <div className="todo-card-actions">
+                        <button
+                          type="button"
+                          className="icon-button secondary"
+                          disabled={allColumnTodos[0]?.id === todo.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            nudgeTodo(todo.id, status, -1);
+                          }}
+                          aria-label={`Move ${todo.title} up`}
+                          title="Move up"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button secondary"
+                          disabled={allColumnTodos.at(-1)?.id === todo.id}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            nudgeTodo(todo.id, status, 1);
+                          }}
+                          aria-label={`Move ${todo.title} down`}
+                          title="Move down"
+                        >
+                          ↓
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button secondary todo-edit-button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setDraftTodo({ ...todo, boardId });
+                          }}
+                          aria-label={`Edit ${todo.title}`}
+                          title="Edit"
+                        >
+                          ✎
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button danger"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void appDialog
+                              .confirm({
+                                title: 'Delete todo?',
+                                message: `Delete "${todo.title}"?`,
+                                confirmLabel: 'Delete todo',
+                                tone: 'danger',
+                              })
+                              .then((confirmed) => {
+                                if (confirmed) onChange(todos.filter((item) => item.id !== todo.id));
+                              });
+                          }}
+                          aria-label={`Delete ${todo.title}`}
+                          title="Delete"
+                        >
+                          x
+                        </button>
+                      </div>
                     </div>
                   </article>
                 ))
@@ -690,6 +700,18 @@ function todoDueClass(todo: TimelineTodo, completedTodoStatus: string) {
 function formatTodoDueDate(date: string) {
   const [, , month, day] = date.match(/^(\d{4})-(\d{2})-(\d{2})$/) ?? [];
   return month && day ? `${day}.${month}` : date;
+}
+
+function formatTodoUpdatedAt(value: string | undefined) {
+  if (!value) return '';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (localDateString(date) === localDateString(new Date())) return time;
+
+  return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')} ${time}`;
 }
 
 function localDateString(date: Date) {

@@ -3,6 +3,7 @@
 import { Save, Trash2, X } from 'lucide-react';
 import type { TimelineEvent } from '@/lib/types';
 import { colorForType } from '@/lib/colors';
+import { eventCategoryOptions, eventTypeOptions } from '@/lib/eventOptions';
 import { MarkdownBlock } from './MarkdownBlock';
 
 type EventEditorProps = {
@@ -16,15 +17,9 @@ type EventEditorProps = {
   modal?: boolean;
 };
 
-const defaultEventTypes = ['milestone', 'meeting', 'decision', 'incident', 'review', 'note'];
-const defaultEventCategories = ['event', 'milestone', 'deadline', 'period'];
-
 export function EventEditor({ draft, events, typeColors, onChange, onCancel, onSave, onDelete, modal = false }: EventEditorProps) {
-  const eventTypes = uniqueValues([...defaultEventTypes, ...events.map((event) => event.type)]);
-  const eventCategories = uniqueValues([
-    ...defaultEventCategories,
-    ...events.map((event) => event.category || event.type),
-  ]);
+  const eventTypes = eventTypeOptions(events);
+  const eventCategories = eventCategoryOptions(events);
 
   const form = (
     <form
@@ -165,11 +160,5 @@ export function EventEditor({ draft, events, typeColors, onChange, onCancel, onS
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Edit event">
       {form}
     </div>
-  );
-}
-
-function uniqueValues(values: string[]) {
-  return [...new Set(values.map((value) => value.trim()).filter(Boolean))].sort((a, b) =>
-    a.localeCompare(b),
   );
 }

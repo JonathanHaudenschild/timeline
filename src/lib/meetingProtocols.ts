@@ -65,9 +65,9 @@ export function normalizeMeetingProtocols(protocols: readonly MeetingProtocolInp
         moderation: protocol.moderation?.trim() || '',
         protocolWriter: protocol.protocolWriter?.trim() || '',
         todoOwner: protocol.todoOwner?.trim() || '',
-        updates: normalizeProtocolItems(protocol.updates, 'Update'),
-        topics: normalizeProtocolItems(protocol.topics, 'Thema'),
-        todos: normalizeProtocolItems(protocol.todos, 'To-Do'),
+        updates: removeGeneratedProtocolItemConflictDuplicates(normalizeProtocolItems(protocol.updates, 'Update')),
+        topics: removeGeneratedProtocolItemConflictDuplicates(normalizeProtocolItems(protocol.topics, 'Thema')),
+        todos: removeGeneratedProtocolItemConflictDuplicates(normalizeProtocolItems(protocol.todos, 'To-Do')),
         body: protocol.body ?? '',
         createdAt: protocol.createdAt || now,
         updatedAt: protocol.updatedAt || protocol.createdAt || now,
@@ -414,7 +414,6 @@ function mergeById<T extends { id: string }>(
   baseItems: readonly T[],
   localItems: readonly T[],
   remoteItems: readonly T[],
-  copyRemoteConflict?: (item: T, id: string) => T,
 ) {
   const result = new Map(remoteItems.map((item) => [item.id, item]));
   const baseById = new Map(baseItems.map((item) => [item.id, item]));
@@ -423,19 +422,7 @@ function mergeById<T extends { id: string }>(
 
   for (const [id, localItem] of localById) {
     const baseItem = baseById.get(id);
-    const remoteItem = result.get(id);
-    if (
-      baseItem &&
-      remoteItem &&
-      copyRemoteConflict &&
-      changed(baseItem, localItem) &&
-      changed(baseItem, remoteItem) &&
-      changed(localItem, remoteItem)
-    ) {
-      result.set(id, localItem);
-      const conflictId = uniqueConflictId(id, result);
-      result.set(conflictId, copyRemoteConflict(remoteItem, conflictId));
-    } else if (!baseItem || changed(baseItem, localItem)) {
+    if (!baseItem || changed(baseItem, localItem)) {
       result.set(id, localItem);
     }
   }
@@ -485,13 +472,7 @@ function mergeProtocolItems(
       changed(baseItem, remoteItem) &&
       changed(localItem, remoteItem)
     ) {
-      if (protocolItemHasUnmergeableConflict(baseItem, localItem, remoteItem)) {
-        result.set(id, localItem);
-        const conflictId = uniqueConflictId(id, result);
-        result.set(conflictId, copyRemoteProtocolItem(remoteItem, conflictId));
-      } else {
-        result.set(id, mergeProtocolItem(baseItem, localItem, remoteItem));
-      }
+      result.set(id, mergeProtocolItem(baseItem, localItem, remoteItem));
     } else if (!baseItem || changed(baseItem, localItem)) {
       result.set(id, localItem);
     }
@@ -529,34 +510,41 @@ function mergeProtocolItem(
 ): MeetingProtocolItem {
   return {
     ...remoteItem,
-    title: changed(baseItem.title, localItem.title) ? localItem.title : remoteItem.title,
-    owner: changed(baseItem.owner, localItem.owner) ? localItem.owner : remoteItem.owner,
+    title: mergeProtocolChoiceField(baseItem.title, localItem.title, remoteItem.title, localItem, remoteItem),
+    owner: mergeProtocolChoiceField(baseItem.owner, localItem.owner, remoteItem.owner, localItem, remoteItem),
     body: mergeProtocolBody(baseItem.body, localItem.body, remoteItem.body),
-    convertedTodoId: changed(baseItem.convertedTodoId, localItem.convertedTodoId)
-      ? localItem.convertedTodoId
-      : remoteItem.convertedTodoId,
-    convertedEventId: changed(baseItem.convertedEventId, localItem.convertedEventId)
-      ? localItem.convertedEventId
-      : remoteItem.convertedEventId,
+    convertedTodoId: mergeProtocolChoiceField(
+      baseItem.convertedTodoId,
+      localItem.convertedTodoId,
+      remoteItem.convertedTodoId,
+      localItem,
+      remoteItem,
+    ),
+    convertedEventId: mergeProtocolChoiceField(
+      baseItem.convertedEventId,
+      localItem.convertedEventId,
+      remoteItem.convertedEventId,
+      localItem,
+      remoteItem,
+    ),
     updatedAt: latestString(localItem.updatedAt, remoteItem.updatedAt),
   };
 }
 
-function protocolItemHasUnmergeableConflict(
-  baseItem: MeetingProtocolItem,
+function mergeProtocolChoiceField<T>(
+  baseValue: T,
+  localValue: T,
+  remoteValue: T,
   localItem: MeetingProtocolItem,
   remoteItem: MeetingProtocolItem,
 ) {
-  return (
-    fieldConflicts(baseItem.title, localItem.title, remoteItem.title) ||
-    fieldConflicts(baseItem.owner, localItem.owner, remoteItem.owner) ||
-    fieldConflicts(baseItem.convertedTodoId, localItem.convertedTodoId, remoteItem.convertedTodoId) ||
-    fieldConflicts(baseItem.convertedEventId, localItem.convertedEventId, remoteItem.convertedEventId)
-  );
-}
+  const localChanged = changed(baseValue, localValue);
+  const remoteChanged = changed(baseValue, remoteValue);
+  if (localChanged && remoteChanged && changed(localValue, remoteValue)) {
+    return localItem.updatedAt >= remoteItem.updatedAt ? localValue : remoteValue;
+  }
 
-function fieldConflicts(baseValue: unknown, localValue: unknown, remoteValue: unknown) {
-  return changed(baseValue, localValue) && changed(baseValue, remoteValue) && changed(localValue, remoteValue);
+  return localChanged ? localValue : remoteValue;
 }
 
 function idsChanged(left: readonly { id: string }[], right: readonly { id: string }[]) {
@@ -574,22 +562,18 @@ function mergeProtocolBody(baseBody: string, localBody: string, remoteBody: stri
   return localChanged ? localBody : remoteBody;
 }
 
-function copyRemoteProtocolItem(item: MeetingProtocolItem, id: string): MeetingProtocolItem {
-  return {
-    ...item,
-    id,
-    title: `${item.title} (other device)`,
-  };
+function removeGeneratedProtocolItemConflictDuplicates(items: MeetingProtocolItem[]) {
+  const itemIds = new Set(items.map((item) => item.id));
+
+  return items.filter((item) => {
+    const originalId = generatedProtocolItemConflictOriginalId(item.id);
+    return !originalId || !itemIds.has(originalId);
+  });
 }
 
-function uniqueConflictId(baseId: string, items: ReadonlyMap<string, unknown>) {
-  let index = 1;
-  let id = `${baseId}-other-device`;
-  while (items.has(id)) {
-    index += 1;
-    id = `${baseId}-other-device-${index}`;
-  }
-  return id;
+function generatedProtocolItemConflictOriginalId(itemId: string) {
+  const match = itemId.match(/^(.+)-other-device(?:-\d+)?$/);
+  return match?.[1];
 }
 
 function latestString(left: string, right: string) {

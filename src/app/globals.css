@@ -1644,14 +1644,31 @@ textarea {
 
 .protocol-entry-actions {
   display: flex;
-  justify-content: flex-end;
-  gap: 4px;
+  justify-content: space-between;
+  gap: 6px;
   align-items: center;
   flex-wrap: nowrap;
   min-width: 0;
   border-top: 1px solid rgba(36, 34, 29, 0.14);
   margin: 2px -1px -1px;
   padding: 5px 0 0;
+}
+
+.protocol-updated-meta {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.protocol-entry-action-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .protocol-entry-icon-button,
@@ -3527,12 +3544,20 @@ tr:has(.timeline-badge.hidden) td {
   overflow-wrap: anywhere;
 }
 
+.todo-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-height: 22px;
+}
+
 .todo-card-actions {
   display: flex;
   gap: 4px;
   align-items: center;
   justify-content: flex-end;
-  padding-top: 1px;
+  flex: 0 0 auto;
   margin-left: auto;
 }
 
@@ -3577,6 +3602,15 @@ tr:has(.timeline-badge.hidden) td {
   border: 0;
   background: #f7f3ea;
   padding: 1px 5px;
+}
+
+.todo-updated-meta {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: none;
+  white-space: nowrap;
 }
 
 .todo-card-tags,
