@@ -1794,19 +1794,20 @@ label {
 
 .revision-list-item {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
   min-width: 0;
   max-width: 100%;
   align-items: start;
-  padding: 9px 10px;
+  min-height: 70px;
+  padding: 12px 12px;
   border: 1px solid rgba(36, 34, 29, 0.18);
   border-left: 5px solid rgba(36, 34, 29, 0.3);
   background: #fffef8;
   color: var(--text);
   text-align: left;
   box-shadow: none;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.2;
   white-space: normal;
   text-transform: none;
@@ -1826,19 +1827,20 @@ label {
 }
 
 .revision-list-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 7px 10px;
+  width: 100%;
   min-width: 0;
   align-items: center;
-  line-height: 3;
+  line-height: 1;
 }
 
 .revision-list-row b,
 .revision-detail-topline b {
   min-width: 0;
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 13px;
   background: var(--ink);
   color: var(--acid);
   overflow-wrap: anywhere;
@@ -1848,7 +1850,7 @@ label {
 .revision-list-row time {
   min-width: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 900;
   overflow-wrap: anywhere;
   line-height: 1.1;
@@ -1870,24 +1872,37 @@ label {
 .revision-list-title {
   min-width: 0;
   max-width: 100%;
-  flex: 1 1 180px;
+  overflow: hidden;
   overflow-wrap: anywhere;
-  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
   font-weight: 900;
   line-height: 1.15;
   text-transform: uppercase;
 }
 
 .revision-list-meta {
+  grid-column: 1 / -1;
   min-width: 0;
   max-width: 100%;
-  flex: 2 1 260px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   line-height: 1.25;
   overflow-wrap: anywhere;
   text-transform: none;
+}
+
+@media (max-width: 520px) {
+  .revision-list-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .revision-list-title {
+    grid-column: 1 / -1;
+    white-space: normal;
+  }
 }
 
 .revision-empty,

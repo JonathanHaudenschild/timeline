@@ -100,13 +100,14 @@ export function TimelineApp() {
   );
   const [copiedSectionLink, setCopiedSectionLink] = useState<ProjectUrlTarget['section'] | ''>('');
   const [unlockedTodoBoardIds, setUnlockedTodoBoardIds] = useState<string[]>([]);
-  const [sectionOrder, setSectionOrder] = usePersistentState<MovableSection[]>(
-    `timeline:ui:section-order:${project.hash}`,
-    defaultSectionOrder,
-  );
+  const sectionOrder = normalizeSectionOrder(project.settings.sectionOrder as MovableSection[] | undefined);
   const [isTodoSectionMinimized, setIsTodoSectionMinimized] = usePersistentState(
     `timeline:ui:todo-section-minimized:${project.hash}`,
     false,
+  );
+  const [isEventListMinimized, setIsEventListMinimized] = usePersistentState(
+    `timeline:ui:event-list-minimized`,
+    true,
   );
   const lastSavedJsonRef = useRef('');
   const lastSavedRevisionRef = useRef<number | undefined>(undefined);
@@ -420,35 +421,32 @@ export function TimelineApp() {
     setProject(nextProject);
   }
 
-  const normalizedSectionOrder = normalizeSectionOrder(sectionOrder);
-
   function sectionOrderStyle(section: MovableSection) {
-    return { order: normalizedSectionOrder.indexOf(section) + 20 };
+    return { order: sectionOrder.indexOf(section) + 20 };
   }
 
   function sectionMoveControls(section: MovableSection) {
-    const index = normalizedSectionOrder.indexOf(section);
+    if (!canEdit) return undefined;
+
+    const index = sectionOrder.indexOf(section);
 
     return {
       canMoveUp: index > 0,
-      canMoveDown: index >= 0 && index < normalizedSectionOrder.length - 1,
+      canMoveDown: index >= 0 && index < sectionOrder.length - 1,
       onMoveUp: () => moveSection(section, -1),
       onMoveDown: () => moveSection(section, 1),
     };
   }
 
   function moveSection(section: MovableSection, direction: -1 | 1) {
-    setSectionOrder((currentOrder) => {
-      const nextOrder = normalizeSectionOrder(currentOrder);
-      const index = nextOrder.indexOf(section);
-      const targetIndex = index + direction;
-      if (index < 0 || targetIndex < 0 || targetIndex >= nextOrder.length) return nextOrder;
+    const index = sectionOrder.indexOf(section);
+    const targetIndex = index + direction;
+    if (index < 0 || targetIndex < 0 || targetIndex >= sectionOrder.length) return;
 
-      const reordered = [...nextOrder];
-      const [movedSection] = reordered.splice(index, 1);
-      reordered.splice(targetIndex, 0, movedSection);
-      return reordered;
-    });
+    const reordered = [...sectionOrder];
+    const [movedSection] = reordered.splice(index, 1);
+    reordered.splice(targetIndex, 0, movedSection);
+    updateProject({ ...project, settings: { ...project.settings, sectionOrder: reordered } });
   }
 
   const todoMoveControls = sectionMoveControls('todos');
@@ -1648,6 +1646,8 @@ export function TimelineApp() {
         <EventList
           events={project.events}
           canEdit={canEdit}
+          isMinimized={isEventListMinimized}
+          onToggleMinimized={() => setIsEventListMinimized((v) => !v)}
           onAdd={() => createEvent({ date: selectedEvent?.date ?? project.startDate, time: selectedEvent?.time ?? '09:00' })}
           onChange={(changedEvent) => {
             updateProject({
@@ -2057,6 +2057,9 @@ function mergeSettings(baseProject: TimelineProject, localProject: TimelineProje
       localSettings.stickyLinks ?? [],
       remoteSettings.stickyLinks ?? [],
     ),
+    sectionOrder: changed(JSON.stringify(baseSettings.sectionOrder), JSON.stringify(localSettings.sectionOrder))
+      ? localSettings.sectionOrder
+      : remoteSettings.sectionOrder,
   };
 }
 

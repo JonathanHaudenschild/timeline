@@ -110,6 +110,7 @@ export type TimelineProject = {
     completedTodoStatus?: TodoStatus;
     activeTodoBoardId?: string;
     stickyLinks?: StickyLink[];
+    sectionOrder?: string[];
   };
 };
 

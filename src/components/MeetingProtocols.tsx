@@ -151,6 +151,7 @@ export function MeetingProtocols({
   const [search, setSearch] = useState('');
   const [timerTick, setTimerTick] = useState(0);
   const entryScrollTimeoutRef = useRef<number | undefined>(undefined);
+  const consumedRequestedProtocolRef = useRef('');
   const selectedProtocol = protocols.find((protocol) => protocol.id === selectedProtocolId) ?? protocols[0];
   const selectedProtocolDuration = selectedProtocol ? currentProtocolDuration(selectedProtocol, timerTick) : 0;
   const isTimerRunning = Boolean(selectedProtocol?.timerStartedAt);
@@ -192,6 +193,9 @@ export function MeetingProtocols({
   useEffect(() => {
     if (!requestedProtocolId) return;
     if (!protocols.some((protocol) => protocol.id === requestedProtocolId)) return;
+    const requestKey = `${projectHash}:${requestedProtocolId}`;
+    if (consumedRequestedProtocolRef.current === requestKey) return;
+    consumedRequestedProtocolRef.current = requestKey;
 
     const timeout = window.setTimeout(() => {
       setSelectedProtocolId(requestedProtocolId);
@@ -201,7 +205,7 @@ export function MeetingProtocols({
     }, 0);
 
     return () => window.clearTimeout(timeout);
-  }, [protocols, requestedProtocolId, setIsMinimized, setShowProtocolEntries]);
+  }, [projectHash, protocols, requestedProtocolId, setIsMinimized, setShowProtocolEntries]);
 
   function addProtocol() {
     const protocol = createMeetingProtocol();

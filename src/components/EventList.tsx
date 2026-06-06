@@ -24,6 +24,8 @@ import { cn } from "@/lib/cn";
 type EventListProps = {
   events: TimelineEvent[];
   canEdit: boolean;
+  isMinimized: boolean;
+  onToggleMinimized: () => void;
   onAdd: () => void;
   onChange: (event: TimelineEvent) => void;
   onToggleTimeline: (event: TimelineEvent) => void;
@@ -65,6 +67,8 @@ const sortableColumns: Array<{ key: SortKey; label: string }> = [
 export function EventList({
   events,
   canEdit,
+  isMinimized,
+  onToggleMinimized,
   onAdd,
   onChange,
   onToggleTimeline,
@@ -83,10 +87,6 @@ export function EventList({
   const [sortDirection, setSortDirection] = usePersistentState<SortDirection>(
     "timeline:ui:event-list-sort-direction",
     "asc",
-  );
-  const [isMinimized, setIsMinimized] = usePersistentState(
-    "timeline:ui:event-list-minimized",
-    true,
   );
   const [hidePastEvents, setHidePastEvents] = usePersistentState(
     "timeline:ui:event-list-hide-past",
@@ -132,7 +132,7 @@ export function EventList({
       title="Events"
       className="event-list"
       isCollapsed={isMinimized}
-      onToggle={() => setIsMinimized((minimized) => !minimized)}
+      onToggle={onToggleMinimized}
       copyLink={{
         onCopy: onCopyLink,
         copied: linkCopied,

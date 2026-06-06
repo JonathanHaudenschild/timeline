@@ -3,33 +3,23 @@
 import { useEffect, useState } from 'react';
 
 export function usePersistentState<T>(key: string, initialValue: T) {
-  const [value, setValue] = useState<T>(initialValue);
-  const [hasLoaded, setHasLoaded] = useState(false);
+  const [value, setValue] = useState<T>(() => {
+    try {
+      const rawValue = typeof window !== 'undefined' ? window.localStorage.getItem(key) : null;
+      if (rawValue !== null) return JSON.parse(rawValue) as T;
+    } catch {
+      // Local UI preferences are best-effort.
+    }
+    return initialValue;
+  });
 
   useEffect(() => {
-    const timeout = window.setTimeout(() => {
-      try {
-        const rawValue = window.localStorage.getItem(key);
-        if (rawValue) setValue(JSON.parse(rawValue) as T);
-      } catch {
-        // Local UI preferences are best-effort.
-      } finally {
-        setHasLoaded(true);
-      }
-    }, 0);
-
-    return () => window.clearTimeout(timeout);
-  }, [key]);
-
-  useEffect(() => {
-    if (!hasLoaded) return;
-
     try {
       window.localStorage.setItem(key, JSON.stringify(value));
     } catch {
       // Local UI preferences are best-effort.
     }
-  }, [hasLoaded, key, value]);
+  }, [key, value]);
 
   return [value, setValue] as const;
 }
