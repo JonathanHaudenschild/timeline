@@ -16,12 +16,28 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const file = formData.get('file');
 
     if (!(file instanceof File)) {
-      return NextResponse.json({ error: 'Upload an .xlsx file in the "file" field.' }, { status: 400 });
+      return NextResponse.json({ error: 'Upload an .xlsx or .json file in the "file" field.' }, { status: 400 });
     }
 
     const existingProject = await getProject(hash);
     if (!canAccessProject(existingProject, request)) {
       return NextResponse.json({ locked: true, hash: existingProject.hash }, { status: 423 });
+    }
+
+    if (isJsonProjectFile(file)) {
+      const importedProject = JSON.parse(await file.text()) as typeof existingProject;
+      const project = await saveProjectToDb({
+        ...importedProject,
+        hash: existingProject.hash,
+        revision: existingProject.revision,
+      });
+
+      return NextResponse.json({
+        project,
+        importedEvents: project.events.length,
+        importedLinks: project.settings.stickyLinks?.length ?? 0,
+        importedProject: true,
+      });
     }
 
     const result = await importProjectWorkbook(hash, await file.arrayBuffer(), existingProject);
@@ -42,4 +58,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       { status: 500 },
     );
   }
+}
+
+function isJsonProjectFile(file: File) {
+  return file.type === 'application/json' || file.name.toLowerCase().endsWith('.json');
 }

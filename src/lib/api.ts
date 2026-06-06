@@ -3,6 +3,7 @@ import type { TimelineProject } from './types';
 export type ProjectRevisionSummary = {
   revision: number;
   createdAt: string;
+  project: TimelineProject;
   name: string;
   startDate: string;
   endDate: string;
@@ -125,6 +126,7 @@ export async function importProjectFile(hash: string, file: File, projectPin?: s
     project: TimelineProject;
     importedEvents: number;
     importedLinks: number;
+    importedProject?: boolean;
   };
 }
 

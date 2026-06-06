@@ -1,5 +1,5 @@
 {
-  "last_turn_at": "2026-06-06T22:53:21.440Z",
-  "turn_count": 366,
-  "last_agent_output": "Fixed the markdown link rendering in [MarkdownBlock.tsx](/Users/jonathanhaudenschild/Documents/Other"
+  "last_turn_at": "2026-06-06T22:56:41.905Z",
+  "turn_count": 367,
+  "last_agent_output": "Implemented:\n\n- Revision modal now has `Download revision`, exporting the selected revision as JSON."
 }

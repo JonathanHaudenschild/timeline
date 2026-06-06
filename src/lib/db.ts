@@ -227,11 +227,21 @@ export async function listProjectRevisions(hash: string) {
     [normalizedHash],
   );
 
-  return result.rows.map((row) => ({
-    ...revisionSummary(normalizedHash, row.data),
-    revision: Number(row.revision),
-    createdAt: row.created_at.toISOString(),
-  }));
+  return result.rows.map((row) => {
+    const project = normalizeProject({
+      ...createDefaultProject(normalizedHash),
+      ...row.data,
+      hash: normalizedHash,
+      revision: Number(row.revision),
+    });
+
+    return {
+      ...revisionSummary(normalizedHash, project),
+      revision: Number(row.revision),
+      createdAt: row.created_at.toISOString(),
+      project,
+    };
+  });
 }
 
 function revisionSummary(hash: string, data: TimelineProject) {

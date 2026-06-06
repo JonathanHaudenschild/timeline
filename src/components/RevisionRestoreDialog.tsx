@@ -124,6 +124,16 @@ export function RevisionRestoreDialog({
           </button>
           <button
             type="button"
+            className="secondary"
+            disabled={!selected}
+            onClick={() => {
+              if (selected) downloadRevision(selected);
+            }}
+          >
+            <span>Download revision</span>
+          </button>
+          <button
+            type="button"
             disabled={!canRestore}
             onClick={() => {
               if (selected) onRestore(selected);
@@ -135,6 +145,20 @@ export function RevisionRestoreDialog({
       </section>
     </div>
   );
+}
+
+function downloadRevision(revision: ProjectRevisionSummary) {
+  const fileName = `${revision.project.hash}-revision-${revision.revision}.json`;
+  const blob = new Blob([JSON.stringify(revision.project, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+
+  link.href = url;
+  link.download = fileName;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 function revisionMatchesSearch(revision: ProjectRevisionSummary, search: string) {

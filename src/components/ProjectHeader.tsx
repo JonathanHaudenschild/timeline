@@ -151,7 +151,7 @@ export function ProjectHeader({
               <span>New project</span>
             </button>
             {project.settings.mode === "edit" ? (
-              <ImportExcelButton onImport={onImport} />
+              <ImportButton onImport={onImport} />
             ) : null}
           </div>
         </details>
@@ -214,14 +214,14 @@ export function ProjectHeader({
           </div>
         ) : null}
         {project.settings.mode === "edit" ? (
-          <ImportExcelButton onImport={onImport} desktopOnly />
+          <ImportButton onImport={onImport} desktopOnly />
         ) : null}
       </div>
     </header>
   );
 }
 
-function ImportExcelButton({
+function ImportButton({
   onImport,
   desktopOnly = false,
 }: {
@@ -231,15 +231,15 @@ function ImportExcelButton({
   return (
     <label
       className={`import-button icon-import-button ${desktopOnly ? "desktop-only-control" : ""}`}
-      aria-label="Import Excel"
-      title="Import Excel"
+      aria-label="Import project or Excel"
+      title="Import project or Excel"
     >
       <FileUp size={18} aria-hidden="true" />
-      <span>Import Excel</span>
+      <span>Import</span>
       <input
         type="file"
-        accept=".xlsx"
-        aria-label="Import Excel"
+        accept=".xlsx,.json,application/json"
+        aria-label="Import project or Excel"
         onChange={(event) => {
           const file = event.target.files?.[0];
           if (file) onImport(file);
