@@ -891,6 +891,19 @@ label {
   background: var(--primary);
 }
 
+.markdown a {
+  color: LinkText;
+  font-weight: 850;
+  text-decoration-line: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 2px;
+}
+
+.markdown a:visited {
+  color: VisitedText;
+}
+
+
 .timeline-shell {
   background: var(--panel);
   border-color: rgba(36, 34, 29, 0.22);
@@ -1998,14 +2011,31 @@ label {
 
 .save-state,
 .sync-state {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  justify-content: center;
   border: 1px solid rgba(36, 34, 29, 0.22);
   border-radius: 3px;
   padding: 3px 9px;
   color: var(--text);
   font-size: 12px;
   font-weight: 900;
+  font-variant-numeric: tabular-nums;
   background: #fffef8;
+  line-height: 1;
+  overflow: hidden;
+  text-align: center;
   text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.save-state {
+  width: 72px;
+}
+
+.sync-state {
+  width: 138px;
 }
 
 .save-state.saving,
@@ -3574,6 +3604,10 @@ tr:has(.timeline-badge.hidden) td {
 
   .project-status-cluster {
     justify-content: flex-start;
+  }
+
+  .sync-state {
+    width: min(138px, calc(100vw - 132px));
   }
 
   .event-list .section-counter {
