@@ -1,4 +1,5 @@
 import type { MeetingProtocol, MeetingProtocolItem } from './types';
+import { mergeTimelineComments, normalizeTimelineComments } from './comments';
 
 const weekdayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
 const shortWeekdayNames = ['So.', 'Mo.', 'Di.', 'Mi.', 'Do.', 'Fr.', 'Sa.'];
@@ -305,6 +306,7 @@ function normalizeProtocolItems(
       body: item.body ?? '',
       convertedTodoId: item.convertedTodoId?.trim() || undefined,
       convertedEventId: item.convertedEventId?.trim() || undefined,
+      comments: normalizeTimelineComments(item.comments),
       createdAt: item.createdAt || now,
       updatedAt: item.updatedAt || item.createdAt || now,
     };
@@ -527,6 +529,7 @@ function mergeProtocolItem(
       localItem,
       remoteItem,
     ),
+    comments: mergeTimelineComments(baseItem.comments, localItem.comments, remoteItem.comments),
     updatedAt: latestString(localItem.updatedAt, remoteItem.updatedAt),
   };
 }

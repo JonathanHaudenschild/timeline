@@ -2,6 +2,7 @@
 
 import { CalendarPlus, Plus, Save, Trash2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { SelectField, TextField } from './FormControls';
 import { MarkdownEditor } from './MarkdownEditor';
 import type { TimelineTodo, TodoStatus } from '@/lib/types';
 import { formatTodoStatus, normalizeTodoTag, normalizeTodoTags, todoWithPendingTag } from '@/lib/todos';
@@ -81,74 +82,71 @@ export function TodoEditor({
       >
         <div className="panel-title">{title}</div>
         <div className="form-grid">
-          <label>
-            <span>Title</span>
-            <input
-              value={draft.title}
-              onChange={(event) => onChange({ ...draft, title: event.target.value })}
-              required
-            />
-          </label>
-          <label>
-            <span>Who</span>
-            <input value={draft.who} onChange={(event) => onChange({ ...draft, who: event.target.value })} />
-          </label>
-          <label>
-            <span>Status</span>
-            <select
-              value={draft.status}
-              onChange={(event) => onChange({ ...draft, status: event.target.value as TodoStatus })}
-            >
+          <TextField
+            label="Title"
+            value={draft.title}
+            onValueChange={(title) => onChange({ ...draft, title })}
+            required
+          />
+          <TextField
+            label="Who"
+            value={draft.who}
+            onValueChange={(who) => onChange({ ...draft, who })}
+          />
+          <SelectField
+            label="Status"
+            value={draft.status}
+            onValueChange={(status) => onChange({ ...draft, status: status as TodoStatus })}
+            className="max-w-none"
+          >
               {statuses.map((status) => (
                 <option key={status} value={status}>
                   {formatTodoStatus(status)}
                 </option>
               ))}
-            </select>
-          </label>
+          </SelectField>
           {boards.length > 1 || forceBoardSelect ? (
-            <label>
-              <span>Board</span>
-              <select
-                value={draft.boardId ?? boards[0]?.id ?? ''}
-                onChange={(event) => onChange({ ...draft, boardId: event.target.value })}
-              >
+            <SelectField
+              label="Board"
+              value={draft.boardId ?? boards[0]?.id ?? ''}
+              onValueChange={(boardId) => onChange({ ...draft, boardId })}
+              className="max-w-none"
+            >
                 {boards.map((board) => (
                   <option key={board.id} value={board.id}>
                     {board.locked ? 'PIN ' : ''}{board.name}
                   </option>
                 ))}
-              </select>
-            </label>
+            </SelectField>
           ) : null}
           {protocolOptions.length ? (
-            <label>
-              <span>Protocol</span>
-              <select
-                value={draft.protocolId ?? ''}
-                onChange={(event) => onChange({ ...draft, protocolId: event.target.value || undefined })}
-              >
+            <SelectField
+              label="Protocol"
+              value={draft.protocolId ?? ''}
+              onValueChange={(protocolId) => onChange({ ...draft, protocolId: protocolId || undefined })}
+              className="max-w-none"
+            >
                 <option value="">No protocol</option>
                 {protocolOptions.map((protocol) => (
                   <option key={protocol.id} value={protocol.id}>
                     {protocol.title}
                   </option>
                 ))}
-              </select>
-            </label>
+            </SelectField>
           ) : null}
-          <label>
-            <span>Due</span>
-            <input
-              type="date"
-              value={draft.dueDate ?? ''}
-              onChange={(event) => onChange({ ...draft, dueDate: event.target.value })}
-            />
-          </label>
-          <label>
-            <span>Created</span>
-            <input className="readonly-input" value={formatTodoCreatedAt(draft.createdAt)} readOnly />
-          </label>
+          <TextField
+            label="Due"
+            type="date"
+            value={draft.dueDate ?? ''}
+            onValueChange={(dueDate) => onChange({ ...draft, dueDate })}
+          />
+          <TextField
+            label="Created"
+            value={formatTodoCreatedAt(draft.createdAt)}
+            onValueChange={() => undefined}
+            readOnly
+            inputClassName="readonly-input"
+          />
           <div className="todo-tags-field">
             <span className="field-label">Tags</span>
             <div className="todo-editor-tags">
@@ -174,9 +172,11 @@ export function TodoEditor({
                 </div>
               ) : null}
               <div className="todo-tag-input-row">
-                <input
+                <TextField
+                  label="Add todo tag"
+                  hideLabel
                   value={tagInput}
-                  onChange={(event) => setTagInput(event.target.value)}
+                  onValueChange={setTagInput}
                   onKeyDown={(event) => {
                     if (event.key !== 'Enter' && event.key !== ',') return;
                     event.preventDefault();
@@ -185,6 +185,7 @@ export function TodoEditor({
                   list={tagOptionsId}
                   placeholder={selectedTags.length ? 'Add tag' : 'Add or reuse tag'}
                   aria-label="Add todo tag"
+                  className="min-w-0 flex-1"
                 />
                 <datalist id={tagOptionsId}>
                   {suggestionTags.map((tag) => (
@@ -193,7 +194,7 @@ export function TodoEditor({
                 </datalist>
                 <button
                   type="button"
-                  className="icon-button secondary"
+                  className="icon-button"
                   onClick={() => addTag(tagInput)}
                   aria-label="Add tag"
                   title="Add tag"
@@ -216,7 +217,7 @@ export function TodoEditor({
           <button type="submit" className="icon-button modal-action-icon" aria-label={saveLabel} title={saveLabel}>
             <Save size={18} aria-hidden="true" />
           </button>
-          <button type="button" className="icon-button secondary modal-action-icon" onClick={onCancel} aria-label="Cancel" title="Cancel">
+          <button type="button" className="icon-button tertiary modal-action-icon" onClick={onCancel} aria-label="Cancel" title="Cancel">
             <X size={18} aria-hidden="true" />
           </button>
           {onDelete ? (

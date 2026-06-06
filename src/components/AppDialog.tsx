@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import { TextField } from './FormControls';
 
 type DialogTone = 'default' | 'danger';
 
@@ -8,10 +10,12 @@ type AlertOptions = {
   title: string;
   message?: string;
   confirmLabel?: string;
+  confirmIcon?: ReactNode;
 };
 
 type ConfirmOptions = AlertOptions & {
   cancelLabel?: string;
+  cancelIcon?: ReactNode;
   tone?: DialogTone;
 };
 
@@ -102,25 +106,36 @@ export function useAppDialog() {
         </header>
 
         {dialog.kind === 'prompt' ? (
-          <label className="app-dialog-field">
-            <span>{dialog.label}</span>
-            <input
-              value={inputValue}
-              placeholder={dialog.placeholder}
-              onChange={(event) => setInputValue(event.target.value)}
-              autoFocus
-            />
-          </label>
+          <TextField
+            label={dialog.label}
+            value={inputValue}
+            placeholder={dialog.placeholder}
+            onValueChange={setInputValue}
+            autoFocus
+            className="app-dialog-field"
+          />
         ) : null}
 
         <div className="action-row app-dialog-actions">
           {dialog.kind !== 'alert' ? (
-            <button type="button" className="secondary" onClick={() => closeDialog(null)}>
-              {dialog.cancelLabel}
+            <button
+              type="button"
+              className={dialog.cancelIcon ? 'icon-button tertiary modal-action-icon' : 'tertiary'}
+              onClick={() => closeDialog(null)}
+              aria-label={dialog.cancelIcon ? dialog.cancelLabel : undefined}
+              title={dialog.cancelIcon ? dialog.cancelLabel : undefined}
+            >
+              {dialog.cancelIcon ?? dialog.cancelLabel}
             </button>
           ) : null}
-          <button type="submit" className={isDangerDialog ? 'danger' : ''} autoFocus={dialog.kind !== 'prompt'}>
-            {dialog.confirmLabel}
+          <button
+            type="submit"
+            className={dialog.confirmIcon ? `icon-button modal-action-icon ${isDangerDialog ? 'danger' : ''}` : isDangerDialog ? 'danger' : ''}
+            autoFocus={dialog.kind !== 'prompt'}
+            aria-label={dialog.confirmIcon ? dialog.confirmLabel : undefined}
+            title={dialog.confirmIcon ? dialog.confirmLabel : undefined}
+          >
+            {dialog.confirmIcon ?? dialog.confirmLabel}
           </button>
         </div>
       </form>

@@ -2,11 +2,19 @@ export type TimelineMode = 'view' | 'edit';
 
 export type TodoStatus = string;
 
+export type TimelineComment = {
+  id: string;
+  body: string;
+  createdAt: string;
+  updatedAt?: string;
+};
+
 export type TimelineEvent = {
   id: string;
   date: string;
   endDate?: string;
   time: string;
+  endTime?: string;
   what: string;
   who: string;
   type: string;
@@ -28,6 +36,7 @@ export type TimelineTodo = {
   createdAt?: string;
   updatedAt?: string;
   tags?: string[];
+  comments?: TimelineComment[];
   showOnTimeline: boolean;
   order?: number;
 };
@@ -73,6 +82,7 @@ export type MeetingProtocolItem = {
   body: string;
   convertedTodoId?: string;
   convertedEventId?: string;
+  comments?: TimelineComment[];
   createdAt: string;
   updatedAt: string;
 };

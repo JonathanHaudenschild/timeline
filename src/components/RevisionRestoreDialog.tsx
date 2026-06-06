@@ -1,7 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Search, X } from 'lucide-react';
+import { X } from 'lucide-react';
+import { SearchInput } from './FormControls';
 import type { ProjectRevisionSummary } from '@/lib/api';
 
 type RevisionRestoreDialogProps = {
@@ -37,23 +38,18 @@ export function RevisionRestoreDialog({
             <h2>Restore revision</h2>
             <p>Choose a saved snapshot. Restoring creates a new current revision and keeps the history.</p>
           </div>
-          <button type="button" className="icon-button secondary" onClick={onClose} aria-label="Close restore revisions" title="Close">
+          <button type="button" className="icon-button tertiary" onClick={onClose} aria-label="Close restore revisions" title="Close">
             <X size={18} aria-hidden="true" />
           </button>
         </header>
 
-        <label className="search-control revision-search-control">
-          <span>
-            <Search size={14} aria-hidden="true" />
-            Search
-          </span>
-          <input
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Revision, title, date, counts"
-            autoFocus
-          />
-        </label>
+        <SearchInput
+          value={search}
+          onValueChange={setSearch}
+          placeholder="Revision, title, date, counts"
+          className="revision-search-control max-w-none"
+          autoFocus
+        />
 
         <div className="revision-restore-body">
           <div className="revision-list" role="listbox" aria-label="Available revisions">
@@ -123,7 +119,7 @@ export function RevisionRestoreDialog({
         </div>
 
         <div className="action-row revision-restore-actions">
-          <button type="button" className="secondary" onClick={onClose}>
+          <button type="button" className="tertiary" onClick={onClose}>
             Cancel
           </button>
           <button

@@ -2,14 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PointerEvent } from 'react';
-import { Eye, EyeOff, KeyRound, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Eye, GripVertical, KeyRound, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useAppDialog } from './AppDialog';
 import { EventEditor } from './EventEditor';
 import { EventList } from './EventList';
+import { SelectField, TextField } from './FormControls';
 import { MarkdownBlock } from './MarkdownBlock';
+import { MarkdownEditor } from './MarkdownEditor';
 import { MeetingProtocols } from './MeetingProtocols';
 import { ProjectHeader } from './ProjectHeader';
 import { RevisionRestoreDialog } from './RevisionRestoreDialog';
+import { SectionShell } from './SectionShell';
 import { StickyLinks } from './StickyLinks';
 import { TimelineCanvas } from './TimelineCanvas';
 import { TodoBoard } from './TodoBoard';
@@ -21,10 +24,11 @@ import {
   importProjectFile,
   LockedProjectError,
   persistProject,
-  ProjectConflictError,
+  ProjectSaveConflictError,
   restoreProjectRevision,
   type ProjectRevisionSummary,
 } from '@/lib/api';
+import { mergeTimelineComments } from '@/lib/comments';
 import { formatShortGermanDateRange } from '@/lib/dateFormat';
 import { createDefaultProject, normalizeHash } from '@/lib/project';
 import { mergeMeetingProtocols, normalizeMeetingProtocols } from '@/lib/meetingProtocols';
@@ -38,6 +42,7 @@ import {
 } from '@/lib/todoBoards';
 import { normalizeCompletedTodoStatus, normalizeTodoStatuses, normalizeTodoTags, renameTodoStatus, touchTodo } from '@/lib/todos';
 import type { TimelineEvent, TimelineMode, TimelineProject, TimelineTodo, TimelineTodoBoard as TimelineTodoBoardData } from '@/lib/types';
+import { uiCard, uiIconButton } from '@/lib/ui';
 import { usePersistentState } from '@/lib/usePersistentState';
 
 type PinDialogConfig = {
@@ -53,6 +58,20 @@ type PinDialogResult = {
   pin: string;
   repeatedPin?: string;
 };
+
+type MovableSection = 'info' | 'protocol' | 'timeline' | 'events' | 'todos';
+
+const defaultSectionOrder: MovableSection[] = ['info', 'protocol', 'timeline', 'events', 'todos'];
+const todoBoardTabsClass =
+  'mt-3 mb-2 flex min-w-0 flex-wrap items-center gap-1 rounded-[2px] border border-[rgba(36,34,29,0.18)] bg-[var(--bg)] p-1 shadow-none max-sm:hidden';
+const todoBoardTabButtonClass =
+  'min-h-8 min-w-0 max-w-[190px] flex-none truncate rounded-[2px] border px-2.5 text-xs font-black shadow-none';
+const todoBoardTabButtonInactiveClass =
+  'border-transparent bg-transparent text-[var(--muted)] hover:border-[rgba(36,34,29,0.18)] hover:bg-[#fffdf8] hover:text-[var(--text)]';
+const todoBoardTabButtonActiveClass =
+  'border-[rgba(36,34,29,0.28)] bg-[var(--primary)] text-[var(--text)] shadow-[inset_0_-3px_0_var(--hot)]';
+const todoBoardTabAddButtonClass =
+  'icon-button tertiary ml-auto h-8 min-h-8 w-8 min-w-8 border-[rgba(36,34,29,0.22)] bg-[#fffdf8] p-0 max-xl:ml-0';
 
 export function TimelineApp() {
   const { dialog: appDialogElement, alert: showAlert, confirm: showConfirm, prompt: showPrompt } = useAppDialog();
@@ -81,6 +100,10 @@ export function TimelineApp() {
   );
   const [copiedSectionLink, setCopiedSectionLink] = useState<ProjectUrlTarget['section'] | ''>('');
   const [unlockedTodoBoardIds, setUnlockedTodoBoardIds] = useState<string[]>([]);
+  const [sectionOrder, setSectionOrder] = usePersistentState<MovableSection[]>(
+    `timeline:ui:section-order:${project.hash}`,
+    defaultSectionOrder,
+  );
   const [isTodoSectionMinimized, setIsTodoSectionMinimized] = usePersistentState(
     `timeline:ui:todo-section-minimized:${project.hash}`,
     false,
@@ -234,11 +257,11 @@ export function TimelineApp() {
     };
   }, [projectWithOptionalLocalBackup, setLastSavedProject]);
 
-  const rebaseUnsavedChanges = useCallback(async () => {
+  const rebaseUnsavedChanges = useCallback(async (latestRemoteProject?: TimelineProject) => {
     try {
       const localProject = latestProjectRef.current;
       const baseProject = parseProjectJson(lastSavedJsonRef.current) ?? localProject;
-      const remoteProject = await fetchProject(localProject.hash, projectPinRef.current);
+      const remoteProject = latestRemoteProject ?? await fetchProject(localProject.hash, projectPinRef.current);
       const mergedProject = mergeProjectChanges(baseProject, localProject, remoteProject);
 
       setLastSavedProject(remoteProject);
@@ -280,8 +303,8 @@ export function TimelineApp() {
         .catch((error) => {
           saveUnsavedProjectBackup(latestProjectRef.current, parseProjectJson(lastSavedJsonRef.current));
           setSaveState('error');
-          if (error instanceof ProjectConflictError) {
-            void rebaseUnsavedChanges();
+          if (error instanceof ProjectSaveConflictError) {
+            void rebaseUnsavedChanges(error.latestProject);
           }
         });
     }, 350);
@@ -396,6 +419,39 @@ export function TimelineApp() {
     }
     setProject(nextProject);
   }
+
+  const normalizedSectionOrder = normalizeSectionOrder(sectionOrder);
+
+  function sectionOrderStyle(section: MovableSection) {
+    return { order: normalizedSectionOrder.indexOf(section) + 20 };
+  }
+
+  function sectionMoveControls(section: MovableSection) {
+    const index = normalizedSectionOrder.indexOf(section);
+
+    return {
+      canMoveUp: index > 0,
+      canMoveDown: index >= 0 && index < normalizedSectionOrder.length - 1,
+      onMoveUp: () => moveSection(section, -1),
+      onMoveDown: () => moveSection(section, 1),
+    };
+  }
+
+  function moveSection(section: MovableSection, direction: -1 | 1) {
+    setSectionOrder((currentOrder) => {
+      const nextOrder = normalizeSectionOrder(currentOrder);
+      const index = nextOrder.indexOf(section);
+      const targetIndex = index + direction;
+      if (index < 0 || targetIndex < 0 || targetIndex >= nextOrder.length) return nextOrder;
+
+      const reordered = [...nextOrder];
+      const [movedSection] = reordered.splice(index, 1);
+      reordered.splice(targetIndex, 0, movedSection);
+      return reordered;
+    });
+  }
+
+  const todoMoveControls = sectionMoveControls('todos');
 
   function selectEvent(eventId: string | undefined) {
     setSelectedEventId(eventId);
@@ -792,7 +848,7 @@ export function TimelineApp() {
         {activeBoard.pinHash ? (
           <button
             type="button"
-            className="icon-button secondary todo-board-tool-button"
+            className="icon-button tertiary todo-board-tool-button"
             onClick={() => void removeTodoBoardPin(activeBoard)}
             aria-label="Remove board PIN"
             title="Remove board PIN"
@@ -1291,15 +1347,13 @@ export function TimelineApp() {
                 });
             }}
           >
-            <label>
-              <span>Project PIN</span>
-              <input
-                type="password"
-                value={unlockPin}
-                onChange={(event) => setUnlockPin(event.target.value)}
-                autoFocus
-              />
-            </label>
+            <TextField
+              label="Project PIN"
+              type="password"
+              value={unlockPin}
+              onValueChange={setUnlockPin}
+              autoFocus
+            />
             {lockError ? <div className="form-error">{lockError}</div> : null}
             <button type="submit">Unlock project</button>
           </form>
@@ -1315,7 +1369,7 @@ export function TimelineApp() {
         <button type="button" className="secondary" onClick={() => navigateToTarget({ section: 'top' })}>
           Top
         </button>
-        <button type="button" onClick={() => navigateToTarget({ section: 'todos' })}>
+        <button type="button" className="secondary" onClick={() => navigateToTarget({ section: 'todos' })}>
           Todos
         </button>
         <button type="button" className="secondary" onClick={() => navigateToTarget({ section: 'timeline' })}>
@@ -1362,6 +1416,16 @@ export function TimelineApp() {
         onRestoreRevision={() => {
           void restoreRevision();
         }}
+        onOpenProject={() => {
+          void showPrompt({
+            title: 'Open project',
+            label: 'Project hash',
+            placeholder: 'timeline',
+            confirmLabel: 'Open',
+          }).then((hash) => {
+            if (hash) window.location.hash = normalizeHash(hash);
+          });
+        }}
         onImport={(file) => {
           setSaveState('saving');
           importProjectFile(project.hash, file, projectPinRef.current)
@@ -1376,7 +1440,7 @@ export function TimelineApp() {
             .catch((error) => {
               saveUnsavedProjectBackup(latestProjectRef.current, parseProjectJson(lastSavedJsonRef.current));
               setSaveState('error');
-              if (error instanceof ProjectConflictError) {
+              if (error instanceof ProjectSaveConflictError) {
                 canSaveRef.current = false;
                 void showAlert({
                   title: 'Import not saved',
@@ -1390,40 +1454,47 @@ export function TimelineApp() {
       {collaborationNotice ? (
         <div className={`collaboration-banner ${saveState === 'conflict' ? 'conflict' : ''}`}>
           <span>{collaborationNotice}</span>
-          <button type="button" className="secondary" onClick={() => setCollaborationNotice('')}>
+          <button type="button" className="tertiary" onClick={() => setCollaborationNotice('')}>
             Dismiss
           </button>
         </div>
       ) : null}
 
-      <section className="info-section">
-        <div className="section-heading">
-          <h2>Important info</h2>
-          {canEdit ? (
-            <button
-              type="button"
-              className="icon-button info-edit-button"
-              onClick={() => setEditingInfo((value) => !value)}
-              aria-label={editingInfo ? 'Preview important info' : 'Edit important info'}
-              title={editingInfo ? 'Preview important info' : 'Edit important info'}
-            >
-              {editingInfo ? <Eye size={18} aria-hidden="true" /> : <Pencil size={18} aria-hidden="true" />}
-            </button>
-          ) : null}
-        </div>
-        {editingInfo ? (
-          <textarea
-            className="info-editor"
-            value={project.infoMarkdown}
-            onChange={(event) => updateProject({ ...project, infoMarkdown: event.target.value })}
-            rows={7}
-          />
-        ) : (
-          <MarkdownBlock markdown={project.infoMarkdown} />
-        )}
-      </section>
+	      <div className="ordered-section ordered-section-info" style={sectionOrderStyle('info')}>
+	        <SectionShell
+	          title="Info"
+	          className="bg-[var(--panel)]"
+	          meta={`${project.infoMarkdown.trim().split(/\s+/).filter(Boolean).length} words`}
+	          moveControls={sectionMoveControls('info')}
+	          actions={
+	            canEdit ? (
+	              <button
+	                type="button"
+	                className={`${uiIconButton} tertiary h-[var(--icon-button-size)] min-h-[var(--icon-button-size)] w-[var(--icon-button-size)] min-w-[var(--icon-button-size)]`}
+	                onClick={() => setEditingInfo((value) => !value)}
+	                aria-label={editingInfo ? 'Preview important info' : 'Edit important info'}
+	                title={editingInfo ? 'Preview important info' : 'Edit important info'}
+              >
+                {editingInfo ? <Eye size={18} aria-hidden="true" /> : <Pencil size={18} aria-hidden="true" />}
+              </button>
+	            ) : null
+	          }
+	        >
+	          <div className={`${uiCard} mt-3 p-3 max-sm:p-2.5`}>
+	            {editingInfo ? (
+	              <MarkdownEditor
+	                value={project.infoMarkdown}
+	                onChange={(infoMarkdown) => updateProject({ ...project, infoMarkdown })}
+	                rows={7}
+	              />
+	            ) : (
+	              <MarkdownBlock markdown={project.infoMarkdown} />
+	            )}
+	          </div>
+	        </SectionShell>
+	      </div>
 
-      <div className="ordered-section ordered-section-protocols" ref={protocolsRef}>
+      <div className="ordered-section ordered-section-protocols" ref={protocolsRef} style={sectionOrderStyle('protocol')}>
         <MeetingProtocols
           projectHash={project.hash}
           canEdit={canEdit}
@@ -1440,11 +1511,12 @@ export function TimelineApp() {
           onOpenEvent={openEventFromProtocol}
           onCopyLink={() => copySectionLink({ section: 'protocol' })}
           linkCopied={copiedSectionLink === 'protocol'}
+          moveControls={sectionMoveControls('protocol')}
           onCreateEvent={createEventFromProtocol}
         />
       </div>
 
-      <div className="ordered-section ordered-section-timeline" ref={timelineRef}>
+      <div className="ordered-section ordered-section-timeline" ref={timelineRef} style={sectionOrderStyle('timeline')}>
         <TimelineCanvas
           project={timelineProject}
           completedTodoStatus={completedTodoStatus}
@@ -1466,6 +1538,7 @@ export function TimelineApp() {
           }
           onCopyLink={() => copySectionLink({ section: 'timeline' })}
           linkCopied={copiedSectionLink === 'timeline'}
+          moveControls={sectionMoveControls('timeline')}
         />
       </div>
 
@@ -1514,15 +1587,22 @@ export function TimelineApp() {
             onPointerMove={dragPopover}
             onPointerUp={stopPopoverDrag}
             onPointerCancel={stopPopoverDrag}
-          >
-            <div className="popover-title-line">
-              <span className="drag-handle">drag</span>
+            >
+              <div className="popover-title-line">
+              <button
+                type="button"
+                className="drag-handle"
+                aria-label="Move selected event popover"
+                title="Move"
+              >
+                <GripVertical size={15} aria-hidden="true" />
+              </button>
               <div className="panel-title">{selectedEvent.what}</div>
             </div>
             <div className="popover-tools">
               <button
                 type="button"
-                className="icon-button secondary popover-close"
+                className="icon-button tertiary popover-close"
                 aria-label={selectedPopoverMinimized ? 'Expand selected event' : 'Minimize selected event'}
                 onClick={() => setSelectedPopoverMinimized((minimized) => !minimized)}
               >
@@ -1530,7 +1610,7 @@ export function TimelineApp() {
               </button>
               <button
                 type="button"
-                className="icon-button secondary popover-close"
+                className="icon-button tertiary popover-close"
                 aria-label="Close selected event"
                 onClick={() => selectEvent(undefined)}
               >
@@ -1543,8 +1623,8 @@ export function TimelineApp() {
               <dl>
                 <dt>Date</dt>
                 <dd>{formatShortGermanDateRange(selectedEvent.date, selectedEvent.endDate)}</dd>
-                <dt>Time</dt>
-                <dd>{selectedEvent.time}</dd>
+              <dt>Time</dt>
+              <dd>{selectedEvent.endTime ? `${selectedEvent.time} - ${selectedEvent.endTime}` : selectedEvent.time}</dd>
                 <dt>Who</dt>
                 <dd>{selectedEvent.who || '-'}</dd>
                 <dt>Type</dt>
@@ -1555,7 +1635,7 @@ export function TimelineApp() {
                 </dd>
               </dl>
               {canEdit ? (
-                <button type="button" className="popover-edit" onClick={() => setDraftEvent({ ...selectedEvent })}>
+                <button type="button" className="popover-edit secondary" onClick={() => setDraftEvent({ ...selectedEvent })}>
                   Edit event
                 </button>
               ) : null}
@@ -1564,7 +1644,7 @@ export function TimelineApp() {
         </aside>
       ) : null}
 
-      <section className="events-area ordered-section ordered-section-events" ref={eventsRef}>
+      <section className="events-area ordered-section ordered-section-events" ref={eventsRef} style={sectionOrderStyle('events')}>
         <EventList
           events={project.events}
           canEdit={canEdit}
@@ -1592,6 +1672,7 @@ export function TimelineApp() {
           onConvertToTodo={convertEventToTodo}
           onCopyLink={() => copySectionLink({ section: 'events' })}
           linkCopied={copiedSectionLink === 'events'}
+          moveControls={sectionMoveControls('events')}
           onDelete={(eventId) => {
             updateProject({ ...project, events: project.events.filter((event) => event.id !== eventId) });
             if (selectedEventId === eventId) selectEvent(undefined);
@@ -1599,42 +1680,25 @@ export function TimelineApp() {
         />
       </section>
 
-      <div className="ordered-section ordered-section-todos" ref={todoRef}>
-        <section className="todo-board-frame">
-          <div className="section-heading todo-section-heading">
-            <div className="section-title-with-link">
-              <h2>Todos</h2>
-              <button
-                type="button"
-                className="icon-button secondary copy-link-icon"
-                onClick={() => copySectionLink({ section: 'todos' })}
-                aria-label="Copy todos link"
-                title={copiedSectionLink === 'todos' ? 'Copied' : 'Copy todos link'}
-              >
-                {copiedSectionLink === 'todos' ? 'ok' : '§'}
-              </button>
-            </div>
-            <div className="heading-actions">
-              <span className="section-counter">{activeBoard.todos.length} / {activeBoard.todos.length}</span>
-              <button
-                type="button"
-                className={`event-table-toggle ${isTodoSectionMinimized ? 'collapsed' : 'expanded'}`}
-                onClick={() => setIsTodoSectionMinimized((minimized) => !minimized)}
-                aria-expanded={!isTodoSectionMinimized}
-                aria-label={isTodoSectionMinimized ? 'Show todos' : 'Hide todos'}
-                title={isTodoSectionMinimized ? 'Show todos' : 'Hide todos'}
-              >
-                {isTodoSectionMinimized ? <Eye size={18} aria-hidden="true" /> : <EyeOff size={18} aria-hidden="true" />}
-              </button>
-            </div>
-          </div>
-          {isTodoSectionMinimized ? null : (
-            <>
-          <div className="todo-board-tabs">
+      <div className="ordered-section ordered-section-todos" ref={todoRef} style={sectionOrderStyle('todos')}>
+        <SectionShell
+          title="Todos"
+          className="overflow-visible"
+          meta={`${activeBoard.todos.length} / ${activeBoard.todos.length}`}
+          copyLink={{
+            onCopy: () => copySectionLink({ section: 'todos' }),
+            copied: copiedSectionLink === 'todos',
+            label: 'Copy todos link',
+          }}
+          moveControls={todoMoveControls}
+          isCollapsed={isTodoSectionMinimized}
+          onToggle={() => setIsTodoSectionMinimized((minimized) => !minimized)}
+        >
+          <div className={todoBoardTabsClass}>
             {todoBoards.map((board) => (
               <button
                 type="button"
-                className={board.id === activeBoard.id ? 'active' : ''}
+                className={`${todoBoardTabButtonClass} ${board.id === activeBoard.id ? todoBoardTabButtonActiveClass : todoBoardTabButtonInactiveClass}`}
                 key={board.id}
                 onClick={() => switchTodoBoard(board.id)}
               >
@@ -1644,7 +1708,7 @@ export function TimelineApp() {
             {canEdit ? (
               <button
                 type="button"
-                className="icon-button secondary todo-board-tool-button"
+                className={todoBoardTabAddButtonClass}
                 onClick={addTodoBoard}
                 aria-label="Add todo board"
                 title="Add board"
@@ -1653,20 +1717,28 @@ export function TimelineApp() {
               </button>
             ) : null}
           </div>
-          <div className="todo-board-mobile-switcher">
-            <label>
-              <span>Board</span>
-              <select value={activeBoard.id} onChange={(event) => switchTodoBoard(event.target.value)}>
+          <div className="mb-2 mt-1.5 hidden max-sm:grid max-sm:grid-cols-[minmax(0,1fr)_var(--icon-button-size)] max-sm:items-stretch max-sm:gap-2">
+            <SelectField
+              label="Board"
+              value={activeBoard.id}
+              onValueChange={switchTodoBoard}
+              className="max-w-none"
+            >
                 {todoBoards.map((board) => (
                   <option value={board.id} key={board.id}>
                     {board.pinHash ? 'PIN ' : ''}{board.name}
                   </option>
                 ))}
-              </select>
-            </label>
+            </SelectField>
             {canEdit ? (
-              <button type="button" className="secondary" onClick={addTodoBoard} aria-label="Add todo board">
-                +
+              <button
+                type="button"
+                className="icon-button tertiary todo-board-mobile-add"
+                onClick={addTodoBoard}
+                aria-label="Add todo board"
+                title="Add board"
+              >
+                <Plus size={16} aria-hidden="true" />
               </button>
             ) : null}
           </div>
@@ -1728,33 +1800,15 @@ export function TimelineApp() {
                   completedTodoStatus: renamed.completedStatus,
                 });
               }}
+              canEdit={canEdit}
               renderBoardActions={canEdit ? renderTodoBoardActions : undefined}
             />
           )}
-            </>
-          )}
-        </section>
+        </SectionShell>
       </div>
 
       <footer className="footer-line">
         Project data is saved in Postgres under <code>#{project.hash}</code>.
-        <button
-          type="button"
-          className="secondary"
-          onClick={() => {
-            void showPrompt({
-                title: 'Open project',
-                label: 'Project hash',
-                placeholder: 'timeline',
-                confirmLabel: 'Open',
-              })
-              .then((hash) => {
-                if (hash) window.location.hash = normalizeHash(hash);
-              });
-          }}
-        >
-          New project
-        </button>
       </footer>
 
       {revisionDialogRevisions ? (
@@ -1818,20 +1872,25 @@ function PinDialog({
           <div className="panel-title">{config.title}</div>
           <p>{config.description}</p>
         </div>
-        <label>
-          <span>{config.inputLabel ?? 'PIN'}</span>
-          <input type="password" value={pin} onChange={(event) => onPinChange(event.target.value)} autoFocus />
-        </label>
+        <TextField
+          label={config.inputLabel ?? 'PIN'}
+          type="password"
+          value={pin}
+          onValueChange={onPinChange}
+          autoFocus
+        />
         {config.requireRepeat ? (
-          <label>
-            <span>{config.repeatLabel ?? 'Repeat PIN'}</span>
-            <input type="password" value={repeatedPin} onChange={(event) => onRepeatedPinChange(event.target.value)} />
-          </label>
+          <TextField
+            label={config.repeatLabel ?? 'Repeat PIN'}
+            type="password"
+            value={repeatedPin}
+            onValueChange={onRepeatedPinChange}
+          />
         ) : null}
         {config.error ? <div className="form-error">{config.error}</div> : null}
         <div className="action-row">
           <button type="submit">{config.confirmLabel}</button>
-          <button type="button" className="secondary" onClick={onCancel}>
+          <button type="button" className="tertiary" onClick={onCancel}>
             Cancel
           </button>
         </div>
@@ -1915,6 +1974,23 @@ function parseProjectJson(json: string) {
   } catch {
     return undefined;
   }
+}
+
+function normalizeSectionOrder(sectionOrder: readonly MovableSection[] | undefined) {
+  const seen = new Set<MovableSection>();
+  const normalized: MovableSection[] = [];
+
+  for (const section of sectionOrder ?? []) {
+    if (!defaultSectionOrder.includes(section) || seen.has(section)) continue;
+    seen.add(section);
+    normalized.push(section);
+  }
+
+  for (const section of defaultSectionOrder) {
+    if (!seen.has(section)) normalized.push(section);
+  }
+
+  return normalized;
 }
 
 export function mergeProjectChanges(baseProject: TimelineProject, localProject: TimelineProject, remoteProject: TimelineProject) {
@@ -2068,6 +2144,7 @@ function mergeEventFields(baseEvent: TimelineEvent, localEvent: TimelineEvent, r
     date: mergeField(baseEvent.date, localEvent.date, remoteEvent.date),
     endDate: mergeField(baseEvent.endDate, localEvent.endDate, remoteEvent.endDate),
     time: mergeField(baseEvent.time, localEvent.time, remoteEvent.time),
+    endTime: mergeField(baseEvent.endTime, localEvent.endTime, remoteEvent.endTime),
     what: mergeTextField(baseEvent.what, localEvent.what, remoteEvent.what),
     who: mergeTextField(baseEvent.who, localEvent.who, remoteEvent.who),
     type: mergeField(baseEvent.type, localEvent.type, remoteEvent.type),
@@ -2127,6 +2204,7 @@ function mergeTodoFields(baseTodo: TimelineTodo, localTodo: TimelineTodo, remote
     ),
     order: mergeTodoChoiceField(baseTodo.order, localTodo.order, remoteTodo.order, localTodo, remoteTodo),
     tags: normalizeTodoTags([...(remoteTodo.tags ?? []), ...(localTodo.tags ?? [])]),
+    comments: mergeTimelineComments(baseTodo.comments, localTodo.comments, remoteTodo.comments),
   };
 }
 

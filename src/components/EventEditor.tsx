@@ -4,7 +4,8 @@ import { Save, Trash2, X } from 'lucide-react';
 import type { TimelineEvent } from '@/lib/types';
 import { colorForType } from '@/lib/colors';
 import { eventCategoryOptions, eventTypeOptions } from '@/lib/eventOptions';
-import { MarkdownBlock } from './MarkdownBlock';
+import { TextField } from './FormControls';
+import { MarkdownEditor } from './MarkdownEditor';
 
 type EventEditorProps = {
   draft: TimelineEvent;
@@ -31,59 +32,62 @@ export function EventEditor({ draft, events, typeColors, onChange, onCancel, onS
     >
       <div className="panel-title">Event</div>
       <div className="form-grid">
-        <label>
-          <span>Date</span>
-          <input
-            type="date"
-            value={draft.date}
-            onChange={(event) => onChange({ ...draft, date: event.target.value })}
-            required
-          />
-        </label>
-        <label>
-          <span>End</span>
-          <input
-            type="date"
-            value={draft.endDate ?? ''}
-            onChange={(event) => onChange({ ...draft, endDate: event.target.value || undefined })}
-          />
-        </label>
-        <label>
-          <span>Time</span>
-          <input
-            type="time"
-            value={draft.time}
-            onChange={(event) => onChange({ ...draft, time: event.target.value })}
-          />
-        </label>
-        <label>
-          <span>Type</span>
-          <input
-            list="event-type-suggestions"
-            value={draft.type}
-            onChange={(event) => onChange({ ...draft, type: event.target.value, color: '' })}
-            placeholder="milestone, outage, call, custom..."
-          />
+        <TextField
+          label="Date"
+          type="date"
+          value={draft.date}
+          onValueChange={(date) => onChange({ ...draft, date })}
+          required
+        />
+        <TextField
+          label="End"
+          type="date"
+          value={draft.endDate ?? ''}
+          onValueChange={(endDate) =>
+            onChange({
+              ...draft,
+              endDate: endDate || undefined,
+              endTime: endDate ? draft.endTime : undefined,
+            })
+          }
+        />
+        <TextField
+          label="Time"
+          type="time"
+          value={draft.time}
+          onValueChange={(time) => onChange({ ...draft, time })}
+        />
+        <TextField
+          label="End time"
+          type="time"
+          value={draft.endTime ?? ''}
+          disabled={!draft.endDate}
+          onValueChange={(endTime) => onChange({ ...draft, endTime: endTime || undefined })}
+        />
+        <TextField
+          label="Type"
+          list="event-type-suggestions"
+          value={draft.type}
+          onValueChange={(type) => onChange({ ...draft, type, color: '' })}
+          placeholder="milestone, outage, call, custom..."
+        />
           <datalist id="event-type-suggestions">
             {eventTypes.map((type) => (
               <option key={type} value={type} />
             ))}
           </datalist>
-        </label>
-        <label>
-          <span>Category</span>
-          <input
-            list="event-category-suggestions"
-            value={draft.category ?? ''}
-            onChange={(event) => onChange({ ...draft, category: event.target.value })}
-            placeholder="event, milestone, deadline..."
-          />
+        <TextField
+          label="Category"
+          list="event-category-suggestions"
+          value={draft.category ?? ''}
+          onValueChange={(category) => onChange({ ...draft, category })}
+          placeholder="event, milestone, deadline..."
+        />
           <datalist id="event-category-suggestions">
             {eventCategories.map((category) => (
               <option key={category} value={category} />
             ))}
           </datalist>
-        </label>
         <label>
           <span>Color</span>
           <div className="color-row">
@@ -101,48 +105,39 @@ export function EventEditor({ draft, events, typeColors, onChange, onCancel, onS
             />
           </div>
         </label>
-        <label>
-          <span>What</span>
+        <TextField
+          label="What"
+          value={draft.what}
+          onValueChange={(what) => onChange({ ...draft, what })}
+          required
+        />
+        <TextField
+          label="Who"
+          value={draft.who}
+          onValueChange={(who) => onChange({ ...draft, who })}
+        />
+        <label className="check-control switch-control event-timeline-switch">
           <input
-            value={draft.what}
-            onChange={(event) => onChange({ ...draft, what: event.target.value })}
-            required
+            type="checkbox"
+            checked={draft.showOnTimeline !== false}
+            onChange={(event) => onChange({ ...draft, showOnTimeline: event.target.checked })}
           />
-        </label>
-        <label>
-          <span>Who</span>
-          <input
-            value={draft.who}
-            onChange={(event) => onChange({ ...draft, who: event.target.value })}
-          />
+          <span>Show on timeline</span>
         </label>
       </div>
-      <label className="check-control switch-control">
-        <input
-          type="checkbox"
-          checked={draft.showOnTimeline !== false}
-          onChange={(event) => onChange({ ...draft, showOnTimeline: event.target.checked })}
-        />
-        <span>Show on timeline</span>
-      </label>
       <label>
         <span>Markdown note</span>
-        <textarea
+        <MarkdownEditor
           value={draft.note}
-          onChange={(event) => onChange({ ...draft, note: event.target.value })}
+          onChange={(note) => onChange({ ...draft, note })}
           rows={5}
         />
       </label>
-      {draft.note.trim() ? (
-        <div className="event-note-preview">
-          <MarkdownBlock markdown={draft.note} />
-        </div>
-      ) : null}
       <div className="action-row">
         <button type="submit" className="icon-button modal-action-icon" aria-label="Save event" title="Save event">
           <Save size={18} aria-hidden="true" />
         </button>
-        <button type="button" className="icon-button secondary modal-action-icon" onClick={onCancel} aria-label="Cancel" title="Cancel">
+        <button type="button" className="icon-button tertiary modal-action-icon" onClick={onCancel} aria-label="Cancel" title="Cancel">
           <X size={18} aria-hidden="true" />
         </button>
         {onDelete ? (

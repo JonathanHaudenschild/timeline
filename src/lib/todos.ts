@@ -1,4 +1,5 @@
 import type { TimelineTodo, TodoStatus } from './types';
+import { normalizeTimelineComments } from './comments';
 
 export const defaultTodoStatuses: TodoStatus[] = ['open', 'doing', 'done'];
 
@@ -31,11 +32,13 @@ export function normalizeTodoTags(tags: readonly string[] | undefined) {
 
 export function normalizeTodo(todo: TimelineTodo): TimelineTodo {
   const tags = normalizeTodoTags(todo.tags);
+  const comments = normalizeTimelineComments(todo.comments);
 
   return {
     ...todo,
     updatedAt: todo.updatedAt ?? todo.createdAt,
     tags: tags.length ? tags : undefined,
+    comments,
   };
 }
 

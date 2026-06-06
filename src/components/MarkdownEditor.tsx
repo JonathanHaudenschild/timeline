@@ -3,6 +3,7 @@
 import { useRef } from 'react';
 import type { KeyboardEvent } from 'react';
 import { MarkdownBlock } from './MarkdownBlock';
+import { cn } from '@/lib/cn';
 
 type MarkdownEditorProps = {
   value: string;
@@ -105,7 +106,7 @@ export function MarkdownEditor({
         {items.map((item) => (
           <button
             type="button"
-            className="mini-button secondary"
+            className="mini-button tertiary"
             key={item.action}
             title={item.title}
             onClick={() => applyAction(item.action)}
@@ -133,8 +134,8 @@ export function MarkdownEditor({
               onClick={() => applyColor(color)}
             />
           ))}
-          <label className="markdown-color-picker" title="Custom text color">
-            <span>Color</span>
+          <label className="markdown-color-picker" title="Custom text color" aria-label="Custom text color">
+            <span className="sr-only">Custom color</span>
             <input type="color" onChange={(event) => applyColor(event.target.value)} aria-label="Custom text color" />
           </label>
         </div>
@@ -142,7 +143,7 @@ export function MarkdownEditor({
       <div className="markdown-live-layout">
         <textarea
           ref={textareaRef}
-          className={['markdown-compose-field', className].filter(Boolean).join(' ')}
+          className={cn('markdown-compose-field', className)}
           value={value}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={handleKeyDown}

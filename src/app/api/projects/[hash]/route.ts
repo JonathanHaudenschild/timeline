@@ -41,8 +41,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
 }
 
 export async function PUT(request: NextRequest, context: RouteContext) {
+  let requestedHash = '';
+
   try {
     const { hash } = await context.params;
+    requestedHash = hash;
     const existingProject = await getProject(hash);
     if (!canAccessProject(existingProject, request)) {
       return NextResponse.json({ locked: true, hash: existingProject.hash }, { status: 423 });
@@ -53,7 +56,17 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     return NextResponse.json(project);
   } catch (error) {
     if (error instanceof ProjectConflictError) {
-      return NextResponse.json({ error: error.message }, { status: 409 });
+      try {
+        if (!requestedHash) return NextResponse.json({ error: error.message }, { status: 409 });
+        const latestProject = await getProject(requestedHash);
+        if (!canAccessProject(latestProject, request)) {
+          return NextResponse.json({ locked: true, hash: latestProject.hash }, { status: 423 });
+        }
+
+        return NextResponse.json({ error: error.message, project: latestProject }, { status: 409 });
+      } catch {
+        return NextResponse.json({ error: error.message }, { status: 409 });
+      }
     }
 
     return NextResponse.json(

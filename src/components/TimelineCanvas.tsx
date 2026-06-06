@@ -1,8 +1,11 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState } from 'react';
-import type { MutableRefObject } from 'react';
-import { CalendarPlus, Eye, EyeOff, Maximize2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { MutableRefObject } from "react";
+import { CalendarPlus, Maximize2 } from "lucide-react";
+import { cn } from "@/lib/cn";
+import { FilterBadge } from "./FilterBadge";
+import { SectionShell } from "./SectionShell";
 import {
   dayToDate,
   eventMatchesTimelineFilters,
@@ -12,12 +15,12 @@ import {
   pixelToMoment,
   timeToPixel,
   totalDays,
-} from '@/lib/timeline';
-import { colorForType } from '@/lib/colors';
-import { formatShortGermanDate } from '@/lib/dateFormat';
-import { isTodoCompleted } from '@/lib/todos';
-import type { TimelineEvent, TimelineProject, TimelineTodo } from '@/lib/types';
-import { usePersistentState } from '@/lib/usePersistentState';
+} from "@/lib/timeline";
+import { colorForType } from "@/lib/colors";
+import { formatShortGermanDate } from "@/lib/dateFormat";
+import { isTodoCompleted } from "@/lib/todos";
+import type { TimelineEvent, TimelineProject, TimelineTodo } from "@/lib/types";
+import { usePersistentState } from "@/lib/usePersistentState";
 
 type TimelineCanvasProps = {
   project: TimelineProject;
@@ -30,6 +33,12 @@ type TimelineCanvasProps = {
   onToggleTodoOverlay: (visible: boolean) => void;
   onCopyLink: () => void;
   linkCopied: boolean;
+  moveControls?: {
+    onMoveUp: () => void;
+    onMoveDown: () => void;
+    canMoveUp: boolean;
+    canMoveDown: boolean;
+  };
 };
 
 type HitBox = {
@@ -74,22 +83,96 @@ export function TimelineCanvas({
   onToggleTodoOverlay,
   onCopyLink,
   linkCopied,
+  moveControls,
 }: TimelineCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hitBoxesRef = useRef<HitBox[]>([]);
   const dragRef = useRef<{ x: number; pan: number } | null>(null);
-  const [zoom, setZoom] = usePersistentState(`timeline:ui:zoom:${project.hash}`, 1);
-  const [isMinimized, setIsMinimized] = usePersistentState(`timeline:ui:timeline-minimized:${project.hash}`, false);
+  const resizeFrameRef = useRef<number | undefined>(undefined);
+  const panFrameRef = useRef<number | undefined>(undefined);
+  const pendingPanRef = useRef<number | undefined>(undefined);
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  const [zoom, setZoom] = usePersistentState(
+    `timeline:ui:zoom:${project.hash}`,
+    1,
+  );
+  const [isMinimized, setIsMinimized] = usePersistentState(
+    `timeline:ui:timeline-minimized:${project.hash}`,
+    false,
+  );
   const [pan, setPan] = useState(0);
-  const [hiddenTypes, setHiddenTypes] = usePersistentState<string[]>(`timeline:ui:hidden-types:${project.hash}`, []);
-  const [hiddenCategories, setHiddenCategories] = usePersistentState<string[]>(`timeline:ui:hidden-categories:${project.hash}`, []);
+  const [hiddenTypes, setHiddenTypes] = usePersistentState<string[]>(
+    `timeline:ui:hidden-types:${project.hash}`,
+    [],
+  );
+  const [hiddenCategories, setHiddenCategories] = usePersistentState<string[]>(
+    `timeline:ui:hidden-categories:${project.hash}`,
+    [],
+  );
   const [now, setNow] = useState(() => new Date());
-  const eventTypes = uniqueValues(project.events.map((event) => event.type).filter(Boolean));
-  const eventCategories = uniqueValues(project.events.map(eventTimelineCategory));
+  const eventTypes = useMemo(
+    () =>
+      uniqueValues(project.events.map((event) => event.type).filter(Boolean)),
+    [project.events],
+  );
+  const eventCategories = useMemo(
+    () => uniqueValues(project.events.map(eventTimelineCategory)),
+    [project.events],
+  );
+  const hiddenTimelineFilterCount =
+    hiddenTypes.length + hiddenCategories.length;
 
   useEffect(() => {
     const interval = window.setInterval(() => setNow(new Date()), 60_000);
     return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const observedCanvas = canvas;
+
+    function updateCanvasSize(entry?: ResizeObserverEntry) {
+      const nextWidth = Math.round(
+        entry?.contentRect.width ??
+          observedCanvas.getBoundingClientRect().width,
+      );
+      const nextHeight = Math.round(
+        entry?.contentRect.height ??
+          observedCanvas.getBoundingClientRect().height,
+      );
+      setCanvasSize((currentSize) =>
+        currentSize.width === nextWidth && currentSize.height === nextHeight
+          ? currentSize
+          : { width: nextWidth, height: nextHeight },
+      );
+    }
+
+    updateCanvasSize();
+    const observer = new ResizeObserver((entries) => {
+      const [entry] = entries;
+      if (resizeFrameRef.current) {
+        window.cancelAnimationFrame(resizeFrameRef.current);
+      }
+      resizeFrameRef.current = window.requestAnimationFrame(() => {
+        resizeFrameRef.current = undefined;
+        updateCanvasSize(entry);
+      });
+    });
+
+    observer.observe(observedCanvas);
+    return () => {
+      observer.disconnect();
+      if (resizeFrameRef.current) {
+        window.cancelAnimationFrame(resizeFrameRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (panFrameRef.current) window.cancelAnimationFrame(panFrameRef.current);
+    };
   }, []);
 
   function panToMoment(date: string, time: string) {
@@ -103,8 +186,13 @@ export function TimelineCanvas({
   }
 
   function panToNow() {
-    const today = clampDateToProject(localDateString(now), project.startDate, project.endDate);
-    const time = today === localDateString(now) ? localTimeString(now) : '12:00';
+    const today = clampDateToProject(
+      localDateString(now),
+      project.startDate,
+      project.endDate,
+    );
+    const time =
+      today === localDateString(now) ? localTimeString(now) : "12:00";
     panToMoment(today, time);
   }
 
@@ -114,8 +202,15 @@ export function TimelineCanvas({
   }
 
   useEffect(() => {
-    const today = clampDateToProject(localDateString(now), project.startDate, project.endDate);
-    panToMoment(today, today === localDateString(now) ? localTimeString(now) : '12:00');
+    const today = clampDateToProject(
+      localDateString(now),
+      project.startDate,
+      project.endDate,
+    );
+    panToMoment(
+      today,
+      today === localDateString(now) ? localTimeString(now) : "12:00",
+    );
     // Run only when the project range changes; users can pan freely afterward.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.startDate, project.endDate]);
@@ -123,22 +218,47 @@ export function TimelineCanvas({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    if (!canvasSize.width || !canvasSize.height) return;
 
-    const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.floor(rect.width * dpr);
-    canvas.height = Math.floor(rect.height * dpr);
+    const nextCanvasWidth = Math.floor(canvasSize.width * dpr);
+    const nextCanvasHeight = Math.floor(canvasSize.height * dpr);
+    if (canvas.width !== nextCanvasWidth) canvas.width = nextCanvasWidth;
+    if (canvas.height !== nextCanvasHeight) canvas.height = nextCanvasHeight;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    drawTimeline(ctx, rect.width, rect.height, project, completedTodoStatus, zoom, pan, selectedEventId, hiddenTypes, hiddenCategories, now, hitBoxesRef);
-  }, [project, completedTodoStatus, zoom, pan, selectedEventId, hiddenTypes, hiddenCategories, now]);
+    drawTimeline(
+      ctx,
+      canvasSize.width,
+      canvasSize.height,
+      project,
+      completedTodoStatus,
+      zoom,
+      pan,
+      selectedEventId,
+      hiddenTypes,
+      hiddenCategories,
+      now,
+      hitBoxesRef,
+    );
+  }, [
+    project,
+    completedTodoStatus,
+    zoom,
+    pan,
+    selectedEventId,
+    hiddenTypes,
+    hiddenCategories,
+    now,
+    canvasSize,
+  ]);
 
   function clientXToMoment(clientX: number) {
     const canvas = canvasRef.current;
-    if (!canvas) return { date: project.startDate, time: '09:00' };
+    if (!canvas) return { date: project.startDate, time: "09:00" };
 
     const rect = canvas.getBoundingClientRect();
     const width = rect.width * zoom;
@@ -146,55 +266,78 @@ export function TimelineCanvas({
     return pixelToMoment(x, project, width, pan);
   }
 
+  const filterRowClass = 'flex min-w-0 max-w-full flex-wrap items-center gap-[5px] py-[3px] max-sm:hidden';
+  const filterLabelClass = 'flex-none min-w-[68px] text-[10px] font-black uppercase tracking-[0.04em] text-[var(--muted)]';
+  const filterMiniButtonClass = 'flex-none min-h-[22px] rounded-[2px] border border-[rgba(36,34,29,0.2)] bg-transparent text-[var(--muted)] shadow-none px-[6px] py-0 text-[10px] font-black uppercase';
+  const filterChipBase = 'flex-none min-h-[22px] overflow-hidden rounded-[2px] border text-[10px] font-black uppercase px-[7px] py-0 shadow-none';
+  const filterChipOn = 'max-w-[min(190px,42vw)] text-ellipsis whitespace-nowrap border-[rgba(36,34,29,0.26)] bg-[#fffef8] text-[var(--text)] shadow-[inset_0_-2px_0_var(--hot)]';
+  const filterChipOff = 'max-w-[min(190px,42vw)] text-ellipsis whitespace-nowrap border-[rgba(36,34,29,0.16)] bg-transparent text-[var(--muted)]';
+  const filterChipMobileOn = 'max-w-full text-left [overflow-wrap:anywhere] whitespace-normal border-[rgba(36,34,29,0.26)] bg-[#fffef8] text-[var(--text)] shadow-[inset_0_-2px_0_var(--hot)]';
+  const filterChipMobileOff = 'max-w-full text-left [overflow-wrap:anywhere] whitespace-normal border-[rgba(36,34,29,0.16)] bg-transparent text-[var(--muted)]';
+
   return (
-    <div className="timeline-shell">
-      <div className="timeline-toolbar">
-        <div className="timeline-title">
-          <span className="timeline-title-label">Timeline</span>
-          <button
-            type="button"
-            className="icon-button secondary copy-link-icon"
-            onClick={onCopyLink}
-            aria-label="Copy timeline link"
-            title={linkCopied ? 'Copied' : 'Copy timeline link'}
-          >
-            {linkCopied ? 'ok' : '§'}
-          </button>
-          <span className="section-counter timeline-range-chip">{project.startDate} / {project.endDate}</span>
-        </div>
-        <div className="timeline-actions">
-          <div className="zoom-control-group">
-            <button type="button" className="secondary" onClick={() => setZoom((current) => Math.max(0.8, current - 0.3))}>
+    <SectionShell
+      as="div"
+      title="Timeline"
+      className="timeline-shell"
+      isCollapsed={isMinimized}
+      onToggle={() => setIsMinimized((minimized) => !minimized)}
+      copyLink={{
+        onCopy: onCopyLink,
+        copied: linkCopied,
+        label: "Copy timeline link",
+      }}
+      moveControls={moveControls}
+      meta={`${project.startDate} / ${project.endDate}`}
+      metaClassName="border-[rgba(36,34,29,0.38)] bg-[var(--line)] font-mono text-xs text-[var(--primary)] max-sm:col-span-full max-sm:justify-self-start max-sm:overflow-hidden max-sm:text-ellipsis"
+      subheader={
+        <>
+          <div className="zoom-control-group max-sm:grid max-sm:w-full max-sm:grid-cols-[var(--icon-button-size)_minmax(46px,1fr)_var(--icon-button-size)] max-sm:gap-1.5">
+            <button
+              type="button"
+              className="tertiary"
+              onClick={() => setZoom((current) => Math.max(0.8, current - 0.3))}
+            >
               -
             </button>
             <span className="zoom-readout">{Math.round(zoom * 100)}%</span>
-            <button type="button" className="secondary" onClick={() => setZoom((current) => Math.min(8, current + 0.3))}>
+            <button
+              type="button"
+              className="tertiary"
+              onClick={() => setZoom((current) => Math.min(8, current + 0.3))}
+            >
               +
             </button>
           </div>
-          <details className="mobile-control-menu timeline-mobile-menu">
+          <details className="mobile-control-menu timeline-mobile-menu max-sm:min-w-0 max-sm:w-full">
             <summary>Tools</summary>
             <div className="mobile-control-panel">
-              <button type="button" className="secondary today-button" onClick={panToNow} aria-label="Jump to now" title="Jump to now">
+              <button
+                type="button"
+                className="secondary today-button"
+                onClick={panToNow}
+                aria-label="Jump to now"
+                title="Jump to now"
+              >
                 Now
               </button>
-              <button type="button" className="secondary today-button" onClick={fitTimeline}>
+              <button
+                type="button"
+                className="secondary today-button"
+                onClick={fitTimeline}
+              >
                 Fit timeline
               </button>
-              {canEdit ? (
-                <button
-                  type="button"
-                  onClick={() => onCreateEvent({ date: project.startDate, time: '09:00' })}
-                  aria-label="Add event"
-                  title="Add event"
-                >
-                  Add
-                </button>
-              ) : null}
             </div>
           </details>
           <div className="desktop-control-group">
-            <button type="button" className="secondary today-button" onClick={panToNow} aria-label="Jump to now" title="Jump to now">
+            <button
+              type="button"
+              className="secondary today-button"
+              onClick={panToNow}
+              aria-label="Jump to now"
+              title="Jump to now"
+            >
               Now
             </button>
             <button
@@ -210,7 +353,9 @@ export function TimelineCanvas({
               <button
                 type="button"
                 className="icon-button timeline-tool-button"
-                onClick={() => onCreateEvent({ date: project.startDate, time: '09:00' })}
+                onClick={() =>
+                  onCreateEvent({ date: project.startDate, time: "09:00" })
+                }
                 aria-label="Add event"
                 title="Add event"
               >
@@ -218,170 +363,177 @@ export function TimelineCanvas({
               </button>
             ) : null}
           </div>
-          <button
-            type="button"
-            className={`event-table-toggle ${isMinimized ? 'collapsed' : 'expanded'}`}
-            onClick={() => setIsMinimized((minimized) => !minimized)}
-            aria-expanded={!isMinimized}
-            aria-label={isMinimized ? 'Show timeline' : 'Hide timeline'}
-            title={isMinimized ? 'Show timeline' : 'Hide timeline'}
-          >
-            {isMinimized ? <Eye size={18} aria-hidden="true" /> : <EyeOff size={18} aria-hidden="true" />}
-          </button>
-        </div>
-      </div>
-      {isMinimized ? null : (
-        <>
-          <div className="timeline-filters">
-            {eventTypes.length > 1 ? (
-              <div className="filter-group desktop-filter-group">
-                <span>Types</span>
-                <div className="filter-bulk-actions">
-                  <button
-                    type="button"
-                    className="filter-mini-action"
-                    onClick={() => setHiddenTypes(hiddenTypes.length ? [] : eventTypes)}
-                  >
-                    {hiddenTypes.length ? 'All' : 'None'}
-                  </button>
-                </div>
-                {eventTypes.map((type) => (
-                  <button
-                    type="button"
-                    className={hiddenTypes.includes(type) ? 'filter-chip' : 'filter-chip active'}
-                    key={type}
-                    onClick={() => setHiddenTypes((current) => toggleValue(current, type))}
-                  >
-                    {type}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-            {eventCategories.length > 1 ? (
-              <div className="filter-group desktop-filter-group">
-                <span>Categories</span>
-                <div className="filter-bulk-actions">
-                  <button
-                    type="button"
-                    className="filter-mini-action"
-                    onClick={() => setHiddenCategories(hiddenCategories.length ? [] : eventCategories)}
-                  >
-                    {hiddenCategories.length ? 'All' : 'None'}
-                  </button>
-                </div>
-                {eventCategories.map((category) => (
-                  <button
-                    type="button"
-                    className={hiddenCategories.includes(category) ? 'filter-chip' : 'filter-chip active'}
-                    key={category}
-                    onClick={() => setHiddenCategories((current) => toggleValue(current, category))}
-                  >
-                    {category}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-            {eventTypes.length > 1 ? (
-              <details className="mobile-control-menu timeline-filter-menu">
-                <summary>Types {eventTypes.length - hiddenTypes.length}/{eventTypes.length}</summary>
-                <div className="mobile-control-panel filter-menu-panel">
-                  <div className="filter-bulk-actions">
-                    <button
-                      type="button"
-                      className="filter-mini-action"
-                      onClick={() => setHiddenTypes(hiddenTypes.length ? [] : eventTypes)}
-                    >
-                      {hiddenTypes.length ? 'Select all' : 'Deselect all'}
-                    </button>
-                  </div>
-                  {eventTypes.map((type) => (
-                    <button
-                      type="button"
-                      className={hiddenTypes.includes(type) ? 'filter-chip' : 'filter-chip active'}
-                      key={type}
-                      onClick={() => setHiddenTypes((current) => toggleValue(current, type))}
-                    >
-                      {type}
-                    </button>
-                  ))}
-                </div>
-              </details>
-            ) : null}
-            {eventCategories.length > 1 ? (
-              <details className="mobile-control-menu timeline-filter-menu">
-                <summary>Categories {eventCategories.length - hiddenCategories.length}/{eventCategories.length}</summary>
-                <div className="mobile-control-panel filter-menu-panel">
-                  <div className="filter-bulk-actions">
-                    <button
-                      type="button"
-                      className="filter-mini-action"
-                      onClick={() => setHiddenCategories(hiddenCategories.length ? [] : eventCategories)}
-                    >
-                      {hiddenCategories.length ? 'Select all' : 'Deselect all'}
-                    </button>
-                  </div>
-                  {eventCategories.map((category) => (
-                    <button
-                      type="button"
-                      className={hiddenCategories.includes(category) ? 'filter-chip' : 'filter-chip active'}
-                      key={category}
-                      onClick={() => setHiddenCategories((current) => toggleValue(current, category))}
-                    >
-                      {category}
-                    </button>
-                  ))}
-                </div>
-              </details>
-            ) : null}
-            <div className="filter-group">
-              <span>Todos</span>
-              <label className="check-control compact switch-control timeline-overlay-control">
-                <input
-                  type="checkbox"
-                  checked={project.settings.showTodosOnTimeline}
-                  onChange={(event) => onToggleTodoOverlay(event.target.checked)}
-                />
-                <span>Overlay</span>
-              </label>
-            </div>
-          </div>
-          <canvas
-            ref={canvasRef}
-            className={`timeline-canvas ${project.settings.mode}`}
-            onPointerDown={(event) => {
-              const hit = hitBoxesRef.current.find(
-                (box) =>
-                  event.nativeEvent.offsetX >= box.x &&
-                  event.nativeEvent.offsetX <= box.x + box.width &&
-                  event.nativeEvent.offsetY >= box.y &&
-                  event.nativeEvent.offsetY <= box.y + box.height,
-              );
-
-              if (hit) {
-                if (hit.event) onSelectEvent(hit.event);
-                if (hit.todo) onSelectTodo(hit.todo);
-                return;
-              }
-
-              if (canEdit) {
-                onCreateEvent(clientXToMoment(event.clientX));
-                return;
-              }
-
-              dragRef.current = { x: event.clientX, pan };
-              event.currentTarget.setPointerCapture(event.pointerId);
+          <FilterBadge
+            active={hiddenTimelineFilterCount > 0}
+            label={`${hiddenTimelineFilterCount} hidden`}
+            detail={`${hiddenTypes.length} types, ${hiddenCategories.length} categories hidden`}
+            onClear={() => {
+              setHiddenTypes([]);
+              setHiddenCategories([]);
             }}
-            onPointerMove={(event) => {
-              if (!dragRef.current || project.settings.mode !== 'view') return;
-              setPan(dragRef.current.pan + event.clientX - dragRef.current.x);
-            }}
-            onPointerUp={() => {
-              dragRef.current = null;
-            }}
+            clearLabel="Clear timeline filters"
+            className="max-sm:col-span-full"
           />
         </>
-      )}
-    </div>
+      }
+    >
+      <div className="mb-2 flex min-w-0 max-w-full flex-col gap-1">
+        {eventTypes.length > 1 ? (
+          <div className={filterRowClass}>
+            <span className={filterLabelClass}>Types</span>
+            <button
+              type="button"
+              className={filterMiniButtonClass}
+              onClick={() => setHiddenTypes(hiddenTypes.length ? [] : eventTypes)}
+            >
+              ↕ {hiddenTypes.length ? "All" : "None"}
+            </button>
+            {eventTypes.map((type) => (
+              <button
+                type="button"
+                className={cn(filterChipBase, hiddenTypes.includes(type) ? filterChipOff : filterChipOn)}
+                key={type}
+                onClick={() => setHiddenTypes((current) => toggleValue(current, type))}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {eventCategories.length > 1 ? (
+          <div className={filterRowClass}>
+            <span className={filterLabelClass}>Categories</span>
+            <button
+              type="button"
+              className={filterMiniButtonClass}
+              onClick={() => setHiddenCategories(hiddenCategories.length ? [] : eventCategories)}
+            >
+              ↕ {hiddenCategories.length ? "All" : "None"}
+            </button>
+            {eventCategories.map((category) => (
+              <button
+                type="button"
+                className={cn(filterChipBase, hiddenCategories.includes(category) ? filterChipOff : filterChipOn)}
+                key={category}
+                onClick={() => setHiddenCategories((current) => toggleValue(current, category))}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+        ) : null}
+        {eventTypes.length > 1 ? (
+          <details className="mobile-control-menu timeline-filter-menu">
+            <summary>
+              Types {eventTypes.length - hiddenTypes.length}/{eventTypes.length}
+            </summary>
+            <div className="mobile-control-panel filter-menu-panel">
+              <button
+                type="button"
+                className={filterMiniButtonClass}
+                onClick={() => setHiddenTypes(hiddenTypes.length ? [] : eventTypes)}
+              >
+                ↕ {hiddenTypes.length ? "Select all" : "Deselect all"}
+              </button>
+              {eventTypes.map((type) => (
+                <button
+                  type="button"
+                  className={cn(filterChipBase, hiddenTypes.includes(type) ? filterChipMobileOff : filterChipMobileOn)}
+                  key={type}
+                  onClick={() => setHiddenTypes((current) => toggleValue(current, type))}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+          </details>
+        ) : null}
+        {eventCategories.length > 1 ? (
+          <details className="mobile-control-menu timeline-filter-menu">
+            <summary>
+              Categories {eventCategories.length - hiddenCategories.length}/{eventCategories.length}
+            </summary>
+            <div className="mobile-control-panel filter-menu-panel">
+              <button
+                type="button"
+                className={filterMiniButtonClass}
+                onClick={() => setHiddenCategories(hiddenCategories.length ? [] : eventCategories)}
+              >
+                ↕ {hiddenCategories.length ? "Select all" : "Deselect all"}
+              </button>
+              {eventCategories.map((category) => (
+                <button
+                  type="button"
+                  className={cn(filterChipBase, hiddenCategories.includes(category) ? filterChipMobileOff : filterChipMobileOn)}
+                  key={category}
+                  onClick={() => setHiddenCategories((current) => toggleValue(current, category))}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+          </details>
+        ) : null}
+        <div className={filterRowClass}>
+          <span className={filterLabelClass}>Todos</span>
+          <label className="relative inline-flex min-w-0 cursor-pointer items-center gap-[7px] pl-[38px] text-[11px] font-black uppercase text-[var(--muted)]">
+            <input
+              type="checkbox"
+              className="peer absolute left-0 top-1/2 h-[15px] w-[25px] -translate-y-1/2 appearance-none rounded-full border border-[rgba(36,34,29,0.34)] bg-[#fffef8] cursor-pointer transition-colors checked:border-[var(--hot)] checked:bg-[var(--primary)]"
+              checked={project.settings.showTodosOnTimeline}
+              onChange={(event) => onToggleTodoOverlay(event.target.checked)}
+            />
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute left-[3px] top-1/2 h-[9px] w-[9px] -translate-y-1/2 rounded-full bg-[var(--line)] transition-transform peer-checked:translate-x-[10px] peer-checked:bg-[var(--hot)]"
+            />
+            <span className="min-w-0 truncate">Show on timeline</span>
+          </label>
+        </div>
+      </div>
+      <canvas
+        ref={canvasRef}
+        className={`timeline-canvas ${project.settings.mode}`}
+        onPointerDown={(event) => {
+          const hit = hitBoxesRef.current.find(
+            (box) =>
+              event.nativeEvent.offsetX >= box.x &&
+              event.nativeEvent.offsetX <= box.x + box.width &&
+              event.nativeEvent.offsetY >= box.y &&
+              event.nativeEvent.offsetY <= box.y + box.height,
+          );
+
+          if (hit) {
+            if (hit.event) onSelectEvent(hit.event);
+            if (hit.todo) onSelectTodo(hit.todo);
+            return;
+          }
+
+          if (canEdit) {
+            onCreateEvent(clientXToMoment(event.clientX));
+            return;
+          }
+
+          dragRef.current = { x: event.clientX, pan };
+          event.currentTarget.setPointerCapture(event.pointerId);
+        }}
+        onPointerMove={(event) => {
+          if (!dragRef.current || project.settings.mode !== "view") return;
+          pendingPanRef.current =
+            dragRef.current.pan + event.clientX - dragRef.current.x;
+          if (panFrameRef.current) return;
+          panFrameRef.current = window.requestAnimationFrame(() => {
+            panFrameRef.current = undefined;
+            if (pendingPanRef.current === undefined) return;
+            setPan(pendingPanRef.current);
+          });
+        }}
+        onPointerUp={() => {
+          dragRef.current = null;
+          pendingPanRef.current = undefined;
+        }}
+      />
+    </SectionShell>
   );
 }
 
@@ -400,7 +552,7 @@ function drawTimeline(
   hitBoxesRef: MutableRefObject<HitBox[]>,
 ) {
   ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = '#fffdf4';
+  ctx.fillStyle = "#fffdf4";
   ctx.fillRect(0, 0, width, height);
 
   const timelineY = Math.round(height * 0.48);
@@ -409,37 +561,46 @@ function drawTimeline(
   const tickEvery = Math.max(1, Math.ceil(days / (10 * zoom)));
   const showHours = zoom >= 2;
 
-  ctx.font = '12px system-ui, sans-serif';
-  ctx.textBaseline = 'top';
-  ctx.fillStyle = '#111111';
+  ctx.font = "12px system-ui, sans-serif";
+  ctx.textBaseline = "top";
+  ctx.fillStyle = "#111111";
 
   for (let day = 0; day <= days; day += tickEvery) {
     const date = dayToDate(day, project.startDate);
     const x = timeToPixel(date, project, rangeWidth, pan);
     if (x < -80 || x > width + 80) continue;
     if (day < days) {
-      const nextDate = dayToDate(Math.min(days, day + tickEvery), project.startDate);
+      const nextDate = dayToDate(
+        Math.min(days, day + tickEvery),
+        project.startDate,
+      );
       const nextX = timeToPixel(nextDate, project, rangeWidth, pan);
-      ctx.fillStyle = day / tickEvery % 2 === 0 ? '#fff8d8' : '#f8efc7';
+      ctx.fillStyle = (day / tickEvery) % 2 === 0 ? "#fff8d8" : "#f8efc7";
       ctx.fillRect(x, 0, Math.max(0, nextX - x), height);
     }
-    ctx.strokeStyle = '#ded7c7';
+    ctx.strokeStyle = "#ded7c7";
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(x, 30);
     ctx.lineTo(x, height - 34);
     ctx.stroke();
-    ctx.fillStyle = '#111111';
+    ctx.fillStyle = "#111111";
     ctx.fillRect(x + 4, 16, 58, 22);
-    ctx.fillStyle = '#d7ff2f';
-    ctx.font = '900 12px system-ui, sans-serif';
+    ctx.fillStyle = "#d7ff2f";
+    ctx.font = "900 12px system-ui, sans-serif";
     ctx.fillText(formatShortGermanDate(date), x + 9, 21);
 
     if (showHours && day < days) {
       [6, 12, 18].forEach((hour) => {
-        const hourX = momentToPixel(date, `${String(hour).padStart(2, '0')}:00`, project, rangeWidth, pan);
+        const hourX = momentToPixel(
+          date,
+          `${String(hour).padStart(2, "0")}:00`,
+          project,
+          rangeWidth,
+          pan,
+        );
         if (hourX < -40 || hourX > width + 40) return;
-        ctx.strokeStyle = '#eee7d7';
+        ctx.strokeStyle = "#eee7d7";
         ctx.beginPath();
         ctx.moveTo(hourX, 62);
         ctx.lineTo(hourX, height - 44);
@@ -448,13 +609,13 @@ function drawTimeline(
     }
   }
 
-  ctx.strokeStyle = '#111111';
+  ctx.strokeStyle = "#111111";
   ctx.lineWidth = 5;
   ctx.beginPath();
   ctx.moveTo(24, timelineY);
   ctx.lineTo(width - 34, timelineY);
   ctx.stroke();
-  ctx.fillStyle = '#111111';
+  ctx.fillStyle = "#111111";
   ctx.beginPath();
   ctx.moveTo(width - 24, timelineY);
   ctx.lineTo(width - 40, timelineY - 8);
@@ -465,50 +626,63 @@ function drawTimeline(
   drawNowMarker(ctx, project, rangeWidth, pan, width, height, now);
 
   const visibleEvents = project.events
-    .filter((event) => eventMatchesTimelineFilters(event, hiddenTypes, hiddenCategories))
+    .filter((event) =>
+      eventMatchesTimelineFilters(event, hiddenTypes, hiddenCategories),
+    )
     .map((event, index) => ({
       event,
       index,
       x: momentToPixel(event.date, event.time, project, rangeWidth, pan),
     }))
     .filter(({ x }) => x > -220 && x < width + 220);
-  const denseMode = visibleEvents.length > 55 && zoom < 2.4;
-  const displayEvents = denseMode
-    ? visibleEvents.filter(
-        ({ event }, visibleIndex) =>
-          event.id === selectedEventId ||
-          eventTimelineCategory(event) === 'milestone' ||
-          visibleIndex % 18 === 0,
-      )
-    : visibleEvents;
-  const maxCallouts = denseMode ? 8 : zoom < 1.2 ? 16 : zoom < 2 ? 28 : zoom < 4 ? 46 : 80;
-  const calloutStride = Math.max(1, Math.ceil(displayEvents.length / maxCallouts));
-  const selectedVisibleIndex = displayEvents.findIndex(({ event }) => event.id === selectedEventId);
+  const denseMode = visibleEvents.length > 90 && zoom < 1.4;
+  const displayEvents = visibleEvents;
+  const maxCallouts = denseMode
+    ? 24
+    : zoom < 1.2
+      ? 28
+      : zoom < 2
+        ? 42
+        : zoom < 4
+          ? 64
+          : 120;
+  const calloutStride = Math.max(
+    1,
+    Math.ceil(displayEvents.length / maxCallouts),
+  );
+  const selectedVisibleIndex = displayEvents.findIndex(
+    ({ event }) => event.id === selectedEventId,
+  );
   const hitBoxes: HitBox[] = [];
-  const calloutLanes = createCalloutLanes(timelineY, height, 96);
-  const occupiedLanes = calloutLanes.map(() => [] as Array<{ left: number; right: number }>);
+  const calloutLanes = createCalloutLanes(timelineY, height, 74);
+  const occupiedLanes = calloutLanes.map(
+    () => [] as Array<{ left: number; right: number }>,
+  );
   const eventCallouts: EventCalloutPlacement[] = [];
   const hasSelectedEvent = Boolean(selectedEventId);
 
   if (denseMode) {
-    ctx.fillStyle = '#111111';
+    ctx.fillStyle = "#111111";
     ctx.fillRect(18, height - 34, 154, 22);
-    ctx.fillStyle = '#d7ff2f';
-    ctx.font = '900 12px system-ui, sans-serif';
-    ctx.fillText('KEY VIEW - ZOOM IN', 28, height - 29);
+    ctx.fillStyle = "#d7ff2f";
+    ctx.font = "900 12px system-ui, sans-serif";
+    ctx.fillText("KEY VIEW - ZOOM IN", 28, height - 29);
   }
 
   displayEvents.forEach(({ event, x }) => {
     const category = eventTimelineCategory(event);
     const isSelected = selectedEventId === event.id;
     const isDimmed = hasSelectedEvent && !isSelected;
-    const color = event.color || colorForType(event.type, project.settings.typeColors) || (category === 'milestone' ? '#d7ff2f' : '#ffffff');
+    const color =
+      event.color ||
+      colorForType(event.type, project.settings.typeColors) ||
+      (category === "milestone" ? "#d7ff2f" : "#ffffff");
 
     ctx.save();
     if (isDimmed) ctx.globalAlpha = 0.22;
 
-    if (category === 'milestone') {
-      ctx.strokeStyle = '#ff3b9d';
+    if (category === "milestone") {
+      ctx.strokeStyle = "#ff3b9d";
       ctx.lineWidth = isSelected ? 5 : 3;
       ctx.beginPath();
       ctx.moveTo(x, 42);
@@ -517,27 +691,39 @@ function drawTimeline(
     }
 
     if (eventSpansMultipleDays(event) && event.endDate) {
-      const endX = momentToPixel(event.endDate, '23:59', project, rangeWidth, pan);
+      const endX = momentToPixel(
+        event.endDate,
+        event.endTime || "23:59",
+        project,
+        rangeWidth,
+        pan,
+      );
       const spanWidth = Math.max(20, endX - x);
       ctx.fillStyle = color;
-      ctx.strokeStyle = '#111111';
+      ctx.strokeStyle = "#111111";
       ctx.lineWidth = 2;
       roundRect(ctx, x, timelineY - 8, spanWidth, 16, 0);
       ctx.fill();
       ctx.stroke();
       ctx.restore();
-      hitBoxes.push({ event, x, y: timelineY - 12, width: spanWidth, height: 24 });
+      hitBoxes.push({
+        event,
+        x,
+        y: timelineY - 12,
+        width: spanWidth,
+        height: 24,
+      });
       return;
     }
 
     if (isSelected) {
-      ctx.fillStyle = '#d7ff2f';
+      ctx.fillStyle = "#d7ff2f";
       ctx.beginPath();
       ctx.arc(x, timelineY, 14, 0, Math.PI * 2);
       ctx.fill();
     }
 
-    ctx.fillStyle = isSelected ? '#ff3b9d' : '#111111';
+    ctx.fillStyle = isSelected ? "#ff3b9d" : "#111111";
     ctx.beginPath();
     ctx.arc(x, timelineY, isSelected ? 9 : 6, 0, Math.PI * 2);
     ctx.fill();
@@ -549,18 +735,22 @@ function drawTimeline(
     const category = eventTimelineCategory(event);
     const isSelected = selectedEventId === event.id;
     const isNearSelected =
-      selectedVisibleIndex >= 0 && Math.abs(visibleIndex - selectedVisibleIndex) <= (zoom < 1.5 ? 1 : 2);
+      selectedVisibleIndex >= 0 &&
+      Math.abs(visibleIndex - selectedVisibleIndex) <= (zoom < 1.5 ? 1 : 2);
     const shouldDrawCallout =
       isSelected ||
       isNearSelected ||
-      (category === 'milestone' && (!denseMode || visibleIndex % 2 === 0)) ||
+      (category === "milestone" && (!denseMode || visibleIndex % 2 === 0)) ||
       visibleIndex % calloutStride === 0;
 
     if (!shouldDrawCallout) return;
 
-    const boxWidth = isSelected ? 280 : 220;
-    const boxHeight = isSelected ? 116 : 96;
-    const boxX = Math.max(12, Math.min(width - boxWidth - 12, x - boxWidth / 2));
+    const boxWidth = isSelected ? 280 : 180;
+    const boxHeight = isSelected ? 116 : 74;
+    const boxX = Math.max(
+      12,
+      Math.min(width - boxWidth - 12, x - boxWidth / 2),
+    );
     const laneIndex = findAvailableLane(occupiedLanes, boxX, boxWidth);
 
     if (laneIndex === -1 && !isSelected) return;
@@ -570,9 +760,15 @@ function drawTimeline(
     const isTop = laneY < timelineY;
     const boxY = laneY;
     const anchorY = isTop ? boxY + boxHeight : boxY;
-    const color = event.color || colorForType(event.type, project.settings.typeColors) || (category === 'milestone' ? '#d7ff2f' : '#ffffff');
+    const color =
+      event.color ||
+      colorForType(event.type, project.settings.typeColors) ||
+      (category === "milestone" ? "#d7ff2f" : "#ffffff");
 
-    occupiedLanes[safeLaneIndex].push({ left: boxX - 10, right: boxX + boxWidth + 10 });
+    occupiedLanes[safeLaneIndex].push({
+      left: boxX - 4,
+      right: boxX + boxWidth + 4,
+    });
 
     eventCallouts.push({
       event,
@@ -586,15 +782,23 @@ function drawTimeline(
       anchorY,
       isSelected,
     });
-    hitBoxes.push({ event, x: boxX, y: boxY, width: boxWidth, height: boxHeight });
+    hitBoxes.push({
+      event,
+      x: boxX,
+      y: boxY,
+      width: boxWidth,
+      height: boxHeight,
+    });
   });
 
-  const layeredEventCallouts = [...eventCallouts].sort((a, b) => Number(a.isSelected) - Number(b.isSelected));
+  const layeredEventCallouts = [...eventCallouts].sort(
+    (a, b) => Number(a.isSelected) - Number(b.isSelected),
+  );
 
   layeredEventCallouts.forEach((callout) => {
     ctx.save();
     if (hasSelectedEvent && !callout.isSelected) ctx.globalAlpha = 0.28;
-    ctx.strokeStyle = callout.isSelected ? '#ff3b9d' : '#111111';
+    ctx.strokeStyle = callout.isSelected ? "#ff3b9d" : "#111111";
     ctx.lineWidth = callout.isSelected ? 3 : 2;
     ctx.beginPath();
     ctx.moveTo(callout.x, timelineY);
@@ -622,7 +826,7 @@ function drawTimeline(
     todoMarkers.forEach((marker) => {
       ctx.save();
       if (hasSelectedEvent) ctx.globalAlpha = 0.24;
-      ctx.strokeStyle = '#111111';
+      ctx.strokeStyle = "#111111";
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(marker.x, timelineY);
@@ -644,22 +848,43 @@ function drawTimeline(
     ctx.save();
     if (hasSelectedEvent && !callout.isSelected) ctx.globalAlpha = 0.42;
     if (callout.isSelected) {
-      ctx.fillStyle = '#ff3b9d';
-      roundRect(ctx, callout.boxX - 7, callout.boxY - 7, callout.boxWidth + 14, callout.boxHeight + 14, 0);
+      ctx.fillStyle = "#ff3b9d";
+      roundRect(
+        ctx,
+        callout.boxX - 7,
+        callout.boxY - 7,
+        callout.boxWidth + 14,
+        callout.boxHeight + 14,
+        0,
+      );
       ctx.fill();
-      ctx.fillStyle = '#d7ff2f';
-      roundRect(ctx, callout.boxX - 3, callout.boxY - 3, callout.boxWidth + 6, callout.boxHeight + 6, 0);
+      ctx.fillStyle = "#d7ff2f";
+      roundRect(
+        ctx,
+        callout.boxX - 3,
+        callout.boxY - 3,
+        callout.boxWidth + 6,
+        callout.boxHeight + 6,
+        0,
+      );
       ctx.fill();
     }
 
     ctx.fillStyle = callout.color;
-    ctx.strokeStyle = '#111111';
+    ctx.strokeStyle = "#111111";
     ctx.lineWidth = callout.isSelected ? 4 : 2;
-    roundRect(ctx, callout.boxX, callout.boxY, callout.boxWidth, callout.boxHeight, 0);
+    roundRect(
+      ctx,
+      callout.boxX,
+      callout.boxY,
+      callout.boxWidth,
+      callout.boxHeight,
+      0,
+    );
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = '#111111';
+    ctx.fillStyle = "#111111";
     drawBoxText(
       ctx,
       callout.event,
@@ -676,23 +901,31 @@ function drawTimeline(
   function drawTodoMarkerBox(marker: TodoMarkerPlacement) {
     ctx.save();
     if (hasSelectedEvent) ctx.globalAlpha = 0.42;
-    ctx.fillStyle = '#e8fbff';
-    ctx.strokeStyle = '#111111';
+    ctx.fillStyle = "#e8fbff";
+    ctx.strokeStyle = "#111111";
     ctx.setLineDash([5, 4]);
     roundRect(ctx, marker.markerX, marker.y, marker.markerWidth, 22, 0);
     ctx.fill();
     ctx.stroke();
     ctx.setLineDash([]);
 
-    ctx.fillStyle = '#111111';
-    ctx.font = '900 11px system-ui, sans-serif';
-    ctx.fillText(truncateToWidth(ctx, marker.label, marker.markerWidth - 16), marker.markerX + 8, marker.y + 6);
+    ctx.fillStyle = "#111111";
+    ctx.font = "900 11px system-ui, sans-serif";
+    ctx.fillText(
+      truncateToWidth(ctx, marker.label, marker.markerWidth - 16),
+      marker.markerX + 8,
+      marker.y + 6,
+    );
     ctx.restore();
   }
 }
 
 function shouldDrawTodo(todo: TimelineTodo, completedTodoStatus: string) {
-  return Boolean(todo.showOnTimeline && todo.dueDate && !isTodoCompleted(todo, completedTodoStatus));
+  return Boolean(
+    todo.showOnTimeline &&
+    todo.dueDate &&
+    !isTodoCompleted(todo, completedTodoStatus),
+  );
 }
 
 function planTodoMarkers(
@@ -708,28 +941,31 @@ function planTodoMarkers(
   sharedLanes: number[],
   sharedOccupiedLanes: Array<Array<{ left: number; right: number }>>,
 ) {
-  const todosByDate = new Map<string, TimelineTodo[]>();
   const markers: TodoMarkerPlacement[] = [];
 
-  todos.forEach((todo) => {
-    if (!todo.dueDate) return;
-    todosByDate.set(todo.dueDate, [...(todosByDate.get(todo.dueDate) ?? []), todo]);
-  });
-
-  [...todosByDate.entries()]
-    .map(([date, dateTodos]) => ({
-      date,
-      dateTodos,
-      x: momentToPixel(date, '12:00', project, rangeWidth, pan),
+  todos
+    .filter((todo) => todo.dueDate)
+    .map((todo) => ({
+      todo,
+      x: momentToPixel(todo.dueDate!, "12:00", project, rangeWidth, pan),
     }))
     .filter(({ x }) => x > -120 && x < width + 120)
     .sort((a, b) => a.x - b.x)
-    .forEach(({ dateTodos, x }) => {
-      const firstTitle = dateTodos[0]?.title ?? 'Todo';
-      const label = dateTodos.length > 1 ? `${dateTodos.length}x ${firstTitle}` : firstTitle;
-      const markerWidth = Math.min(180, Math.max(86, ctx.measureText(label).width + 18));
-      const markerX = Math.max(8, Math.min(width - markerWidth - 8, x - markerWidth / 2));
-      const laneIndex = findAvailableLane(sharedOccupiedLanes, markerX, markerWidth);
+    .forEach(({ todo, x }) => {
+      const label = todo.title || "Todo";
+      const markerWidth = Math.min(
+        150,
+        Math.max(74, ctx.measureText(label).width + 18),
+      );
+      const markerX = Math.max(
+        8,
+        Math.min(width - markerWidth - 8, x - markerWidth / 2),
+      );
+      const laneIndex = findAvailableLane(
+        sharedOccupiedLanes,
+        markerX,
+        markerWidth,
+      );
 
       if (laneIndex === -1) return;
 
@@ -737,33 +973,54 @@ function planTodoMarkers(
       const y = eventLaneY < timelineY ? eventLaneY + 106 : eventLaneY - 34;
       if (y < 56 || y > height - 56) return;
 
-      sharedOccupiedLanes[laneIndex].push({ left: markerX - 8, right: markerX + markerWidth + 8 });
+      sharedOccupiedLanes[laneIndex].push({
+        left: markerX - 8,
+        right: markerX + markerWidth + 8,
+      });
 
-      markers.push({ todo: dateTodos[0], label, x, markerX, y, markerWidth });
-      if (dateTodos[0]) {
-        hitBoxes.push({ todo: dateTodos[0], x: markerX, y, width: markerWidth, height: 22 });
-      }
+      markers.push({ todo, label, x, markerX, y, markerWidth });
+      hitBoxes.push({
+        todo,
+        x: markerX,
+        y,
+        width: markerWidth,
+        height: 22,
+      });
     });
 
   return markers;
 }
 
-function createCalloutLanes(timelineY: number, height: number, boxHeight: number) {
+function createCalloutLanes(
+  timelineY: number,
+  height: number,
+  boxHeight: number,
+) {
   const topPadding = 82;
   const bottomPadding = 48;
   const railGap = 34;
-  const laneGap = 12;
+  const laneGap = 8;
   const lanes: number[] = [];
 
-  for (let y = topPadding; y + boxHeight < timelineY - railGap; y += boxHeight + laneGap) {
+  for (
+    let y = topPadding;
+    y + boxHeight < timelineY - railGap;
+    y += boxHeight + laneGap
+  ) {
     lanes.push(y);
   }
 
-  for (let y = timelineY + railGap; y + boxHeight < height - bottomPadding; y += boxHeight + laneGap) {
+  for (
+    let y = timelineY + railGap;
+    y + boxHeight < height - bottomPadding;
+    y += boxHeight + laneGap
+  ) {
     lanes.push(y);
   }
 
-  return lanes.length ? lanes : [Math.max(topPadding, timelineY - boxHeight - railGap)];
+  return lanes.length
+    ? lanes
+    : [Math.max(topPadding, timelineY - boxHeight - railGap)];
 }
 
 function findAvailableLane(
@@ -771,8 +1028,8 @@ function findAvailableLane(
   boxX: number,
   boxWidth: number,
 ) {
-  const left = boxX - 10;
-  const right = boxX + boxWidth + 10;
+  const left = boxX - 4;
+  const right = boxX + boxWidth + 4;
 
   return occupiedLanes.findIndex((occupied) =>
     occupied.every((box) => right < box.left || left > box.right),
@@ -796,39 +1053,62 @@ function drawBoxText(
   const titleLineHeight = isSelected ? 18 : 17;
   const ownerLineHeight = 16;
   const ownerY = boxY + boxHeight - ownerLineHeight - 8;
-  const maxTitleLines = Math.max(1, Math.floor((ownerY - titleY - 2) / titleLineHeight));
+  const maxTitleLines = Math.max(
+    1,
+    Math.floor((ownerY - titleY - 2) / titleLineHeight),
+  );
 
   ctx.save();
   ctx.beginPath();
   ctx.rect(boxX + padding, boxY + 6, textWidth, boxHeight - 12);
   ctx.clip();
 
-  ctx.fillStyle = '#111111';
-  ctx.font = '900 12px system-ui, sans-serif';
+  ctx.fillStyle = "#111111";
+  ctx.font = "900 12px system-ui, sans-serif";
   ctx.fillText(
-    truncateToWidth(ctx, `${formatShortGermanDate(event.date)} / ${event.time} / ${category}`.toUpperCase(), textWidth),
+    truncateToWidth(
+      ctx,
+      `${formatShortGermanDate(event.date)} / ${event.time} / ${category}`.toUpperCase(),
+      textWidth,
+    ),
     boxX + padding,
     metaY,
   );
 
-  ctx.font = isSelected ? '900 14px system-ui, sans-serif' : '800 13px system-ui, sans-serif';
-  const titleLines = wrapText(ctx, event.what, textWidth, isSelected ? Math.min(3, maxTitleLines) : Math.min(2, maxTitleLines));
+  ctx.font = isSelected
+    ? "900 14px system-ui, sans-serif"
+    : "800 13px system-ui, sans-serif";
+  const titleLines = wrapText(
+    ctx,
+    event.what,
+    textWidth,
+    isSelected ? Math.min(3, maxTitleLines) : Math.min(2, maxTitleLines),
+  );
   titleLines.forEach((line, index) => {
     ctx.fillText(line, boxX + padding, titleY + index * titleLineHeight);
   });
 
   if (event.who.trim()) {
-    ctx.font = '12px system-ui, sans-serif';
-    ctx.fillText(truncateToWidth(ctx, event.who, textWidth), boxX + padding, ownerY);
+    ctx.font = "12px system-ui, sans-serif";
+    ctx.fillText(
+      truncateToWidth(ctx, event.who, textWidth),
+      boxX + padding,
+      ownerY,
+    );
   }
 
   ctx.restore();
 }
 
-function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number) {
+function wrapText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  maxLines: number,
+) {
   const words = text.trim().split(/\s+/).filter(Boolean);
   const lines: string[] = [];
-  let current = '';
+  let current = "";
 
   for (const word of words) {
     const next = current ? `${current} ${word}` : word;
@@ -843,14 +1123,22 @@ function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number,
   }
 
   if (current && lines.length < maxLines) lines.push(current);
-  if (lines.length > 0 && words.length > lines.join(' ').split(/\s+/).length) {
-    lines[lines.length - 1] = truncateToWidth(ctx, `${lines[lines.length - 1]}...`, maxWidth);
+  if (lines.length > 0 && words.length > lines.join(" ").split(/\s+/).length) {
+    lines[lines.length - 1] = truncateToWidth(
+      ctx,
+      `${lines[lines.length - 1]}...`,
+      maxWidth,
+    );
   }
 
-  return lines.length ? lines : [''];
+  return lines.length ? lines : [""];
 }
 
-function truncateToWidth(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) {
+function truncateToWidth(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+) {
   if (ctx.measureText(text).width <= maxWidth) return text;
   let value = text;
   while (value.length > 1 && ctx.measureText(`${value}...`).width > maxWidth) {
@@ -860,13 +1148,15 @@ function truncateToWidth(ctx: CanvasRenderingContext2D, text: string, maxWidth: 
 }
 
 function uniqueValues(values: string[]) {
-  return [...new Set(values.map((value) => value.trim()).filter(Boolean))].sort((a, b) =>
-    a.localeCompare(b),
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))].sort(
+    (a, b) => a.localeCompare(b),
   );
 }
 
 function toggleValue(values: string[], value: string) {
-  return values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
+  return values.includes(value)
+    ? values.filter((item) => item !== value)
+    : [...values, value];
 }
 
 function clampDateToProject(date: string, startDate: string, endDate: string) {
@@ -891,29 +1181,29 @@ function drawNowMarker(
   const x = momentToPixel(today, time, project, rangeWidth, pan);
   if (x < -40 || x > width + 40) return;
 
-  ctx.strokeStyle = '#00c2ff';
+  ctx.strokeStyle = "#00c2ff";
   ctx.lineWidth = 5;
   ctx.beginPath();
   ctx.moveTo(x, 34);
   ctx.lineTo(x, height - 38);
   ctx.stroke();
 
-  ctx.fillStyle = '#111111';
+  ctx.fillStyle = "#111111";
   ctx.fillRect(Math.max(12, Math.min(width - 112, x - 56)), 48, 112, 30);
-  ctx.fillStyle = '#00c2ff';
-  ctx.font = '900 13px system-ui, sans-serif';
+  ctx.fillStyle = "#00c2ff";
+  ctx.font = "900 13px system-ui, sans-serif";
   ctx.fillText(`NOW ${time}`, Math.max(20, Math.min(width - 104, x - 48)), 56);
 }
 
 function localDateString(date: Date) {
   const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
 function localTimeString(date: Date) {
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
 function roundRect(

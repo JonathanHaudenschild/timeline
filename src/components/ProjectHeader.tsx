@@ -1,7 +1,15 @@
-'use client';
+"use client";
 
-import { FileUp, History, KeyRound, Pencil, Trash2 } from 'lucide-react';
-import type { TimelineMode, TimelineProject } from '@/lib/types';
+import {
+  FilePlus2,
+  FileUp,
+  History,
+  KeyRound,
+  Pencil,
+  Trash2,
+} from "lucide-react";
+import { TextField } from "./FormControls";
+import type { TimelineMode, TimelineProject } from "@/lib/types";
 
 type ProjectHeaderProps = {
   project: TimelineProject;
@@ -15,6 +23,7 @@ type ProjectHeaderProps = {
   onEditPinChange: () => void;
   onRestoreRevision: () => void;
   onImport: (file: File) => void;
+  onOpenProject: () => void;
 };
 
 export function ProjectHeader({
@@ -29,59 +38,69 @@ export function ProjectHeader({
   onEditPinChange,
   onRestoreRevision,
   onImport,
+  onOpenProject,
 }: ProjectHeaderProps) {
   return (
     <header className="project-header">
       <div className="project-title">
-        <label>
-          <span>Project</span>
-          <input
-            value={project.name}
-            disabled={project.settings.mode !== 'edit'}
-            onChange={(event) => onChange({ ...project, name: event.target.value })}
-            aria-label="Project name"
-          />
-        </label>
+        <TextField
+          label="Project"
+          value={project.name}
+          disabled={project.settings.mode !== "edit"}
+          onValueChange={(name) => onChange({ ...project, name })}
+          aria-label="Project name"
+        />
         <div className="hash-line">
           Share hash <code>#{project.hash}</code>
         </div>
       </div>
 
       <div className="header-controls">
-        <div className="project-status-cluster" aria-label="Project save and sync status">
+        <div
+          className="project-status-cluster"
+          aria-label="Project save and sync status"
+        >
           <span className={`save-state ${saveState}`}>{saveState}</span>
           <span className={`sync-state ${syncState}`}>{syncLabel}</span>
+
+          <button
+            type="button"
+            className="icon-button project-tool-button"
+            onClick={onOpenProject}
+            aria-label="Open or create project"
+            title="Open or create project"
+          >
+            <FilePlus2 size={18} aria-hidden="true" />
+          </button>
         </div>
-        <label className="date-control">
-          <span>Start</span>
-          <input
-            type="date"
-            value={project.startDate}
-            disabled={project.settings.mode !== 'edit'}
-            onChange={(event) => onChange({ ...project, startDate: event.target.value })}
-          />
-        </label>
-        <label className="date-control">
-          <span>End</span>
-          <input
-            type="date"
-            value={project.endDate}
-            disabled={project.settings.mode !== 'edit'}
-            onChange={(event) => onChange({ ...project, endDate: event.target.value })}
-          />
-        </label>
+        <TextField
+          label="Start"
+          type="date"
+          value={project.startDate}
+          disabled={project.settings.mode !== "edit"}
+          onValueChange={(startDate) => onChange({ ...project, startDate })}
+          className="date-control"
+        />
+        <TextField
+          label="End"
+          type="date"
+          value={project.endDate}
+          disabled={project.settings.mode !== "edit"}
+          onValueChange={(endDate) => onChange({ ...project, endDate })}
+          className="date-control"
+        />
         <div className="segmented" aria-label="Timeline mode">
           <button
             type="button"
-            className={project.settings.mode === 'view' ? 'active' : ''}
-            onClick={() => onModeChange('view')}
+            className={project.settings.mode === "view" ? "active" : ""}
+            onClick={() => onModeChange("view")}
           >
             View
           </button>
           <button
             type="button"
-            className={project.settings.mode === 'edit' ? 'active' : ''}
-            onClick={() => onModeChange('edit')}
+            className={project.settings.mode === "edit" ? "active" : ""}
+            onClick={() => onModeChange("edit")}
           >
             Edit
           </button>
@@ -89,39 +108,69 @@ export function ProjectHeader({
         <details className="mobile-control-menu">
           <summary>Project tools</summary>
           <div className="mobile-control-panel">
-            {project.settings.mode === 'edit' ? (
+            {project.settings.mode === "edit" ? (
               <>
-                <button type="button" className="secondary" onClick={onProjectPinChange}>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={onProjectPinChange}
+                >
                   <KeyRound size={16} aria-hidden="true" />
                   <span>Project PIN</span>
                 </button>
-                <button type="button" className="secondary" onClick={onEditPinChange}>
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={onEditPinChange}
+                >
                   <Pencil size={16} aria-hidden="true" />
                   <span>Edit PIN</span>
                 </button>
                 {project.settings.viewPinHash ? (
-                  <button type="button" className="secondary" onClick={onProjectPinRemove}>
+                  <button
+                    type="button"
+                    className="tertiary"
+                    onClick={onProjectPinRemove}
+                  >
                     <Trash2 size={16} aria-hidden="true" />
                     <span>Remove PIN</span>
                   </button>
                 ) : null}
               </>
             ) : null}
-            <button type="button" className="secondary" onClick={onRestoreRevision}>
+            <button
+              type="button"
+              className="secondary"
+              onClick={onRestoreRevision}
+            >
               <History size={16} aria-hidden="true" />
               <span>Restore</span>
             </button>
-            {project.settings.mode === 'edit' ? <ImportExcelButton onImport={onImport} /> : null}
+            <button type="button" className="secondary" onClick={onOpenProject}>
+              <FilePlus2 size={16} aria-hidden="true" />
+              <span>New project</span>
+            </button>
+            {project.settings.mode === "edit" ? (
+              <ImportExcelButton onImport={onImport} />
+            ) : null}
           </div>
         </details>
-        {project.settings.mode === 'edit' ? (
+        {project.settings.mode === "edit" ? (
           <div className="desktop-control-group">
             <button
               type="button"
               className="icon-button secondary project-tool-button"
               onClick={onProjectPinChange}
-              aria-label={project.settings.viewPinHash ? 'Change project PIN' : 'Add project PIN'}
-              title={project.settings.viewPinHash ? 'Change project PIN' : 'Add project PIN'}
+              aria-label={
+                project.settings.viewPinHash
+                  ? "Change project PIN"
+                  : "Add project PIN"
+              }
+              title={
+                project.settings.viewPinHash
+                  ? "Change project PIN"
+                  : "Add project PIN"
+              }
             >
               <KeyRound size={18} aria-hidden="true" />
             </button>
@@ -129,15 +178,23 @@ export function ProjectHeader({
               type="button"
               className="icon-button secondary project-tool-button"
               onClick={onEditPinChange}
-              aria-label={project.settings.editPinHash ? 'Change edit PIN' : 'Add edit PIN'}
-              title={project.settings.editPinHash ? 'Change edit PIN' : 'Add edit PIN'}
+              aria-label={
+                project.settings.editPinHash
+                  ? "Change edit PIN"
+                  : "Add edit PIN"
+              }
+              title={
+                project.settings.editPinHash
+                  ? "Change edit PIN"
+                  : "Add edit PIN"
+              }
             >
               <Pencil size={18} aria-hidden="true" />
             </button>
             {project.settings.viewPinHash ? (
               <button
                 type="button"
-                className="icon-button secondary project-tool-button"
+                className="icon-button tertiary project-tool-button"
                 onClick={onProjectPinRemove}
                 aria-label="Remove project PIN"
                 title="Remove project PIN"
@@ -156,15 +213,27 @@ export function ProjectHeader({
             </button>
           </div>
         ) : null}
-        {project.settings.mode === 'edit' ? <ImportExcelButton onImport={onImport} desktopOnly /> : null}
+        {project.settings.mode === "edit" ? (
+          <ImportExcelButton onImport={onImport} desktopOnly />
+        ) : null}
       </div>
     </header>
   );
 }
 
-function ImportExcelButton({ onImport, desktopOnly = false }: { onImport: (file: File) => void; desktopOnly?: boolean }) {
+function ImportExcelButton({
+  onImport,
+  desktopOnly = false,
+}: {
+  onImport: (file: File) => void;
+  desktopOnly?: boolean;
+}) {
   return (
-    <label className={`import-button icon-import-button ${desktopOnly ? 'desktop-only-control' : ''}`} aria-label="Import Excel" title="Import Excel">
+    <label
+      className={`import-button icon-import-button ${desktopOnly ? "desktop-only-control" : ""}`}
+      aria-label="Import Excel"
+      title="Import Excel"
+    >
       <FileUp size={18} aria-hidden="true" />
       <span>Import Excel</span>
       <input
@@ -174,7 +243,7 @@ function ImportExcelButton({ onImport, desktopOnly = false }: { onImport: (file:
         onChange={(event) => {
           const file = event.target.files?.[0];
           if (file) onImport(file);
-          event.target.value = '';
+          event.target.value = "";
         }}
       />
     </label>

@@ -1,12 +1,15 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Pencil, Plus } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Columns3, MessageCircle, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useAppDialog } from './AppDialog';
+import { FilterBadge } from './FilterBadge';
+import { InlineTextInput, SearchInput, SelectField, TextField } from './FormControls';
 import { MarkdownBlock } from './MarkdownBlock';
 import { TodoEditor } from './TodoEditor';
 import type { TimelineTodo, TodoStatus } from '@/lib/types';
+import { createTimelineComment } from '@/lib/comments';
 import {
   defaultTodoStatuses,
   formatTodoStatus,
@@ -17,9 +20,38 @@ import {
   normalizeTodoTags,
   touchTodo,
 } from '@/lib/todos';
+import { cn } from '@/lib/cn';
+import { uiCard, uiSurface } from '@/lib/ui';
 import { usePersistentState } from '@/lib/usePersistentState';
 
 type TodoSortKey = 'manual' | 'due-date' | 'a-z' | 'owner' | 'created';
+
+const todoBoardClass =
+  `${uiSurface} min-w-0 max-w-full overflow-visible p-3.5 max-sm:p-2.5`;
+const todoHeadingClass =
+  'relative z-[5] mb-0.5 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 pb-2 max-sm:z-[5] max-sm:grid-cols-1 max-sm:items-stretch max-sm:gap-2';
+const todoActionsClass =
+  'flex min-w-0 items-end justify-end gap-2 flex-wrap max-sm:grid max-sm:w-full max-sm:grid-cols-1 max-sm:items-stretch';
+const todoActionGroupClass =
+  'inline-flex min-w-0 items-center gap-1.5';
+const todoActionIconsClass =
+  'mobile-action-icons inline-flex min-w-0 items-center gap-1 max-sm:grid max-sm:w-full max-sm:grid-cols-[repeat(auto-fit,minmax(36px,1fr))]';
+const todoColumnsClass =
+  'relative z-[2] mt-[-12px] flex w-full max-w-full min-w-0 gap-2.5 overflow-x-auto overflow-y-visible overscroll-x-contain py-[18px] pr-0 pb-2.5 pl-0 [scroll-snap-type:x_proximity] [scrollbar-gutter:stable] max-sm:z-[1] max-sm:grid max-sm:grid-cols-1 max-sm:gap-2 max-sm:overflow-visible max-sm:px-0 max-sm:[scroll-snap-type:none]';
+const todoColumnClass =
+  `${uiCard} relative min-h-[150px] min-w-[300px] flex-[0_0_300px] overflow-visible border-[rgba(36,34,29,0.22)] bg-[var(--bg)] p-[9px] shadow-[inset_0_3px_0_rgba(36,34,29,0.18),0_6px_14px_rgba(36,34,29,0.05)] [scroll-snap-align:start] hover:z-20 focus-within:z-20 max-sm:w-full max-sm:min-w-0 max-sm:scroll-snap-align-none max-sm:py-[7px] max-sm:pr-[7px] max-sm:pb-[7px] max-sm:pl-3`;
+const columnTitleClass =
+  'relative z-[3] mb-[4px] grid items-center gap-2 bg-transparent pt-1 pb-[7px] text-[11px] font-black text-[var(--text)] uppercase shadow-none max-sm:gap-1.5';
+const columnTitleLabelClass =
+  'flex min-w-0 items-center gap-1.5 rounded-[2px] border border-[rgba(36,34,29,0.14)] bg-[rgba(255,255,255,0.38)] px-1.5 py-1';
+const columnTitleActionsClass =
+  'inline-flex min-w-0 items-center justify-end gap-1 max-[420px]:justify-start';
+const columnMiniButtonClass =
+  'icon-button relative inline-grid h-5 max-h-5 min-h-5 w-5 min-w-5 max-sm:h-[var(--icon-button-size)] max-sm:max-h-[var(--icon-button-size)] max-sm:min-h-[var(--icon-button-size)] max-sm:w-[var(--icon-button-size)] max-sm:min-w-[var(--icon-button-size)] place-items-center rounded-[2px] border border-[rgba(36,34,29,0.22)] bg-[#fffdf8] p-0 text-[10px] leading-none shadow-none hover:border-[var(--hot)] hover:bg-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-35 disabled:transform-none';
+const columnCountClass =
+  'inline-grid h-6 max-h-6 min-h-6 w-6 min-w-6 place-items-center rounded-[2px] border border-[rgba(36,34,29,0.18)] bg-[#fffdf8] text-[10px] leading-none font-black text-[var(--muted)] shadow-none';
+const columnAddCardClass =
+  'column-add-card relative mb-2.5 ml-auto mt-[-2px] inline-flex min-h-[var(--icon-button-size)] w-full items-center justify-center gap-1.5 rounded-[2px] border border-dashed border-[rgba(36,34,29,0.34)] bg-white px-2 text-[11px] font-black text-[var(--muted)] uppercase shadow-none hover:border-[var(--hot)] hover:bg-[var(--primary)] hover:text-[var(--text)]';
 
 type TodoBoardProps = {
   todos: TimelineTodo[];
@@ -28,6 +60,7 @@ type TodoBoardProps = {
   boardId: string;
   boardName: string;
   boards: Array<{ id: string; name: string; locked?: boolean }>;
+  canEdit?: boolean;
   selectedTodoId?: string;
   onTodoOpened?: () => void;
   onChange: (todos: TimelineTodo[]) => void;
@@ -45,6 +78,7 @@ export function TodoBoard({
   boardId,
   boardName,
   boards,
+  canEdit = false,
   selectedTodoId,
   onTodoOpened,
   onChange,
@@ -58,6 +92,7 @@ export function TodoBoard({
   const [draftTodo, setDraftTodo] = useState<TimelineTodo | null>(null);
   const [draggedTodoId, setDraggedTodoId] = useState<string | null>(null);
   const [dropStatus, setDropStatus] = useState<TodoStatus | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const [newStatus, setNewStatus] = useState('');
   const [editingStatus, setEditingStatus] = useState<TodoStatus | null>(null);
   const [editingStatusName, setEditingStatusName] = useState('');
@@ -173,9 +208,29 @@ export function TodoBoard({
     onChange(todos.map((todo) => (nextOrder.has(todo.id) ? { ...todo, order: nextOrder.get(todo.id)! } : todo)));
   }
 
+  async function addTodoComment(todo: TimelineTodo) {
+    const body = await appDialog.prompt({
+      title: 'Add comment',
+      label: 'Comment',
+      confirmLabel: 'Add comment',
+      confirmIcon: <MessageCircle size={18} aria-hidden="true" />,
+      cancelIcon: <X size={18} aria-hidden="true" />,
+    });
+    if (!body?.trim()) return;
+
+    const now = new Date().toISOString();
+    const nextTodo = touchTodo({
+      ...todo,
+      comments: [...(todo.comments ?? []), createTimelineComment(body, now)],
+    }, now);
+
+    onChange(todos.map((item) => (item.id === todo.id ? nextTodo : item)));
+  }
+
   const totalOpen = todos.filter((todo) => !isTodoCompleted(todo, completedTodoStatus)).length;
   const visibleStatuses = statuses.length ? statuses : defaultTodoStatuses;
   const filteredTodos = todos.filter((todo) => todoMatchesSearch(todo, search) && todoMatchesTag(todo, tagFilter));
+  const hasActiveFilter = Boolean(search.trim()) || Boolean(tagFilter.trim());
 
   function addStatus() {
     const status = normalizeTodoStatus(newStatus);
@@ -221,24 +276,27 @@ export function TodoBoard({
   }
 
   return (
-    <section className="todo-board">
-      <div className="section-heading todo-board-heading">
+    <section className={todoBoardClass}>
+      <div className={todoHeadingClass}>
         <div>
-          <h2>{boardName}</h2>
-          <div className="todo-board-summary">{totalOpen} open / {todos.length} total</div>
+          <h2 className="m-0 text-[13px] font-black uppercase tracking-normal">{boardName}</h2>
+          <div className="mt-px text-[11px] font-black text-[var(--muted)] uppercase">
+            {totalOpen} open / {todos.length} total
+          </div>
         </div>
-        <div className="todo-board-actions">
-          <label className="search-control todo-search-control">
-            <span>Search</span>
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Todo, owner, status, tag"
-            />
-          </label>
-          <label className="todo-tag-filter-control">
-            <span>Tag</span>
-            <select value={tagFilter} onChange={(event) => setTagFilter(event.target.value)}>
+        <div className={todoActionsClass}>
+          <SearchInput
+            value={search}
+            onValueChange={setSearch}
+            placeholder="Todo, owner, status, tag"
+            className="todo-search-control max-sm:max-w-none"
+          />
+          <SelectField
+            label="Tag"
+            value={tagFilter}
+            onValueChange={setTagFilter}
+            className="todo-tag-filter-control max-sm:max-w-none"
+          >
               <option value="">All tags</option>
               {tagFilter && !availableTags.some((tag) => tagsEqual(tag, tagFilter)) ? (
                 <option value={tagFilter}>{tagFilter}</option>
@@ -248,34 +306,48 @@ export function TodoBoard({
                   {tag}
                 </option>
               ))}
-            </select>
-          </label>
+          </SelectField>
+          <FilterBadge
+            active={hasActiveFilter}
+            label={`${filteredTodos.length} / ${todos.length}`}
+            detail="Todo filters active"
+            onClear={() => {
+              setSearch('');
+              setTagFilter('');
+            }}
+            clearLabel="Clear todo filters"
+            className="max-sm:w-full"
+          />
           <details className="mobile-control-menu todo-mobile-menu">
             <summary>Actions</summary>
-            <div className="mobile-control-panel">
-              {renderBoardActions ? (
-                <div className="todo-board-action-icons">{renderBoardActions()}</div>
+              <div className="mobile-control-panel">
+                {renderBoardActions ? (
+                <div className={todoActionIconsClass}>{renderBoardActions()}</div>
               ) : null}
-              <StatusForm
-                newStatus={newStatus}
-                onNewStatusChange={setNewStatus}
-                onAddStatus={addStatus}
-              />
+              {canEdit ? (
+                <StatusForm
+                  newStatus={newStatus}
+                  onNewStatusChange={setNewStatus}
+                  onAddStatus={addStatus}
+                />
+              ) : null}
               <button type="button" onClick={() => addTodo()} aria-label="Add todo" title="Add todo">
                 <Plus size={16} aria-hidden="true" />
                 <span>Add</span>
               </button>
             </div>
           </details>
-          <div className="desktop-control-group todo-board-action-group">
-            <StatusForm
-              newStatus={newStatus}
-              onNewStatusChange={setNewStatus}
-              onAddStatus={addStatus}
-            />
+          <div className={`desktop-control-group ${todoActionGroupClass}`}>
+            {canEdit ? (
+              <StatusForm
+                newStatus={newStatus}
+                onNewStatusChange={setNewStatus}
+                onAddStatus={addStatus}
+              />
+            ) : null}
             <button
               type="button"
-              className="icon-button todo-board-add-button"
+              className="icon-button h-[var(--icon-button-size)] min-h-[var(--icon-button-size)] w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0"
               onClick={() => addTodo()}
               aria-label="Add todo"
               title="Add todo"
@@ -283,7 +355,7 @@ export function TodoBoard({
               <Plus size={18} aria-hidden="true" />
             </button>
             {renderBoardActions ? (
-              <div className="todo-board-action-icons">{renderBoardActions()}</div>
+              <div className={todoActionIconsClass}>{renderBoardActions()}</div>
             ) : null}
           </div>
         </div>
@@ -309,8 +381,8 @@ export function TodoBoard({
           }}
         />
       ) : null}
-      <div className="todo-columns">
-        {visibleStatuses.map((status) => {
+      <div className={todoColumnsClass}>
+        {visibleStatuses.map((status, colIndex) => {
           const allColumnTodos = todos.filter((todo) => todo.status === status).sort(compareManualTodos);
           const columnSortKey = columnSortKeys[status] ?? 'manual';
           const columnTodos = filteredTodos
@@ -320,180 +392,202 @@ export function TodoBoard({
 
           return (
             <div
-              className={`todo-column ${dropStatus === status ? 'drop-target' : ''}`}
+              className={cn(
+                todoColumnClass,
+                dropStatus === status &&
+                  'bg-[#fff8d8] outline outline-3 outline-[var(--hot)] outline-offset-[-6px]',
+              )}
               key={status}
               onDragOver={(event) => {
                 event.preventDefault();
                 setDropStatus(status);
               }}
-              onDragLeave={() => setDropStatus(null)}
+              onDragLeave={() => { setDropStatus(null); setDropTargetId(null); }}
               onDrop={(event) => {
                 event.preventDefault();
                 const droppedTodoId = draggedTodoId ?? event.dataTransfer.getData('text/plain');
                 if (droppedTodoId) moveTodo(droppedTodoId, status);
                 setDraggedTodoId(null);
                 setDropStatus(null);
+                setDropTargetId(null);
               }}
             >
-              <div
-                className="column-title"
-              >
+              <div className={`${columnTitleClass} ${canEdit ? 'grid-cols-[minmax(0,1fr)_auto]' : 'grid-cols-1'}`}>
                 {editingStatus === status ? (
-                  <form
-                    className="column-rename-form"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      renameStatus(status);
+	                  <form
+	                    className="col-span-full grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-1.5 max-sm:grid-cols-[minmax(0,1fr)_repeat(3,28px)]"
+	                    onSubmit={(event) => {
+	                      event.preventDefault();
+	                      renameStatus(status);
                     }}
                   >
-                    <input
+                    <InlineTextInput
+                      className="min-h-7 px-1.5 py-1 text-xs"
                       value={editingStatusName}
-                      onChange={(event) => setEditingStatusName(event.target.value)}
+                      onValueChange={setEditingStatusName}
                       autoFocus
                       aria-label={`Rename ${formatTodoStatus(status)} column`}
                     />
-                    <button type="submit" className="column-rename-action" aria-label="Save column name" title="Save">
-                      ok
-                    </button>
-                    <button
-                      type="button"
-                      className="column-rename-action"
-                      onClick={() => {
-                        setEditingStatus(null);
-                        setEditingStatusName('');
+	                    <button
+	                      type="submit"
+	                      className={columnMiniButtonClass}
+	                      aria-label="Save column name"
+	                      title="Save"
+	                    >
+	                      ok
+	                    </button>
+	                    <button
+	                      type="button"
+	                      className={columnMiniButtonClass}
+	                      onClick={() => {
+	                        setEditingStatus(null);
+	                        setEditingStatusName('');
                       }}
                       aria-label="Cancel column rename"
                       title="Cancel"
-                    >
-                      x
-                    </button>
-                  </form>
+	                    >
+	                      x
+	                    </button>
+	                    {canRemoveStatus ? (
+	                      <button
+	                        type="button"
+	                        className={`column-remove ${columnMiniButtonClass} danger`}
+	                        onClick={(event) => {
+	                          event.stopPropagation();
+	                          void confirmRemoveStatus(status).then((confirmed) => {
+	                            if (confirmed) {
+	                              removeStatus(status);
+	                              setEditingStatus(null);
+	                              setEditingStatusName('');
+	                            }
+	                          });
+	                        }}
+	                        aria-label={`Remove ${formatTodoStatus(status)} column`}
+	                        title="Remove column"
+	                      >
+	                        <X size={13} aria-hidden="true" />
+	                      </button>
+	                    ) : null}
+	                  </form>
                 ) : (
                   <>
-                    <span>{formatTodoStatus(status)}</span>
-                    <b>{columnTodos.length}</b>
-                    <button
-                      type="button"
-                      className="column-rename-trigger"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        startRenameStatus(status);
-                      }}
-                      aria-label={`Rename ${formatTodoStatus(status)} column`}
-                      title="Rename column"
-                    >
-                      <Pencil size={13} aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
-                      className="column-add"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        addTodo(status);
-                      }}
-                      aria-label={`Add todo to ${formatTodoStatus(status)}`}
-                      title="Add todo"
-                    >
-                      +
-                    </button>
-                  </>
-                )}
-                {editingStatus === status ? null : (
-                  <>
-                    <button
-                      type="button"
-                      className="column-move"
-                      disabled={visibleStatuses[0] === status}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        nudgeStatus(status, -1);
-                      }}
-                      aria-label={`Move ${formatTodoStatus(status)} left`}
-                      title="Move column left"
-                    >
-                      &lt;
-                    </button>
-                    <button
-                      type="button"
-                      className="column-move"
-                      disabled={visibleStatuses.at(-1) === status}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        nudgeStatus(status, 1);
-                      }}
-                      aria-label={`Move ${formatTodoStatus(status)} right`}
-                      title="Move column right"
-                    >
-                      &gt;
-                    </button>
-                    {canRemoveStatus ? (
-                      <button
-                        type="button"
-                        className="column-remove"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          void confirmRemoveStatus(status).then((confirmed) => {
-                            if (confirmed) removeStatus(status);
-                          });
-                        }}
-                        aria-label={`Remove ${formatTodoStatus(status)} column`}
-                        title="Remove column"
-                      >
-                        x
-                      </button>
+                    <div className={columnTitleLabelClass}>
+                      <span className="min-w-0 flex-1 break-words">{formatTodoStatus(status)}</span>
+                      <b className={columnCountClass}>
+                        {columnTodos.length}
+                      </b>
+                    </div>
+                    {canEdit ? (
+                      <div className={columnTitleActionsClass}>
+                        <button
+                          type="button"
+                          className={`column-rename-trigger ${columnMiniButtonClass}`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            startRenameStatus(status);
+                          }}
+                          aria-label={`Rename ${formatTodoStatus(status)} column`}
+                          title="Rename column"
+                        >
+                          <Pencil size={13} aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          className={`column-add ${columnMiniButtonClass} bg-[var(--primary)] text-[var(--text)]`}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            addTodo(status);
+                          }}
+                          aria-label={`Add todo to ${formatTodoStatus(status)}`}
+                          title="Add todo"
+                        >
+                          <Plus size={14} aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          className={`column-move ${columnMiniButtonClass}`}
+                          disabled={visibleStatuses[0] === status}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            nudgeStatus(status, -1);
+                          }}
+                          aria-label={`Move ${formatTodoStatus(status)} left`}
+                          title="Move column left"
+                        >
+                          <ArrowLeft size={13} aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          className={`column-move ${columnMiniButtonClass}`}
+                          disabled={visibleStatuses.at(-1) === status}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            nudgeStatus(status, 1);
+                          }}
+                          aria-label={`Move ${formatTodoStatus(status)} right`}
+                          title="Move column right"
+                        >
+                          <ArrowRight size={13} aria-hidden="true" />
+                        </button>
+                      </div>
                     ) : null}
                   </>
                 )}
               </div>
-              <label className="column-sort-control">
-                <span>Sort</span>
-                <select
-                  value={columnSortKey}
-                  onChange={(event) =>
-                    setColumnSortKeys((sortKeys) => ({
-                      ...sortKeys,
-                      [status]: event.target.value as TodoSortKey,
-                    }))
-                  }
-                >
-                  <option value="manual">Manual</option>
-                  <option value="due-date">Due date</option>
-                  <option value="a-z">A-Z</option>
-                  <option value="owner">Owner</option>
-                  <option value="created">Created</option>
-                </select>
-              </label>
+              <SelectField
+                label="Sort"
+                value={columnSortKey}
+                onValueChange={(sortKey) =>
+                  setColumnSortKeys((sortKeys) => ({
+                    ...sortKeys,
+                    [status]: sortKey as TodoSortKey,
+                  }))
+                }
+                className="mb-[9px] mt-[-4px] w-full max-w-none"
+              >
+                <option value="manual">Manual</option>
+                <option value="due-date">Due date</option>
+                <option value="a-z">A-Z</option>
+                <option value="owner">Owner</option>
+                <option value="created">Created</option>
+              </SelectField>
               {columnTodos.length ? (
                 columnTodos.map((todo) => (
-                  <article
-                    className={`todo-item ${todoDueClass(todo, completedTodoStatus)} ${draggedTodoId === todo.id ? 'dragging' : ''}`}
-                    id={`todo-card-${todo.id}`}
-                    key={todo.id}
-                    draggable
-                    onDragStart={(event) => {
-                      event.stopPropagation();
-                      setDraggedTodoId(todo.id);
-                      event.dataTransfer.effectAllowed = 'move';
-                      event.dataTransfer.setData('text/plain', todo.id);
-                    }}
-                    onDragOver={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      setDropStatus(status);
-                      event.dataTransfer.dropEffect = 'move';
-                    }}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      const droppedTodoId = draggedTodoId ?? event.dataTransfer.getData('text/plain');
-                      if (droppedTodoId) moveTodoBefore(droppedTodoId, status, todo.id);
-                      setDraggedTodoId(null);
-                      setDropStatus(null);
-                    }}
-                    onDragEnd={() => {
-                      setDraggedTodoId(null);
-                      setDropStatus(null);
-                    }}
+                  <Fragment key={todo.id}>
+                    {dropTargetId === todo.id && draggedTodoId !== todo.id ? (
+                      <div className="todo-drop-indicator" aria-hidden="true" />
+                    ) : null}
+                    <article
+                      className={`todo-item ${todoDueClass(todo, completedTodoStatus)} ${draggedTodoId === todo.id ? 'dragging' : ''}`}
+                      id={`todo-card-${todo.id}`}
+                      draggable
+                      onDragStart={(event) => {
+                        event.stopPropagation();
+                        setDraggedTodoId(todo.id);
+                        event.dataTransfer.effectAllowed = 'move';
+                        event.dataTransfer.setData('text/plain', todo.id);
+                      }}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setDropStatus(status);
+                        setDropTargetId(todo.id);
+                        event.dataTransfer.dropEffect = 'move';
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        const droppedTodoId = draggedTodoId ?? event.dataTransfer.getData('text/plain');
+                        if (droppedTodoId) moveTodoBefore(droppedTodoId, status, todo.id);
+                        setDraggedTodoId(null);
+                        setDropStatus(null);
+                        setDropTargetId(null);
+                      }}
+                      onDragEnd={() => {
+                        setDraggedTodoId(null);
+                        setDropStatus(null);
+                        setDropTargetId(null);
+                      }}
                     onClick={() => setDraftTodo({ ...todo, boardId })}
                   >
                     <div className="todo-card-topline">
@@ -531,6 +625,16 @@ export function TodoBoard({
                         <MarkdownBlock markdown={todo.body} />
                       </div>
                     ) : null}
+                    {todo.comments?.length ? (
+                      <div className="card-comments" aria-label="Todo comments">
+                        {todo.comments.map((comment) => (
+                          <div className="card-comment" key={comment.id}>
+                            <time dateTime={comment.createdAt}>{formatTodoUpdatedAt(comment.createdAt)}</time>
+                            <span>{comment.body}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
                     <div className="todo-card-footer">
                       {todo.updatedAt || todo.createdAt ? (
                         <time className="todo-updated-meta" dateTime={todo.updatedAt ?? todo.createdAt}>
@@ -540,7 +644,7 @@ export function TodoBoard({
                       <div className="todo-card-actions">
                         <button
                           type="button"
-                          className="icon-button secondary"
+                          className="icon-button tertiary"
                           disabled={allColumnTodos[0]?.id === todo.id}
                           onClick={(event) => {
                             event.stopPropagation();
@@ -549,11 +653,11 @@ export function TodoBoard({
                           aria-label={`Move ${todo.title} up`}
                           title="Move up"
                         >
-                          ↑
+                          <ArrowUp size={14} aria-hidden="true" />
                         </button>
                         <button
                           type="button"
-                          className="icon-button secondary"
+                          className="icon-button tertiary"
                           disabled={allColumnTodos.at(-1)?.id === todo.id}
                           onClick={(event) => {
                             event.stopPropagation();
@@ -562,11 +666,11 @@ export function TodoBoard({
                           aria-label={`Move ${todo.title} down`}
                           title="Move down"
                         >
-                          ↓
+                          <ArrowDown size={14} aria-hidden="true" />
                         </button>
                         <button
                           type="button"
-                          className="icon-button secondary todo-edit-button"
+                          className="icon-button tertiary todo-edit-button"
                           onClick={(event) => {
                             event.stopPropagation();
                             setDraftTodo({ ...todo, boardId });
@@ -574,7 +678,19 @@ export function TodoBoard({
                           aria-label={`Edit ${todo.title}`}
                           title="Edit"
                         >
-                          ✎
+                          <Pencil size={14} aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button tertiary"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void addTodoComment(todo);
+                          }}
+                          aria-label={`Comment on ${todo.title}`}
+                          title="Comment"
+                        >
+                          <MessageCircle size={15} aria-hidden="true" />
                         </button>
                         <button
                           type="button"
@@ -595,25 +711,28 @@ export function TodoBoard({
                           aria-label={`Delete ${todo.title}`}
                           title="Delete"
                         >
-                          x
+                          <Trash2 size={14} aria-hidden="true" />
                         </button>
                       </div>
                     </div>
-                  </article>
+                    </article>
+                  </Fragment>
                 ))
               ) : (
-                <div className="todo-empty">Drop here</div>
+                <div className="grid min-h-[58px] place-items-center rounded-[2px] border border-dashed border-[#8f897a] text-[12px] font-black uppercase text-[var(--muted)] mb-2">Drop here</div>
               )}
-              <button
-                type="button"
-                className="column-add-card"
-                onClick={() => addTodo(status)}
-                aria-label={`Add todo to ${formatTodoStatus(status)}`}
-                title="Add todo"
-              >
-                <Plus size={15} aria-hidden="true" />
-                <span>Add todo</span>
-              </button>
+                {canEdit ? (
+                  <button
+                    type="button"
+                    className={columnAddCardClass}
+                    onClick={() => addTodo(status)}
+                    aria-label={`Add todo to ${formatTodoStatus(status)}`}
+                    title="Add todo"
+                  >
+                    <Plus size={15} aria-hidden="true" />
+                    <span>Add todo</span>
+                  </button>
+                ) : null}
             </div>
           );
         })}
@@ -634,20 +753,28 @@ function StatusForm({
 }) {
   return (
     <form
-      className="add-status-form"
+      className="flex w-auto min-w-0 items-center gap-1.5 max-sm:w-full"
       onSubmit={(event) => {
         event.preventDefault();
         onAddStatus();
       }}
     >
-      <input
+      <TextField
+        label="New status"
+        hideLabel
         value={newStatus}
-        onChange={(event) => onNewStatusChange(event.target.value)}
+        onValueChange={onNewStatusChange}
         placeholder="New status"
         aria-label="New todo status"
+        className="w-[150px] max-sm:min-w-0 max-sm:flex-1"
       />
-      <button type="submit" className="icon-button secondary add-status-button" aria-label="Add column" title="Add column">
-        <Plus size={16} aria-hidden="true" />
+      <button
+        type="submit"
+        className="icon-button secondary h-[var(--icon-button-size)] min-h-[var(--icon-button-size)] w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0"
+        aria-label="Add column"
+        title="Add column"
+      >
+        <Columns3 size={16} aria-hidden="true" />
       </button>
     </form>
   );
@@ -708,10 +835,14 @@ function formatTodoUpdatedAt(value: string | undefined) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
 
-  const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const time = formatClockTime(date);
   if (localDateString(date) === localDateString(new Date())) return time;
 
   return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')} ${time}`;
+}
+
+function formatClockTime(date: Date) {
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
 function localDateString(date: Date) {
@@ -726,6 +857,7 @@ function todoMatchesSearch(todo: TimelineTodo, search: string) {
     todo.title,
     todo.who,
     todo.body,
+    ...(todo.comments ?? []).map((comment) => comment.body),
     todo.status,
     todo.dueDate ?? '',
     ...(todo.tags ?? []),

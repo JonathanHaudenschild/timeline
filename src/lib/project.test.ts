@@ -320,6 +320,196 @@ describe('project helpers', () => {
     });
   });
 
+  it('keeps comments added to the same todo on different devices', () => {
+    const baseProject = createDefaultProject('merge-todo-comments');
+    const baseBoard = baseProject.todoBoards?.[0];
+    const baseTodo = baseBoard?.todos[0];
+    if (!baseBoard || !baseTodo) throw new Error('Expected default todo board with todos');
+
+    const localProject = {
+      ...baseProject,
+      todoBoards: [
+        {
+          ...baseBoard,
+          todos: baseBoard.todos.map((todo) =>
+            todo.id === baseTodo.id
+              ? {
+                  ...todo,
+                  comments: [
+                    {
+                      id: 'comment-local',
+                      body: 'Local comment',
+                      createdAt: '2026-06-06T10:00:00.000Z',
+                      updatedAt: '2026-06-06T10:00:00.000Z',
+                    },
+                  ],
+                  updatedAt: '2026-06-06T10:00:00.000Z',
+                }
+              : todo,
+          ),
+        },
+      ],
+    };
+    const remoteProject = {
+      ...baseProject,
+      revision: 2,
+      todoBoards: [
+        {
+          ...baseBoard,
+          todos: baseBoard.todos.map((todo) =>
+            todo.id === baseTodo.id
+              ? {
+                  ...todo,
+                  comments: [
+                    {
+                      id: 'comment-remote',
+                      body: 'Remote comment',
+                      createdAt: '2026-06-06T10:05:00.000Z',
+                      updatedAt: '2026-06-06T10:05:00.000Z',
+                    },
+                  ],
+                  updatedAt: '2026-06-06T10:05:00.000Z',
+                }
+              : todo,
+          ),
+        },
+      ],
+    };
+
+    const merged = mergeProjectChanges(baseProject, localProject, remoteProject);
+    const [mergedBoard] = normalizeTodoBoards(merged);
+    const mergedTodo = mergedBoard.todos.find((todo) => todo.id === baseTodo.id);
+
+    expect(mergedTodo?.comments?.map((comment) => comment.body)).toEqual(['Local comment', 'Remote comment']);
+  });
+
+  it('keeps a remotely edited todo comment when local deletes the same comment', () => {
+    const baseProject = createDefaultProject('merge-todo-comment-delete-vs-edit');
+    const baseBoard = baseProject.todoBoards?.[0];
+    const baseTodo = baseBoard?.todos[0];
+    if (!baseBoard || !baseTodo) throw new Error('Expected default todo board with todos');
+
+    const baseComment = {
+      id: 'comment-base',
+      body: 'Original comment',
+      createdAt: '2026-06-06T10:00:00.000Z',
+      updatedAt: '2026-06-06T10:00:00.000Z',
+    };
+    const baseWithComment = {
+      ...baseProject,
+      todoBoards: [
+        {
+          ...baseBoard,
+          todos: baseBoard.todos.map((todo) =>
+            todo.id === baseTodo.id ? { ...todo, comments: [baseComment] } : todo,
+          ),
+        },
+      ],
+    };
+
+    // local deletes the comment
+    const localProject = {
+      ...baseWithComment,
+      todoBoards: [
+        {
+          ...baseBoard,
+          todos: baseBoard.todos.map((todo) =>
+            todo.id === baseTodo.id ? { ...todo, comments: [] } : todo,
+          ),
+        },
+      ],
+    };
+    // remote edits the same comment
+    const remoteProject = {
+      ...baseWithComment,
+      revision: 2,
+      todoBoards: [
+        {
+          ...baseBoard,
+          todos: baseBoard.todos.map((todo) =>
+            todo.id === baseTodo.id
+              ? {
+                  ...todo,
+                  comments: [
+                    { ...baseComment, body: 'Remote edit of comment', updatedAt: '2026-06-06T10:05:00.000Z' },
+                  ],
+                  updatedAt: '2026-06-06T10:05:00.000Z',
+                }
+              : todo,
+          ),
+        },
+      ],
+    };
+
+    const merged = mergeProjectChanges(baseWithComment, localProject, remoteProject);
+    const [mergedBoard] = normalizeTodoBoards(merged);
+    const mergedTodo = mergedBoard.todos.find((todo) => todo.id === baseTodo.id);
+
+    // remote edit wins over local delete — the edited comment is preserved
+    expect(mergedTodo?.comments?.map((comment) => comment.body)).toEqual(['Remote edit of comment']);
+  });
+
+  it('keeps a remote todo comment when the same todo is edited locally', () => {
+    const baseProject = createDefaultProject('merge-todo-edit-comment');
+    const baseBoard = baseProject.todoBoards?.[0];
+    const baseTodo = baseBoard?.todos[0];
+    if (!baseBoard || !baseTodo) throw new Error('Expected default todo board with todos');
+
+    const localProject = {
+      ...baseProject,
+      todoBoards: [
+        {
+          ...baseBoard,
+          todos: baseBoard.todos.map((todo) =>
+            todo.id === baseTodo.id
+              ? {
+                  ...todo,
+                  title: 'Locally edited title',
+                  body: 'Locally edited body',
+                  updatedAt: '2026-06-06T10:00:00.000Z',
+                }
+              : todo,
+          ),
+        },
+      ],
+    };
+    const remoteProject = {
+      ...baseProject,
+      revision: 2,
+      todoBoards: [
+        {
+          ...baseBoard,
+          todos: baseBoard.todos.map((todo) =>
+            todo.id === baseTodo.id
+              ? {
+                  ...todo,
+                  comments: [
+                    {
+                      id: 'comment-remote',
+                      body: 'Remote comment while editing',
+                      createdAt: '2026-06-06T10:05:00.000Z',
+                      updatedAt: '2026-06-06T10:05:00.000Z',
+                    },
+                  ],
+                  updatedAt: '2026-06-06T10:05:00.000Z',
+                }
+              : todo,
+          ),
+        },
+      ],
+    };
+
+    const merged = mergeProjectChanges(baseProject, localProject, remoteProject);
+    const [mergedBoard] = normalizeTodoBoards(merged);
+    const mergedTodo = mergedBoard.todos.find((todo) => todo.id === baseTodo.id);
+
+    expect(mergedTodo).toMatchObject({
+      title: 'Locally edited title',
+      body: 'Locally edited body',
+    });
+    expect(mergedTodo?.comments?.map((comment) => comment.body)).toEqual(['Remote comment while editing']);
+  });
+
   it('does not create todo duplicates across repeated autosave conflict merges', () => {
     const baseProject = createDefaultProject('repeated-todo-conflicts');
     const baseBoard = baseProject.todoBoards?.[0];
@@ -470,7 +660,16 @@ describe('project helpers', () => {
       ...baseProject,
       revision: 2,
       events: baseProject.events.map((event) =>
-        event.id === baseEvent.id ? { ...event, what: 'Remote kickoff', note: 'remote note', who: 'Remote team' } : event,
+        event.id === baseEvent.id
+          ? {
+              ...event,
+              what: 'Remote kickoff',
+              note: 'remote note',
+              who: 'Remote team',
+              endDate: '2026-06-04',
+              endTime: '17:30',
+            }
+          : event,
       ),
     };
 
@@ -482,6 +681,8 @@ describe('project helpers', () => {
       id: baseEvent.id,
       what: 'Local kickoff\n\n--- Version from another device ---\n\nRemote kickoff',
       who: 'Remote team',
+      endDate: '2026-06-04',
+      endTime: '17:30',
       note: 'local note\n\n--- Version from another device ---\n\nremote note',
     });
   });
@@ -1133,5 +1334,110 @@ describe('project helpers', () => {
     expect(merged.body).toContain('local notes');
     expect(merged.body).toContain('remote notes');
     expect(merged.body).toContain('Version from another device');
+  });
+
+  it('keeps comments added to the same protocol item on different devices', () => {
+    const [baseProtocol] = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        updates: [{ id: 'update-1', title: 'Weather', owner: 'Alex', body: 'base update' }],
+        updatedAt: '2026-06-06T10:00:00.000Z',
+      },
+    ]);
+    const localProtocol = {
+      ...baseProtocol,
+      updates: [
+        {
+          ...baseProtocol.updates[0],
+          comments: [
+            {
+              id: 'comment-local',
+              body: 'Local protocol comment',
+              createdAt: '2026-06-06T10:05:00.000Z',
+              updatedAt: '2026-06-06T10:05:00.000Z',
+            },
+          ],
+          updatedAt: '2026-06-06T10:05:00.000Z',
+        },
+      ],
+      updatedAt: '2026-06-06T10:05:00.000Z',
+    };
+    const remoteProtocol = {
+      ...baseProtocol,
+      updates: [
+        {
+          ...baseProtocol.updates[0],
+          comments: [
+            {
+              id: 'comment-remote',
+              body: 'Remote protocol comment',
+              createdAt: '2026-06-06T10:06:00.000Z',
+              updatedAt: '2026-06-06T10:06:00.000Z',
+            },
+          ],
+          updatedAt: '2026-06-06T10:06:00.000Z',
+        },
+      ],
+      updatedAt: '2026-06-06T10:06:00.000Z',
+    };
+
+    const [merged] = mergeMeetingProtocols([baseProtocol], [localProtocol], [remoteProtocol]);
+
+    expect(merged.updates[0].comments?.map((comment) => comment.body)).toEqual([
+      'Local protocol comment',
+      'Remote protocol comment',
+    ]);
+  });
+
+  it('keeps a remote protocol item comment when the same item is edited locally', () => {
+    const [baseProtocol] = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        updates: [{ id: 'update-1', title: 'Weather', owner: 'Alex', body: 'base update' }],
+        updatedAt: '2026-06-06T10:00:00.000Z',
+      },
+    ]);
+    const localProtocol = {
+      ...baseProtocol,
+      updates: [
+        {
+          ...baseProtocol.updates[0],
+          title: 'Locally edited update',
+          body: 'Locally edited update body',
+          updatedAt: '2026-06-06T10:05:00.000Z',
+        },
+      ],
+      updatedAt: '2026-06-06T10:05:00.000Z',
+    };
+    const remoteProtocol = {
+      ...baseProtocol,
+      updates: [
+        {
+          ...baseProtocol.updates[0],
+          comments: [
+            {
+              id: 'comment-remote',
+              body: 'Remote protocol comment while editing',
+              createdAt: '2026-06-06T10:06:00.000Z',
+              updatedAt: '2026-06-06T10:06:00.000Z',
+            },
+          ],
+          updatedAt: '2026-06-06T10:06:00.000Z',
+        },
+      ],
+      updatedAt: '2026-06-06T10:06:00.000Z',
+    };
+
+    const [merged] = mergeMeetingProtocols([baseProtocol], [localProtocol], [remoteProtocol]);
+
+    expect(merged.updates[0]).toMatchObject({
+      title: 'Locally edited update',
+      body: 'Locally edited update body',
+    });
+    expect(merged.updates[0].comments?.map((comment) => comment.body)).toEqual([
+      'Remote protocol comment while editing',
+    ]);
   });
 });

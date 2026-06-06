@@ -25,10 +25,13 @@ export class LockedProjectError extends Error {
   }
 }
 
-export class ProjectConflictError extends Error {
-  constructor() {
+export class ProjectSaveConflictError extends Error {
+  latestProject?: TimelineProject;
+
+  constructor(latestProject?: TimelineProject) {
     super('Project changed on the server');
-    this.name = 'ProjectConflictError';
+    this.name = 'ProjectSaveConflictError';
+    this.latestProject = latestProject;
   }
 }
 
@@ -47,7 +50,7 @@ export async function fetchProject(hash: string, projectPin?: string) {
   });
 
   if (response.status === 423) throw new LockedProjectError();
-  if (response.status === 409) throw new ProjectConflictError();
+  if (response.status === 409) throw new ProjectSaveConflictError();
 
   if (!response.ok) {
     throw new Error(`Unable to load project (${response.status})`);
@@ -63,7 +66,7 @@ export async function fetchProjectMetadata(hash: string, projectPin?: string) {
   });
 
   if (response.status === 423) throw new LockedProjectError();
-  if (response.status === 409) throw new ProjectConflictError();
+  if (response.status === 409) throw new ProjectSaveConflictError();
 
   if (!response.ok) {
     throw new Error(`Unable to load project metadata (${response.status})`);
@@ -83,7 +86,16 @@ export async function persistProject(project: TimelineProject, projectPin?: stri
   });
 
   if (response.status === 423) throw new LockedProjectError();
-  if (response.status === 409) throw new ProjectConflictError();
+  if (response.status === 409) {
+    let latestProject: TimelineProject | undefined;
+    try {
+      const payload = (await response.json()) as { project?: TimelineProject };
+      latestProject = payload.project;
+    } catch {
+      latestProject = undefined;
+    }
+    throw new ProjectSaveConflictError(latestProject);
+  }
 
   if (!response.ok) {
     throw new Error(`Unable to save project (${response.status})`);
@@ -103,7 +115,7 @@ export async function importProjectFile(hash: string, file: File, projectPin?: s
   });
 
   if (response.status === 423) throw new LockedProjectError();
-  if (response.status === 409) throw new ProjectConflictError();
+  if (response.status === 409) throw new ProjectSaveConflictError();
 
   if (!response.ok) {
     throw new Error(`Unable to import project (${response.status})`);
