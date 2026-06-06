@@ -913,6 +913,23 @@ describe('project helpers', () => {
     expect(html).toContain('<blockquote>Quote</blockquote>');
   });
 
+  it('renders markdown links and bare urls safely', () => {
+    const html = renderMarkdown(
+      '[Open **site**](https://example.com?a=1&b=2) www.example.org https://example.net/test. [bad](javascript:alert(1)) [safe](mailto:test@example.com) <script>',
+    );
+
+    expect(html).toContain(
+      '<a href="https://example.com?a=1&amp;b=2" target="_blank" rel="noreferrer">Open <strong>site</strong></a>',
+    );
+    expect(html).toContain('<a href="https://www.example.org" target="_blank" rel="noreferrer">www.example.org</a>');
+    expect(html).toContain('<a href="https://example.net/test" target="_blank" rel="noreferrer">https://example.net/test</a>.');
+    expect(html).toContain('[bad](javascript:alert(1))');
+    expect(html).toContain('<a href="mailto:test@example.com" target="_blank" rel="noreferrer">safe</a>');
+    expect(html).toContain('&lt;script&gt;');
+    expect(html).not.toContain('<script>');
+    expect(html).not.toContain('href="javascript:');
+  });
+
   it('uses a stable default project hash when the url has no hash', () => {
     const location = { hash: '' } as Location;
 

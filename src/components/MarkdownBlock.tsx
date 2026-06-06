@@ -13,15 +13,70 @@ function escapeHtml(value: string) {
     .replace(/'/g, '&#039;');
 }
 
+function decodeEscapedMarkdownUrl(value: string) {
+  return value
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
+function safeLinkHref(value: string) {
+  const href = decodeEscapedMarkdownUrl(value).trim();
+  const normalizedHref = href.startsWith('www.') ? `https://${href}` : href;
+
+  if (
+    normalizedHref.startsWith('http://') ||
+    normalizedHref.startsWith('https://') ||
+    normalizedHref.startsWith('mailto:') ||
+    normalizedHref.startsWith('/') ||
+    normalizedHref.startsWith('#')
+  ) {
+    return escapeHtml(normalizedHref);
+  }
+
+  return '';
+}
+
+function anchorHtml(label: string, href: string) {
+  const safeHref = safeLinkHref(href);
+  if (!safeHref) return label;
+
+  return `<a href="${safeHref}" target="_blank" rel="noreferrer">${label}</a>`;
+}
+
+function linkInlineMarkdown(value: string) {
+  const anchors: string[] = [];
+
+  const withMarkdownLinks = value.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (match, label: string, href: string) => {
+    const anchor = anchorHtml(label, href);
+    if (anchor === label) return match;
+
+    const token = `\u0000LINK${anchors.length}\u0000`;
+    anchors.push(anchor);
+    return token;
+  });
+
+  const withBareLinks = withMarkdownLinks.replace(/(^|[\s(])((?:https?:\/\/|www\.)[^\s<]+)/g, (match, prefix: string, url: string) => {
+    const trailing = url.match(/[.,;:!?)\]]+$/)?.[0] ?? '';
+    const cleanUrl = trailing ? url.slice(0, -trailing.length) : url;
+    if (!cleanUrl) return match;
+
+    return `${prefix}${anchorHtml(cleanUrl, cleanUrl)}${trailing}`;
+  });
+
+  return withBareLinks.replace(/\u0000LINK(\d+)\u0000/g, (_, index: string) => anchors[Number(index)] ?? '');
+}
+
 function inlineMarkdown(value: string) {
-  return renderColorSpans(value)
+  return linkInlineMarkdown(renderColorSpans(value)
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/(^|[^*])\*(?!\s)([^*]+?)\*(?!\*)/g, '$1<em>$2</em>')
     .replace(/_(?!\s)([^_]+?)_/g, '<em>$1</em>')
     .replace(/\+\+(.*?)\+\+/g, '<u>$1</u>')
     .replace(/~~(.*?)~~/g, '<s>$1</s>')
-    .replace(/`(.*?)`/g, '<code>$1</code>')
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noreferrer">$1</a>');
+    .replace(/`(.*?)`/g, '<code>$1</code>'));
 }
 
 function renderColorSpans(value: string) {
