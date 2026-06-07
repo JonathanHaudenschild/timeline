@@ -933,9 +933,9 @@ export function TimelineApp() {
     });
   }
 
-  function saveEvent() {
-    if (!draftEvent || !project) return;
-    const eventToSave = draftEvent.time ? draftEvent : { ...draftEvent, endTime: undefined };
+  function saveEvent(eventDraft = draftEvent) {
+    if (!eventDraft || !project) return;
+    const eventToSave = eventDraft.time ? eventDraft : { ...eventDraft, endTime: undefined };
     const existing = project.events.some((event) => event.id === eventToSave.id);
     const events = existing
       ? project.events.map((event) => (event.id === eventToSave.id ? eventToSave : event))
@@ -1737,7 +1737,7 @@ export function TimelineApp() {
           canEdit={canEdit}
           isMinimized={isEventListMinimized}
           onToggleMinimized={() => setIsEventListMinimized((v) => !v)}
-          onAdd={() => createEvent({ date: selectedEvent?.date ?? project.startDate, time: selectedEvent?.time ?? '' })}
+          onAdd={(moment) => createEvent(moment ?? { date: selectedEvent?.date ?? project.startDate, time: selectedEvent?.time ?? '' })}
           onChange={(changedEvent) => {
             updateProject({
               ...project,

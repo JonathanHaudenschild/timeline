@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
 import { BookOpen, CalendarPlus, Download, Eye, EyeOff, ListTodo, MessageCircle, Pause, Pencil, Play, Plus, Save, Square, Trash2, X } from 'lucide-react';
 import { useAppDialog } from './AppDialog';
@@ -89,7 +89,7 @@ const sectionConfig: Array<{ kind: ProtocolItemKind; title: string; addLabel: st
 const protocolWorkspaceClass =
   'mt-3 grid grid-cols-[260px_minmax(0,1fr)] items-start gap-3 max-sm:grid-cols-1';
 const protocolListClass =
-  'grid max-h-[min(72dvh,760px)] gap-2 overflow-auto max-sm:max-h-[42dvh] max-[420px]:max-h-[38dvh]';
+  'grid max-h-[2480px] gap-2 overflow-auto max-sm:max-h-[42dvh] max-[420px]:max-h-[38dvh]';
 const protocolListToggleClass =
   'protocol-list-toggle segmented grid-cols-2';
 const protocolListFilterClass =
@@ -152,6 +152,7 @@ export function MeetingProtocols({
   } | null>(null);
   const [draggedProtocolItem, setDraggedProtocolItem] = useState<DraggedProtocolItem | null>(null);
   const [dropTargetKind, setDropTargetKind] = useState<ProtocolItemKind | null>(null);
+  const [dropTargetItemId, setDropTargetItemId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [timerTick, setTimerTick] = useState(0);
   const entryScrollTimeoutRef = useRef<number | undefined>(undefined);
@@ -330,11 +331,12 @@ export function MeetingProtocols({
     setEditingItem({ kind, item, isNew: false });
   }
 
-  function saveEditingItem() {
+  function saveEditingItem(itemToSave = editingItem?.item) {
     if (!selectedProtocol || !editingItem) return;
+    if (!itemToSave) return;
 
     const nextItem = {
-      ...editingItem.item,
+      ...itemToSave,
       updatedAt: new Date().toISOString(),
     };
 
@@ -344,18 +346,6 @@ export function MeetingProtocols({
         : selectedProtocol[editingItem.kind].map((item) => (item.id === nextItem.id ? nextItem : item)),
     });
     setEditingItem(null);
-  }
-
-  function updateEditingItem(patch: Partial<MeetingProtocolItem>) {
-    if (!editingItem) return;
-
-    setEditingItem({
-      ...editingItem,
-      item: {
-        ...editingItem.item,
-        ...patch,
-      },
-    });
   }
 
   async function deleteItem(kind: ProtocolItemKind, itemId: string) {
@@ -416,12 +406,13 @@ export function MeetingProtocols({
     setDraggedProtocolItem({ kind, itemId });
   }
 
-  function allowProtocolDrop(event: DragEvent, kind: ProtocolItemKind) {
+  function allowProtocolDrop(event: DragEvent, kind: ProtocolItemKind, targetItemId?: string) {
     if (!draggedProtocolItem) return;
 
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
     setDropTargetKind(kind);
+    setDropTargetItemId(targetItemId ?? null);
   }
 
   function dropProtocolItem(kind: ProtocolItemKind, targetItemId?: string) {
@@ -437,6 +428,7 @@ export function MeetingProtocols({
 
     setDraggedProtocolItem(null);
     setDropTargetKind(null);
+    setDropTargetItemId(null);
     if (movedProtocol === selectedProtocol) return;
 
     onChange(protocols.map((protocol) => (protocol.id === selectedProtocol.id ? movedProtocol : protocol)));
@@ -763,11 +755,13 @@ export function MeetingProtocols({
                     onAddComment={(item) => void addItemComment(section.kind, item)}
                     draggedItem={draggedProtocolItem}
                     isDropTarget={dropTargetKind === section.kind}
+                    dropTargetItemId={dropTargetKind === section.kind ? dropTargetItemId : null}
                     onDragStart={(itemId) => startDraggingProtocolItem(section.kind, itemId)}
-                    onDragOver={(event) => allowProtocolDrop(event, section.kind)}
+                    onDragOver={(event, targetItemId) => allowProtocolDrop(event, section.kind, targetItemId)}
                     onDragEnd={() => {
                       setDraggedProtocolItem(null);
                       setDropTargetKind(null);
+                      setDropTargetItemId(null);
                     }}
                     onDrop={(targetItemId) => dropProtocolItem(section.kind, targetItemId)}
                     onCreateTodo={(item) => createTodoFromItem(section.kind, item)}
@@ -801,70 +795,103 @@ export function MeetingProtocols({
           )}
         </div>
       {editingItem ? (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Edit ${protocolItemLabel(editingItem.kind)}`}>
-          <form
-            className="editor-panel modal-panel protocol-item-dialog"
-            onSubmit={(event) => {
-              event.preventDefault();
-              saveEditingItem();
-            }}
-          >
-            <div className="panel-title">{protocolItemLabel(editingItem.kind)}</div>
-            <div className="form-grid">
-              <TextField
-                label="Headline"
-                value={editingItem.item.title}
-                onValueChange={(title) => updateEditingItem({ title })}
-                required
-                autoFocus
-              />
-              <TextField
-                label="Name"
-                value={editingItem.item.owner}
-                onValueChange={(owner) => updateEditingItem({ owner })}
-              />
-            </div>
-            <label>
-              <span>Markdown details</span>
-              <MarkdownEditor
-                value={editingItem.item.body}
-                onChange={(body) => updateEditingItem({ body })}
-                rows={8}
-              />
-            </label>
-            <div className="action-row">
-              <button
-                type="submit"
-                className="icon-button modal-action-icon"
-                aria-label={`Save ${protocolItemLabel(editingItem.kind).toLowerCase()}`}
-                title={`Save ${protocolItemLabel(editingItem.kind).toLowerCase()}`}
-              >
-                <Save size={18} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                className="icon-button tertiary modal-action-icon"
-                onClick={() => setEditingItem(null)}
-                aria-label="Cancel"
-                title="Cancel"
-              >
-                <X size={18} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                className="icon-button danger modal-action-icon"
-                onClick={() => void deleteEditingItem()}
-                aria-label={`Delete ${protocolItemLabel(editingItem.kind).toLowerCase()}`}
-                title={`Delete ${protocolItemLabel(editingItem.kind).toLowerCase()}`}
-              >
-                <Trash2 size={18} aria-hidden="true" />
-              </button>
-            </div>
-          </form>
-        </div>
+        <ProtocolItemEditorDialog
+          editingItem={editingItem}
+          onCancel={() => setEditingItem(null)}
+          onDelete={() => void deleteEditingItem()}
+          onSave={(item) => saveEditingItem(item)}
+        />
       ) : null}
       {appDialog.dialog}
     </SectionShell>
+  );
+}
+
+function ProtocolItemEditorDialog({
+  editingItem,
+  onCancel,
+  onDelete,
+  onSave,
+}: {
+  editingItem: {
+    kind: ProtocolItemKind;
+    item: MeetingProtocolItem;
+    isNew: boolean;
+  };
+  onCancel: () => void;
+  onDelete: () => void;
+  onSave: (item: MeetingProtocolItem) => void;
+}) {
+  const [localItem, setLocalItem] = useState(editingItem.item);
+  const label = protocolItemLabel(editingItem.kind);
+  const lowerLabel = label.toLowerCase();
+
+  function updateItem(patch: Partial<MeetingProtocolItem>) {
+    setLocalItem((currentItem) => ({ ...currentItem, ...patch }));
+  }
+
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Edit ${label}`}>
+      <form
+        className="editor-panel modal-panel protocol-item-dialog"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSave(localItem);
+        }}
+      >
+        <div className="panel-title">{label}</div>
+        <div className="form-grid">
+          <TextField
+            label="Headline"
+            value={localItem.title}
+            onValueChange={(title) => updateItem({ title })}
+            required
+            autoFocus
+          />
+          <TextField
+            label="Name"
+            value={localItem.owner}
+            onValueChange={(owner) => updateItem({ owner })}
+          />
+        </div>
+        <label>
+          <span>Markdown details</span>
+          <MarkdownEditor
+            value={localItem.body}
+            onChange={(body) => updateItem({ body })}
+            rows={8}
+          />
+        </label>
+        <div className="action-row">
+          <button
+            type="submit"
+            className="icon-button modal-action-icon"
+            aria-label={`Save ${lowerLabel}`}
+            title={`Save ${lowerLabel}`}
+          >
+            <Save size={18} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="icon-button tertiary modal-action-icon"
+            onClick={onCancel}
+            aria-label="Cancel"
+            title="Cancel"
+          >
+            <X size={18} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="icon-button danger modal-action-icon"
+            onClick={onDelete}
+            aria-label={`Delete ${lowerLabel}`}
+            title={`Delete ${lowerLabel}`}
+          >
+            <Trash2 size={18} aria-hidden="true" />
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 
@@ -882,6 +909,7 @@ function ProtocolStructuredSection({
   onAddComment,
   draggedItem,
   isDropTarget,
+  dropTargetItemId,
   onDragStart,
   onDragOver,
   onDragEnd,
@@ -904,8 +932,9 @@ function ProtocolStructuredSection({
   onAddComment: (item: MeetingProtocolItem) => void;
   draggedItem: DraggedProtocolItem | null;
   isDropTarget: boolean;
+  dropTargetItemId: string | null;
   onDragStart: (itemId: string) => void;
-  onDragOver: (event: DragEvent) => void;
+  onDragOver: (event: DragEvent, targetItemId?: string) => void;
   onDragEnd: () => void;
   onDrop: (targetItemId?: string) => void;
   onCreateTodo: (item: MeetingProtocolItem) => void;
@@ -976,25 +1005,31 @@ function ProtocolStructuredSection({
       {collapsed ? null : items.length ? (
         <div className="protocol-entry-list">
           {items.map((item) => (
-            <article
-              className={`protocol-entry ${kind} ${item.convertedTodoId || item.convertedEventId ? 'converted' : ''} ${draggedItem?.itemId === item.id ? 'dragging' : ''}`}
-              draggable
-              id={`protocol-${protocol.id}-${kind}-${item.id}`}
-              key={item.id}
-              onDragStart={(event) => {
-                event.dataTransfer.effectAllowed = 'move';
-                event.dataTransfer.setData('text/plain', item.id);
-                onDragStart(item.id);
-              }}
-              onDragOver={onDragOver}
-              onDragEnd={onDragEnd}
-              onDrop={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                onDrop(item.id);
-              }}
-              onClick={() => onEdit(item)}
-            >
+            <Fragment key={item.id}>
+              {dropTargetItemId === item.id && draggedItem?.itemId !== item.id ? (
+                <div className="protocol-drop-indicator" aria-hidden="true" />
+              ) : null}
+              <article
+                className={`protocol-entry ${kind} ${item.convertedTodoId || item.convertedEventId ? 'converted' : ''} ${draggedItem?.itemId === item.id ? 'dragging' : ''}`}
+                draggable
+                id={`protocol-${protocol.id}-${kind}-${item.id}`}
+                onDragStart={(event) => {
+                  event.dataTransfer.effectAllowed = 'move';
+                  event.dataTransfer.setData('text/plain', item.id);
+                  onDragStart(item.id);
+                }}
+                onDragOver={(event) => {
+                  event.stopPropagation();
+                  onDragOver(event, item.id);
+                }}
+                onDragEnd={onDragEnd}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onDrop(item.id);
+                }}
+                onClick={() => onEdit(item)}
+              >
               <div className="protocol-entry-summary">
                 <div>
                   <h4>{item.title}</h4>
@@ -1122,7 +1157,8 @@ function ProtocolStructuredSection({
                   </button>
                 </div>
               </div>
-            </article>
+              </article>
+            </Fragment>
           ))}
         </div>
       ) : (

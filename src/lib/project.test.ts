@@ -907,9 +907,20 @@ describe('project helpers', () => {
     expect(html).toContain('<u>under</u>');
     expect(html).toContain('<s>gone</s>');
     expect(html).toContain('<span class="markdown-color-text" style="color: #e53935">red <strong>bold</strong></span>');
-    expect(html).toContain('<ol>');
+    expect(html).toContain('<ol type="1">');
     expect(html).toContain('type="checkbox" disabled checked');
     expect(html).toContain('<blockquote>Quote</blockquote>');
+  });
+
+  it('renders indented markdown lists and task items', () => {
+    const html = renderMarkdown('  - Bullet\n  1. Number\n  - [ ] Task', { interactiveTasks: true });
+
+    expect(html).toContain('<ul>');
+    expect(html).toContain('<li>Bullet</li>');
+    expect(html).toContain('<ol type="1">');
+    expect(html).toContain('<li>Number</li>');
+    expect(html).toContain('data-markdown-task-line');
+    expect(html).toContain('Task');
   });
 
   it('renders markdown links and bare urls safely', () => {

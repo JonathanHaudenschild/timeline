@@ -4,6 +4,7 @@ import { memo, useMemo } from 'react';
 
 type MarkdownBlockProps = {
   markdown: string;
+  onTaskToggle?: (lineIndex: number) => void;
 };
 
 function escapeHtml(value: string) {
@@ -97,7 +98,7 @@ function renderColorSpans(value: string) {
   return parts.join('');
 }
 
-export function renderMarkdown(markdown: string) {
+export function renderMarkdown(markdown: string, options: { interactiveTasks?: boolean } = {}) {
   const lines = markdown.split('\n');
   const html: string[] = [];
   let inList = false;
@@ -114,40 +115,42 @@ export function renderMarkdown(markdown: string) {
     }
   }
 
-  for (const line of lines) {
-    if (line.startsWith('### ')) {
+  lines.forEach((line, lineIndex) => {
+    const trimmedLine = line.trimStart();
+
+    if (trimmedLine.startsWith('### ')) {
       closeLists();
-      html.push(`<h3>${inlineMarkdown(line.slice(4))}</h3>`);
-      continue;
+      html.push(`<h3>${inlineMarkdown(trimmedLine.slice(4))}</h3>`);
+      return;
     }
 
-    if (line.startsWith('## ')) {
+    if (trimmedLine.startsWith('## ')) {
       closeLists();
-      html.push(`<h2>${inlineMarkdown(line.slice(3))}</h2>`);
-      continue;
+      html.push(`<h2>${inlineMarkdown(trimmedLine.slice(3))}</h2>`);
+      return;
     }
 
-    if (line.startsWith('# ')) {
+    if (trimmedLine.startsWith('# ')) {
       closeLists();
-      html.push(`<h1>${inlineMarkdown(line.slice(2))}</h1>`);
-      continue;
+      html.push(`<h1>${inlineMarkdown(trimmedLine.slice(2))}</h1>`);
+      return;
     }
 
-    const numbered = line.match(/^\d+\.\s+(.*)$/);
+    const numbered = trimmedLine.match(/^\d+\.\s+(.*)$/);
     if (numbered) {
       if (inList) {
         html.push('</ul>');
         inList = false;
       }
       if (!inOrderedList) {
-        html.push('<ol>');
+        html.push('<ol type="1">');
         inOrderedList = true;
       }
       html.push(`<li>${inlineMarkdown(numbered[1])}</li>`);
-      continue;
+      return;
     }
 
-    const task = line.match(/^- \[( |x|X)\]\s+(.*)$/);
+    const task = trimmedLine.match(/^[-*]\s+\[( |x|X)\]\s+(.*)$/);
     if (task) {
       if (inOrderedList) {
         html.push('</ol>');
@@ -158,11 +161,14 @@ export function renderMarkdown(markdown: string) {
         inList = true;
       }
       const checked = task[1].toLowerCase() === 'x' ? ' checked' : '';
-      html.push(`<li class="task-list-item"><input type="checkbox" disabled${checked}> ${inlineMarkdown(task[2])}</li>`);
-      continue;
+      const disabled = options.interactiveTasks ? '' : ' disabled';
+      const lineAttribute = options.interactiveTasks ? ` data-markdown-task-line="${lineIndex}"` : '';
+      html.push(`<li class="task-list-item"><input type="checkbox"${disabled}${checked}${lineAttribute}> ${inlineMarkdown(task[2])}</li>`);
+      return;
     }
 
-    if (line.startsWith('- ')) {
+    const bullet = trimmedLine.match(/^[-*]\s+(.*)$/);
+    if (bullet) {
       if (inOrderedList) {
         html.push('</ol>');
         inOrderedList = false;
@@ -171,28 +177,44 @@ export function renderMarkdown(markdown: string) {
         html.push('<ul>');
         inList = true;
       }
-      html.push(`<li>${inlineMarkdown(line.slice(2))}</li>`);
-      continue;
+      html.push(`<li>${inlineMarkdown(bullet[1])}</li>`);
+      return;
     }
 
     closeLists();
 
-    if (line.trim()) {
-      if (line.startsWith('> ')) {
-        html.push(`<blockquote>${inlineMarkdown(line.slice(2))}</blockquote>`);
+    if (trimmedLine.trim()) {
+      if (trimmedLine.startsWith('> ')) {
+        html.push(`<blockquote>${inlineMarkdown(trimmedLine.slice(2))}</blockquote>`);
       } else {
-        html.push(`<p>${inlineMarkdown(line)}</p>`);
+        html.push(`<p>${inlineMarkdown(trimmedLine)}</p>`);
       }
     }
-  }
+  });
 
   closeLists();
 
   return html.join('');
 }
 
-export const MarkdownBlock = memo(function MarkdownBlock({ markdown }: MarkdownBlockProps) {
-  const html = useMemo(() => renderMarkdown(markdown), [markdown]);
+export const MarkdownBlock = memo(function MarkdownBlock({ markdown, onTaskToggle }: MarkdownBlockProps) {
+  const html = useMemo(() => renderMarkdown(markdown, { interactiveTasks: Boolean(onTaskToggle) }), [markdown, onTaskToggle]);
 
-  return <div className="markdown" dangerouslySetInnerHTML={{ __html: html }} />;
+  return (
+    <div
+      className="markdown"
+      dangerouslySetInnerHTML={{ __html: html }}
+      onClick={(event) => {
+        if (!onTaskToggle) return;
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement)) return;
+
+        const lineIndex = target.dataset.markdownTaskLine;
+        if (lineIndex === undefined) return;
+
+        event.stopPropagation();
+        onTaskToggle(Number(lineIndex));
+      }}
+    />
+  );
 });

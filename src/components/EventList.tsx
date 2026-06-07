@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import {
   CalendarPlus,
   CalendarX,
@@ -26,7 +26,7 @@ type EventListProps = {
   canEdit: boolean;
   isMinimized: boolean;
   onToggleMinimized: () => void;
-  onAdd: () => void;
+  onAdd: (moment?: { date: string; time: string }) => void;
   onChange: (event: TimelineEvent) => void;
   onToggleTimeline: (event: TimelineEvent) => void;
   onSetAllTimeline: (visible: boolean) => void;
@@ -191,7 +191,7 @@ export function EventList({
             <button
               type="button"
               className="icon-button event-add-button max-sm:justify-self-end"
-              onClick={onAdd}
+              onClick={() => onAdd()}
               aria-label="Add event"
               title="Add event"
             >
@@ -270,22 +270,29 @@ export function EventList({
               const isHidden = event.showOnTimeline === false;
 
               return (
-                <tr
-                  key={event.id}
-                  id={`event-row-${event.id}`}
-                  className={cn(
-                    "max-sm:p-2",
-                    isAlt &&
-                      "[&>td]:bg-[#eef7ff] [&>.event-date-cell]:bg-[#dff1ff] [&>.event-time-cell]:bg-[#dff1ff]",
-                    isPast &&
-                      "bg-[#f0eee7] bg-[repeating-linear-gradient(135deg,transparent_0_11px,rgba(36,34,29,0.045)_11px_17px)] [&>td]:border-t-[rgba(36,34,29,0.1)] [&>td]:bg-[#f0eee7] [&>td]:bg-[repeating-linear-gradient(135deg,transparent_0_11px,rgba(36,34,29,0.045)_11px_17px)] [&>td]:text-[rgba(36,34,29,0.66)]",
-                    isAlt &&
+                <Fragment key={event.id}>
+                  {canEdit ? (
+                    <EventInsertRow
+                      colSpan={visibleColumns.length + 1}
+                      label={`Add event before ${event.what || formatShortGermanDateRange(event.date, event.endDate)}`}
+                      onAdd={() => onAdd({ date: event.date, time: "" })}
+                    />
+                  ) : null}
+                  <tr
+                    id={`event-row-${event.id}`}
+                    className={cn(
+                      "max-sm:p-2",
+                      isAlt &&
+                        "[&>td]:bg-[#eef7ff] [&>.event-date-cell]:bg-[#dff1ff] [&>.event-time-cell]:bg-[#dff1ff]",
                       isPast &&
-                      "bg-[#e6eef0] bg-[repeating-linear-gradient(135deg,transparent_0_11px,rgba(36,34,29,0.05)_11px_17px)] [&>td]:border-t-[rgba(36,34,29,0.12)] [&>td]:bg-[#e6eef0] [&>td]:bg-[repeating-linear-gradient(135deg,transparent_0_11px,rgba(36,34,29,0.05)_11px_17px)]",
-                    isHidden &&
-                      "bg-[repeating-linear-gradient(135deg,transparent_0_12px,rgba(17,17,17,0.035)_12px_18px)] [&>td]:bg-[repeating-linear-gradient(135deg,transparent_0_12px,rgba(17,17,17,0.035)_12px_18px)] [&>td]:text-[var(--muted)]",
-                  )}
-                >
+                        "bg-[#f0eee7] bg-[repeating-linear-gradient(135deg,transparent_0_11px,rgba(36,34,29,0.045)_11px_17px)] [&>td]:border-t-[rgba(36,34,29,0.1)] [&>td]:bg-[#f0eee7] [&>td]:bg-[repeating-linear-gradient(135deg,transparent_0_11px,rgba(36,34,29,0.045)_11px_17px)] [&>td]:text-[rgba(36,34,29,0.66)]",
+                      isAlt &&
+                        isPast &&
+                        "bg-[#e6eef0] bg-[repeating-linear-gradient(135deg,transparent_0_11px,rgba(36,34,29,0.05)_11px_17px)] [&>td]:border-t-[rgba(36,34,29,0.12)] [&>td]:bg-[#e6eef0] [&>td]:bg-[repeating-linear-gradient(135deg,transparent_0_11px,rgba(36,34,29,0.05)_11px_17px)]",
+                      isHidden &&
+                        "bg-[repeating-linear-gradient(135deg,transparent_0_12px,rgba(17,17,17,0.035)_12px_18px)] [&>td]:bg-[repeating-linear-gradient(135deg,transparent_0_12px,rgba(17,17,17,0.035)_12px_18px)] [&>td]:text-[var(--muted)]",
+                    )}
+                  >
                 <td className="event-date-cell bg-[#fff8d8]" data-label="Date">
                   {canEdit ? (
                     <div
@@ -355,7 +362,9 @@ export function EventList({
                         onValueChange={(time) => onChange({ ...event, time, endTime: time ? event.endTime : undefined })}
                         aria-label={`Time for ${event.what}`}
                       />
-                      {event.endDate && event.time ? (
+                      {!event.time ? (
+                        <span className="text-[10px] font-black uppercase text-[var(--muted)]">All day</span>
+                      ) : event.endDate ? (
                         event.endTime ? (
                           <div className="inline-time-with-action">
                             <InlineTextInput
@@ -386,9 +395,7 @@ export function EventList({
                             + time
                           </button>
                         )
-                      ) : (
-                        <span className="text-[10px] font-black uppercase text-[var(--muted)]">All day</span>
-                      )}
+                      ) : null}
                     </div>
                   ) : (
                     formatEventTimeRange(event)
@@ -546,14 +553,56 @@ export function EventList({
                     </div>
                   ) : null}
                 </td>
-                </tr>
+                  </tr>
+                </Fragment>
               );
             })}
+            {canEdit ? (
+              <EventInsertRow
+                colSpan={visibleColumns.length + 1}
+                label="Add event at end"
+                onAdd={() => {
+                  const lastEvent = sortedEventRows.at(-1);
+                  if (lastEvent) {
+                    onAdd({ date: lastEvent.endDate ?? lastEvent.date, time: "" });
+                    return;
+                  }
+
+                  onAdd();
+                }}
+              />
+            ) : null}
           </tbody>
         </table>
       </div>
       {appDialog.dialog}
     </SectionShell>
+  );
+}
+
+function EventInsertRow({
+  colSpan,
+  label,
+  onAdd,
+}: {
+  colSpan: number;
+  label: string;
+  onAdd: () => void;
+}) {
+  return (
+    <tr className="event-insert-row">
+      <td colSpan={colSpan}>
+        <button
+          type="button"
+          className="event-insert-button"
+          onClick={onAdd}
+          aria-label={label}
+          title={label}
+        >
+          <span aria-hidden="true" />
+        </button>
+      </td>
+    </tr>
   );
 }
 

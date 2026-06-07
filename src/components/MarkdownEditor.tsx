@@ -1,7 +1,7 @@
 'use client';
 
-import { useDeferredValue, useRef } from 'react';
-import type { KeyboardEvent } from 'react';
+import { useDeferredValue, useEffect, useRef, useState } from 'react';
+import type { KeyboardEvent, MouseEvent } from 'react';
 import { MarkdownBlock } from './MarkdownBlock';
 import { cn } from '@/lib/cn';
 
@@ -53,14 +53,60 @@ export function MarkdownEditor({
   rows = 7,
 }: MarkdownEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const previewValue = useDeferredValue(value);
+  const latestValueRef = useRef(value);
+  const [editorState, setEditorState] = useState(() => ({
+    localValue: value,
+    propValue: value,
+  }));
+  let localValue = editorState.localValue;
+  if (value !== editorState.propValue) {
+    const nextState = {
+      propValue: value,
+      localValue: value === editorState.localValue ? editorState.localValue : value,
+    };
+    localValue = nextState.localValue;
+    setEditorState(nextState);
+  }
+  const previewValue = useDeferredValue(localValue);
+
+  useEffect(() => {
+    latestValueRef.current = editorState.propValue;
+  }, [editorState.propValue]);
+
+  useEffect(() => {
+    if (localValue === latestValueRef.current) return;
+
+    const timeout = window.setTimeout(() => {
+      if (localValue === latestValueRef.current) return;
+
+      latestValueRef.current = localValue;
+      onChange(localValue);
+    }, 180);
+
+    return () => window.clearTimeout(timeout);
+  }, [localValue, onChange]);
+
+  function updateValue(nextValue: string, flush = false) {
+    setEditorState((current) => ({ ...current, localValue: nextValue }));
+    if (!flush) return;
+
+    latestValueRef.current = nextValue;
+    onChange(nextValue);
+  }
+
+  function flushValue() {
+    if (localValue === latestValueRef.current) return;
+
+    latestValueRef.current = localValue;
+    onChange(localValue);
+  }
 
   function applyAction(action: MarkdownAction) {
     const textarea = textareaRef.current;
     if (!textarea) return;
 
-    const nextEdit = formatMarkdown(value, textarea.selectionStart, textarea.selectionEnd, action);
-    onChange(nextEdit.value);
+    const nextEdit = formatMarkdown(localValue, textarea.selectionStart, textarea.selectionEnd, action);
+    updateValue(nextEdit.value, true);
     window.requestAnimationFrame(() => {
       textarea.focus();
       textarea.setSelectionRange(nextEdit.selectionStart, nextEdit.selectionEnd);
@@ -71,8 +117,8 @@ export function MarkdownEditor({
     const textarea = textareaRef.current;
     if (!textarea) return;
 
-    const nextEdit = wrapSelection(value, textarea.selectionStart, textarea.selectionEnd, `[color=${color}]`, '[/color]', 'colored text');
-    onChange(nextEdit.value);
+    const nextEdit = wrapSelection(localValue, textarea.selectionStart, textarea.selectionEnd, `[color=${color}]`, '[/color]', 'colored text');
+    updateValue(nextEdit.value, true);
     window.requestAnimationFrame(() => {
       textarea.focus();
       textarea.setSelectionRange(nextEdit.selectionStart, nextEdit.selectionEnd);
@@ -80,6 +126,10 @@ export function MarkdownEditor({
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key === 'Enter' && !event.metaKey && !event.ctrlKey && !event.altKey && continueNumberedList(event)) {
+      return;
+    }
+
     if (!event.metaKey && !event.ctrlKey) return;
 
     const key = event.key.toLowerCase();
@@ -101,6 +151,30 @@ export function MarkdownEditor({
     }
   }
 
+  function continueNumberedList(event: KeyboardEvent<HTMLTextAreaElement>) {
+    const textarea = textareaRef.current;
+    if (!textarea || textarea.selectionStart !== textarea.selectionEnd) return false;
+
+    const lineStart = localValue.lastIndexOf('\n', Math.max(0, textarea.selectionStart - 1)) + 1;
+    const currentLine = localValue.slice(lineStart, textarea.selectionStart);
+    const match = currentLine.match(/^(\s*)(\d+)\.\s(.*)$/);
+    if (!match) return false;
+
+    event.preventDefault();
+    const [, indent, number, content] = match;
+    const insertion = content.trim()
+      ? `\n${indent}${Number(number) + 1}. `
+      : '\n';
+    const nextValue = `${localValue.slice(0, textarea.selectionStart)}${insertion}${localValue.slice(textarea.selectionEnd)}`;
+    const nextPosition = textarea.selectionStart + insertion.length;
+    updateValue(nextValue);
+    window.requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(nextPosition, nextPosition);
+    });
+    return true;
+  }
+
   function renderToolbarGroup(items: Array<{ action: MarkdownAction; label: string; title: string }>) {
     return (
       <div className="markdown-toolbar-group">
@@ -110,7 +184,10 @@ export function MarkdownEditor({
             className="mini-button tertiary"
             key={item.action}
             title={item.title}
-            onClick={() => applyAction(item.action)}
+            onMouseDown={(event) => {
+              event.preventDefault();
+              applyAction(item.action);
+            }}
           >
             {item.label}
           </button>
@@ -121,7 +198,14 @@ export function MarkdownEditor({
 
   return (
     <div className="markdown-editor">
-      <div className="markdown-toolbar" aria-label="Markdown formatting">
+      <div
+        className="markdown-toolbar"
+        aria-label="Markdown formatting"
+        onMouseDown={(event: MouseEvent<HTMLDivElement>) => {
+          if (event.target instanceof HTMLInputElement) return;
+          event.preventDefault();
+        }}
+      >
         {renderToolbarGroup(textActions)}
         {renderToolbarGroup(blockActions)}
         <div className="markdown-color-tools" aria-label="Text color">
@@ -132,12 +216,20 @@ export function MarkdownEditor({
               key={color}
               style={{ backgroundColor: color }}
               title={`Text color ${color}`}
-              onClick={() => applyColor(color)}
+              onMouseDown={(event) => {
+                event.preventDefault();
+                applyColor(color);
+              }}
             />
           ))}
           <label className="markdown-color-picker" title="Custom text color" aria-label="Custom text color">
             <span className="sr-only">Custom color</span>
-            <input type="color" onChange={(event) => applyColor(event.target.value)} aria-label="Custom text color" />
+            <input
+              type="color"
+              onMouseDown={(event) => event.stopPropagation()}
+              onChange={(event) => applyColor(event.target.value)}
+              aria-label="Custom text color"
+            />
           </label>
         </div>
       </div>
@@ -145,8 +237,9 @@ export function MarkdownEditor({
         <textarea
           ref={textareaRef}
           className={cn('markdown-compose-field', className)}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
+          value={localValue}
+          onChange={(event) => updateValue(event.target.value)}
+          onBlur={flushValue}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           rows={rows}
@@ -211,9 +304,10 @@ function prefixLines(value: string, selectionStart: number, selectionEnd: number
 function numberLines(value: string, selectionStart: number, selectionEnd: number) {
   const lineStart = value.lastIndexOf('\n', Math.max(0, selectionStart - 1)) + 1;
   const selected = value.slice(lineStart, selectionEnd) || 'Text';
+  const startNumber = previousNumberedListValue(value, lineStart) + 1;
   const numbered = selected
     .split('\n')
-    .map((line, index) => (/^\d+\.\s/.test(line) ? line : `${index + 1}. ${line}`))
+    .map((line, index) => (/^\s*\d+\.\s/.test(line) ? line : `${startNumber + index}. ${line}`))
     .join('\n');
   const nextValue = `${value.slice(0, lineStart)}${numbered}${value.slice(selectionEnd)}`;
 
@@ -222,4 +316,18 @@ function numberLines(value: string, selectionStart: number, selectionEnd: number
     selectionStart: lineStart,
     selectionEnd: lineStart + numbered.length,
   };
+}
+
+function previousNumberedListValue(value: string, lineStart: number) {
+  const previousLines = value.slice(0, lineStart).split('\n').slice(0, -1);
+
+  for (let index = previousLines.length - 1; index >= 0; index -= 1) {
+    const line = previousLines[index];
+    if (!line.trim()) continue;
+
+    const match = line.match(/^\s*(\d+)\.\s/);
+    return match ? Number(match[1]) : 0;
+  }
+
+  return 0;
 }

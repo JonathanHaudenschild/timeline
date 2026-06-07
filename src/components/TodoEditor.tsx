@@ -38,36 +38,40 @@ export function TodoEditor({
   onDelete,
   onConvertToEvent,
 }: TodoEditorProps) {
+  const [localDraft, setLocalDraft] = useState(draft);
   const [tagInput, setTagInput] = useState('');
-  const selectedTags = normalizeTodoTags(draft.tags);
+  const selectedTags = normalizeTodoTags(localDraft.tags);
   const suggestionTags = useMemo(() => {
     const selected = new Set(selectedTags.map((tag) => tag.toLocaleLowerCase()));
     return normalizeTodoTags(availableTags)
       .filter((tag) => !selected.has(tag.toLocaleLowerCase()))
       .sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' }));
   }, [availableTags, selectedTags]);
-  const tagOptionsId = `todo-tag-options-${draft.id}`;
+  const tagOptionsId = `todo-tag-options-${localDraft.id}`;
+
+  function updateDraft(patch: Partial<TimelineTodo>) {
+    setLocalDraft((currentDraft) => ({ ...currentDraft, ...patch }));
+  }
 
   function addTag(tag: string) {
     const normalizedTag = normalizeTodoTag(tag);
     if (!normalizedTag) return;
-    onChange({ ...draft, tags: normalizeTodoTags([...selectedTags, normalizedTag]) });
+    updateDraft({ tags: normalizeTodoTags([...selectedTags, normalizedTag]) });
     setTagInput('');
   }
 
   function removeTag(tag: string) {
-    onChange({
-      ...draft,
+    updateDraft({
       tags: selectedTags.filter((item) => item.toLocaleLowerCase() !== tag.toLocaleLowerCase()),
     });
   }
 
   function saveWithPendingTag() {
-    const todoToSave = todoWithPendingTag(draft, tagInput);
+    const todoToSave = todoWithPendingTag(localDraft, tagInput);
     if (tagInput.trim()) {
-      onChange(todoToSave);
       setTagInput('');
     }
+    onChange(todoToSave);
     onSave(todoToSave);
   }
 
@@ -84,19 +88,19 @@ export function TodoEditor({
         <div className="form-grid">
           <TextField
             label="Title"
-            value={draft.title}
-            onValueChange={(title) => onChange({ ...draft, title })}
+            value={localDraft.title}
+            onValueChange={(title) => updateDraft({ title })}
             required
           />
           <TextField
             label="Who"
-            value={draft.who}
-            onValueChange={(who) => onChange({ ...draft, who })}
+            value={localDraft.who}
+            onValueChange={(who) => updateDraft({ who })}
           />
           <SelectField
             label="Status"
-            value={draft.status}
-            onValueChange={(status) => onChange({ ...draft, status: status as TodoStatus })}
+            value={localDraft.status}
+            onValueChange={(status) => updateDraft({ status: status as TodoStatus })}
             className="max-w-none"
           >
               {statuses.map((status) => (
@@ -108,8 +112,8 @@ export function TodoEditor({
           {boards.length > 1 || forceBoardSelect ? (
             <SelectField
               label="Board"
-              value={draft.boardId ?? boards[0]?.id ?? ''}
-              onValueChange={(boardId) => onChange({ ...draft, boardId })}
+              value={localDraft.boardId ?? boards[0]?.id ?? ''}
+              onValueChange={(boardId) => updateDraft({ boardId })}
               className="max-w-none"
             >
                 {boards.map((board) => (
@@ -122,8 +126,8 @@ export function TodoEditor({
           {protocolOptions.length ? (
             <SelectField
               label="Protocol"
-              value={draft.protocolId ?? ''}
-              onValueChange={(protocolId) => onChange({ ...draft, protocolId: protocolId || undefined })}
+              value={localDraft.protocolId ?? ''}
+              onValueChange={(protocolId) => updateDraft({ protocolId: protocolId || undefined })}
               className="max-w-none"
             >
                 <option value="">No protocol</option>
@@ -137,12 +141,12 @@ export function TodoEditor({
           <TextField
             label="Due"
             type="date"
-            value={draft.dueDate ?? ''}
-            onValueChange={(dueDate) => onChange({ ...draft, dueDate })}
+            value={localDraft.dueDate ?? ''}
+            onValueChange={(dueDate) => updateDraft({ dueDate })}
           />
           <TextField
             label="Created"
-            value={formatTodoCreatedAt(draft.createdAt)}
+            value={formatTodoCreatedAt(localDraft.createdAt)}
             onValueChange={() => undefined}
             readOnly
             inputClassName="readonly-input"
@@ -208,8 +212,8 @@ export function TodoEditor({
         <label>
           <span>Markdown note</span>
           <MarkdownEditor
-            value={draft.body}
-            onChange={(body) => onChange({ ...draft, body })}
+            value={localDraft.body}
+            onChange={(body) => updateDraft({ body })}
             rows={7}
           />
         </label>

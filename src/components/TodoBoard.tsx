@@ -104,12 +104,19 @@ export function TodoBoard({
   );
   const [search, setSearch] = useState('');
   const [tagFilter, setTagFilter] = usePersistentState(`timeline:ui:todo-tag-filter:${boardId}`, '');
+  const [whoFilter, setWhoFilter] = usePersistentState(`timeline:ui:todo-who-filter:${boardId}`, '');
   const selectedTodo = selectedTodoId ? todos.find((todo) => todo.id === selectedTodoId) ?? null : null;
   const activeDraftTodo = selectedTodo && selectedTodo.id !== draftTodo?.id ? selectedTodo : draftTodo;
   const editorDraftTodo = activeDraftTodo ? { ...activeDraftTodo, boardId: activeDraftTodo.boardId ?? boardId } : null;
   const availableTags = useMemo(
     () =>
       normalizeTodoTags(todos.flatMap((todo) => todo.tags ?? []))
+        .sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' })),
+    [todos],
+  );
+  const availableOwners = useMemo(
+    () =>
+      uniqueStrings(todos.map((todo) => todo.who))
         .sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' })),
     [todos],
   );
@@ -231,8 +238,12 @@ export function TodoBoard({
 
   const totalOpen = todos.filter((todo) => !isTodoCompleted(todo, completedTodoStatus)).length;
   const visibleStatuses = statuses.length ? statuses : defaultTodoStatuses;
-  const filteredTodos = todos.filter((todo) => todoMatchesSearch(todo, search) && todoMatchesTag(todo, tagFilter));
-  const hasActiveFilter = Boolean(search.trim()) || Boolean(tagFilter.trim());
+  const filteredTodos = todos.filter((todo) =>
+    todoMatchesSearch(todo, search) &&
+    todoMatchesTag(todo, tagFilter) &&
+    todoMatchesWho(todo, whoFilter),
+  );
+  const hasActiveFilter = Boolean(search.trim()) || Boolean(tagFilter.trim()) || Boolean(whoFilter.trim());
 
   function addStatus() {
     const status = normalizeTodoStatus(newStatus);
@@ -309,6 +320,22 @@ export function TodoBoard({
                 </option>
               ))}
           </SelectField>
+          <SelectField
+            label="Who"
+            value={whoFilter}
+            onValueChange={setWhoFilter}
+            className="todo-who-filter-control flex-[0_1_220px] sm:max-w-[220px] max-sm:max-w-none"
+          >
+              <option value="">All people</option>
+              {whoFilter && !availableOwners.some((owner) => namesEqual(owner, whoFilter)) ? (
+                <option value={whoFilter}>{whoFilter}</option>
+              ) : null}
+              {availableOwners.map((owner) => (
+                <option key={owner} value={owner}>
+                  {owner}
+                </option>
+              ))}
+          </SelectField>
           <FilterBadge
             active={hasActiveFilter}
             label={`${filteredTodos.length} / ${todos.length}`}
@@ -316,6 +343,7 @@ export function TodoBoard({
             onClear={() => {
               setSearch('');
               setTagFilter('');
+              setWhoFilter('');
             }}
             clearLabel="Clear todo filters"
             className="max-sm:w-full"
@@ -638,7 +666,16 @@ export function TodoBoard({
                     ) : null}
                     {todo.body.trim() ? (
                       <div className="todo-card-note">
-                        <MarkdownBlock markdown={todo.body} />
+                        <MarkdownBlock
+                          markdown={todo.body}
+                          onTaskToggle={canEdit ? (lineIndex) => {
+                            onChange(todos.map((item) =>
+                              item.id === todo.id
+                                ? touchTodo({ ...item, body: toggleMarkdownTask(item.body, lineIndex) })
+                                : item,
+                            ));
+                          } : undefined}
+                        />
                       </div>
                     ) : null}
                     {todo.comments?.length ? (
@@ -857,6 +894,19 @@ function formatTodoUpdatedAt(value: string | undefined) {
   return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')} ${time}`;
 }
 
+function toggleMarkdownTask(markdown: string, lineIndex: number) {
+  return markdown
+    .split('\n')
+    .map((line, index) => {
+      if (index !== lineIndex) return line;
+
+      return line.replace(/^(\s*[-*]\s+\[)([ xX])(\]\s+)/, (_match, prefix: string, checked: string, suffix: string) =>
+        `${prefix}${checked.toLowerCase() === 'x' ? ' ' : 'x'}${suffix}`,
+      );
+    })
+    .join('\n');
+}
+
 function formatClockTime(date: Date) {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
@@ -891,6 +941,31 @@ function todoMatchesTag(todo: TimelineTodo, tagFilter: string) {
   return normalizeTodoTags(todo.tags).some((tag) => tagsEqual(tag, filter));
 }
 
+function todoMatchesWho(todo: TimelineTodo, whoFilter: string) {
+  const filter = whoFilter.trim();
+  if (!filter) return true;
+
+  return namesEqual(todo.who, filter);
+}
+
 function tagsEqual(left: string, right: string) {
   return left.trim().toLocaleLowerCase() === right.trim().toLocaleLowerCase();
+}
+
+function namesEqual(left: string, right: string) {
+  return left.trim().toLocaleLowerCase() === right.trim().toLocaleLowerCase();
+}
+
+function uniqueStrings(values: string[]) {
+  const unique = new Map<string, string>();
+
+  values.forEach((value) => {
+    const normalized = value.trim();
+    if (!normalized) return;
+
+    const key = normalized.toLocaleLowerCase();
+    if (!unique.has(key)) unique.set(key, normalized);
+  });
+
+  return [...unique.values()];
 }

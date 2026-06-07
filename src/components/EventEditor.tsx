@@ -1,6 +1,7 @@
 'use client';
 
 import { Save, Trash2, X } from 'lucide-react';
+import { useState } from 'react';
 import type { TimelineEvent } from '@/lib/types';
 import { colorForType } from '@/lib/colors';
 import { eventCategoryOptions, eventTypeOptions } from '@/lib/eventOptions';
@@ -13,21 +14,27 @@ type EventEditorProps = {
   typeColors: Record<string, string>;
   onChange: (event: TimelineEvent) => void;
   onCancel: () => void;
-  onSave: () => void;
+  onSave: (event?: TimelineEvent) => void;
   onDelete?: () => void;
   modal?: boolean;
 };
 
 export function EventEditor({ draft, events, typeColors, onChange, onCancel, onSave, onDelete, modal = false }: EventEditorProps) {
+  const [localDraft, setLocalDraft] = useState(draft);
   const eventTypes = eventTypeOptions(events);
   const eventCategories = eventCategoryOptions(events);
+
+  function updateDraft(patch: Partial<TimelineEvent>) {
+    setLocalDraft((currentDraft) => ({ ...currentDraft, ...patch }));
+  }
 
   const form = (
     <form
       className={modal ? 'editor-panel modal-panel' : 'editor-panel'}
       onSubmit={(event) => {
         event.preventDefault();
-        onSave();
+        onChange(localDraft);
+        onSave(localDraft);
       }}
     >
       <div className="panel-title">Event</div>
@@ -35,40 +42,39 @@ export function EventEditor({ draft, events, typeColors, onChange, onCancel, onS
         <TextField
           label="Date"
           type="date"
-          value={draft.date}
-          onValueChange={(date) => onChange({ ...draft, date })}
+          value={localDraft.date}
+          onValueChange={(date) => updateDraft({ date })}
           required
         />
         <TextField
           label="End"
           type="date"
-          value={draft.endDate ?? ''}
+          value={localDraft.endDate ?? ''}
           onValueChange={(endDate) =>
-            onChange({
-              ...draft,
+            updateDraft({
               endDate: endDate || undefined,
-              endTime: endDate ? draft.endTime : undefined,
+              endTime: endDate ? localDraft.endTime : undefined,
             })
           }
         />
         <TextField
           label="Time"
           type="time"
-          value={draft.time}
-          onValueChange={(time) => onChange({ ...draft, time, endTime: time ? draft.endTime : undefined })}
+          value={localDraft.time}
+          onValueChange={(time) => updateDraft({ time, endTime: time ? localDraft.endTime : undefined })}
         />
         <TextField
           label="End time"
           type="time"
-          value={draft.endTime ?? ''}
-          disabled={!draft.endDate || !draft.time}
-          onValueChange={(endTime) => onChange({ ...draft, endTime: endTime || undefined })}
+          value={localDraft.endTime ?? ''}
+          disabled={!localDraft.endDate || !localDraft.time}
+          onValueChange={(endTime) => updateDraft({ endTime: endTime || undefined })}
         />
         <TextField
           label="Type"
           list="event-type-suggestions"
-          value={draft.type}
-          onValueChange={(type) => onChange({ ...draft, type, color: '' })}
+          value={localDraft.type}
+          onValueChange={(type) => updateDraft({ type, color: '' })}
           placeholder="milestone, outage, call, custom..."
         />
           <datalist id="event-type-suggestions">
@@ -79,8 +85,8 @@ export function EventEditor({ draft, events, typeColors, onChange, onCancel, onS
         <TextField
           label="Category"
           list="event-category-suggestions"
-          value={draft.category ?? ''}
-          onValueChange={(category) => onChange({ ...draft, category })}
+          value={localDraft.category ?? ''}
+          onValueChange={(category) => updateDraft({ category })}
           placeholder="event, milestone, deadline..."
         />
           <datalist id="event-category-suggestions">
@@ -93,34 +99,34 @@ export function EventEditor({ draft, events, typeColors, onChange, onCancel, onS
           <div className="color-row">
             <input
               type="color"
-              value={draft.color || colorForType(draft.type, typeColors)}
-              onChange={(event) => onChange({ ...draft, color: event.target.value })}
+              value={localDraft.color || colorForType(localDraft.type, typeColors)}
+              onChange={(event) => updateDraft({ color: event.target.value })}
               aria-label="Event color"
             />
             <input
-              value={draft.color || ''}
-              onChange={(event) => onChange({ ...draft, color: event.target.value })}
-              placeholder={colorForType(draft.type, typeColors)}
+              value={localDraft.color || ''}
+              onChange={(event) => updateDraft({ color: event.target.value })}
+              placeholder={colorForType(localDraft.type, typeColors)}
               aria-label="Event color hex"
             />
           </div>
         </label>
         <TextField
           label="What"
-          value={draft.what}
-          onValueChange={(what) => onChange({ ...draft, what })}
+          value={localDraft.what}
+          onValueChange={(what) => updateDraft({ what })}
           required
         />
         <TextField
           label="Who"
-          value={draft.who}
-          onValueChange={(who) => onChange({ ...draft, who })}
+          value={localDraft.who}
+          onValueChange={(who) => updateDraft({ who })}
         />
         <label className="check-control switch-control event-timeline-switch">
           <input
             type="checkbox"
-            checked={draft.showOnTimeline !== false}
-            onChange={(event) => onChange({ ...draft, showOnTimeline: event.target.checked })}
+            checked={localDraft.showOnTimeline !== false}
+            onChange={(event) => updateDraft({ showOnTimeline: event.target.checked })}
           />
           <span>Show on timeline</span>
         </label>
@@ -128,8 +134,8 @@ export function EventEditor({ draft, events, typeColors, onChange, onCancel, onS
       <label>
         <span>Markdown note</span>
         <MarkdownEditor
-          value={draft.note}
-          onChange={(note) => onChange({ ...draft, note })}
+          value={localDraft.note}
+          onChange={(note) => updateDraft({ note })}
           rows={5}
         />
       </label>
