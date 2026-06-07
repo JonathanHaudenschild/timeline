@@ -371,6 +371,45 @@ describe('project helpers', () => {
     });
   });
 
+  it('keeps remote board fields when local edits todos in the same board', () => {
+    const baseProject = createDefaultProject('merge-board-fields');
+    const baseBoard = baseProject.todoBoards?.[0];
+    const baseTodo = baseBoard?.todos[0];
+    if (!baseBoard || !baseTodo) throw new Error('Expected default todo board with todos');
+
+    const localProject = {
+      ...baseProject,
+      todoBoards: [
+        {
+          ...baseBoard,
+          todos: baseBoard.todos.map((todo) =>
+            todo.id === baseTodo.id
+              ? { ...todo, title: 'Local todo edit', updatedAt: '2026-06-06T10:00:00.000Z' }
+              : todo,
+          ),
+        },
+      ],
+    };
+    const remoteProject = {
+      ...baseProject,
+      revision: 2,
+      todoBoards: [
+        {
+          ...baseBoard,
+          name: 'Remote board name',
+          pinHash: 'remote-board-pin',
+        },
+      ],
+    };
+
+    const merged = mergeProjectChanges(baseProject, localProject, remoteProject);
+    const [mergedBoard] = normalizeTodoBoards(merged);
+
+    expect(mergedBoard.name).toBe('Remote board name');
+    expect(mergedBoard.pinHash).toBe('remote-board-pin');
+    expect(mergedBoard.todos[0].title).toBe('Local todo edit');
+  });
+
   it('keeps comments added to the same todo on different devices', () => {
     const baseProject = createDefaultProject('merge-todo-comments');
     const baseBoard = baseProject.todoBoards?.[0];
@@ -559,6 +598,116 @@ describe('project helpers', () => {
       body: 'Locally edited body',
     });
     expect(mergedTodo?.comments?.map((comment) => comment.body)).toEqual(['Remote comment while editing']);
+  });
+
+  it('keeps a local todo card move when another device comments on the same todo', () => {
+    const baseProject = createDefaultProject('merge-todo-move-comment');
+    const baseBoard = baseProject.todoBoards?.[0];
+    const baseTodo = baseBoard?.todos[0];
+    if (!baseBoard || !baseTodo) throw new Error('Expected default todo board with todos');
+
+    const movedTodos = moveTodoWithinBoard(baseBoard.todos, baseTodo.id, 'doing');
+    const localProject = {
+      ...baseProject,
+      todoBoards: [{ ...baseBoard, todos: movedTodos }],
+    };
+    const remoteProject = {
+      ...baseProject,
+      revision: 2,
+      todoBoards: [
+        {
+          ...baseBoard,
+          todos: baseBoard.todos.map((todo) =>
+            todo.id === baseTodo.id
+              ? {
+                  ...todo,
+                  comments: [
+                    {
+                      id: 'comment-remote',
+                      body: 'Remote comment during move',
+                      createdAt: '2026-06-06T10:05:00.000Z',
+                      updatedAt: '2026-06-06T10:05:00.000Z',
+                    },
+                  ],
+                  updatedAt: '2026-06-06T10:05:00.000Z',
+                }
+              : todo,
+          ),
+        },
+      ],
+    };
+
+    const merged = mergeProjectChanges(baseProject, localProject, remoteProject);
+    const [mergedBoard] = normalizeTodoBoards(merged);
+    const mergedTodo = mergedBoard.todos.find((todo) => todo.id === baseTodo.id);
+
+    expect(mergedTodo).toMatchObject({ status: 'doing' });
+    expect(mergedTodo?.comments?.map((comment) => comment.body)).toEqual(['Remote comment during move']);
+  });
+
+  it('keeps a todo on the moved board when another device comments during a board move', () => {
+    const baseProject = createDefaultProject('merge-todo-board-move-comment');
+    const baseBoard = baseProject.todoBoards?.[0];
+    const baseTodo = baseBoard?.todos[0];
+    if (!baseBoard || !baseTodo) throw new Error('Expected default todo board with todos');
+
+    const targetBoard = {
+      id: 'board-target',
+      name: 'Target',
+      statuses: ['open', 'done'],
+      completedTodoStatus: 'done',
+      todos: [],
+    };
+    const baseWithBoards = {
+      ...baseProject,
+      todoBoards: [baseBoard, targetBoard],
+    };
+    const localBoards = moveTodoBetweenBoards(
+      normalizeTodoBoards(baseWithBoards),
+      baseTodo,
+      baseBoard.id,
+      targetBoard.id,
+    );
+    const localProject = {
+      ...baseWithBoards,
+      todoBoards: localBoards,
+    };
+    const remoteProject = {
+      ...baseWithBoards,
+      revision: 2,
+      todoBoards: [
+        {
+          ...baseBoard,
+          todos: baseBoard.todos.map((todo) =>
+            todo.id === baseTodo.id
+              ? {
+                  ...todo,
+                  comments: [
+                    {
+                      id: 'comment-remote-board-move',
+                      body: 'Remote comment during board move',
+                      createdAt: '2026-06-06T10:05:00.000Z',
+                      updatedAt: '2026-06-06T10:05:00.000Z',
+                    },
+                  ],
+                  updatedAt: '2026-06-06T10:05:00.000Z',
+                }
+              : todo,
+          ),
+        },
+        targetBoard,
+      ],
+    };
+
+    const merged = mergeProjectChanges(baseWithBoards, localProject, remoteProject);
+    const mergedBoards = normalizeTodoBoards(merged);
+    const sourceBoard = mergedBoards.find((board) => board.id === baseBoard.id);
+    const movedBoard = mergedBoards.find((board) => board.id === targetBoard.id);
+    const movedTodo = movedBoard?.todos.find((todo) => todo.id === baseTodo.id);
+
+    expect(sourceBoard?.todos.some((todo) => todo.id === baseTodo.id)).toBe(false);
+    expect(movedBoard?.todos.filter((todo) => todo.id === baseTodo.id)).toHaveLength(1);
+    expect(movedTodo?.comments?.map((comment) => comment.body)).toEqual(['Remote comment during board move']);
   });
 
   it('does not create todo duplicates across repeated autosave conflict merges', () => {
@@ -1526,6 +1675,56 @@ describe('project helpers', () => {
     expect(merged.updates.map((item) => item.id)).toEqual(['update-1']);
     expect(merged.topics.map((item) => item.id)).toEqual(['topic-1', 'update-2']);
     expect(merged.topics[1].body).toBe('local edited body');
+  });
+
+  it('keeps a moved protocol item in the moved section when another device comments on it', () => {
+    const [baseProtocol] = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        updates: [
+          { id: 'update-1', title: 'Stay update' },
+          { id: 'update-2', title: 'Move me', body: 'base body' },
+        ],
+        topics: [{ id: 'topic-1', title: 'Topic' }],
+        updatedAt: '2026-06-06T10:00:00.000Z',
+      },
+    ]);
+    const localProtocol = moveProtocolItem(
+      baseProtocol,
+      'updates',
+      'update-2',
+      'topics',
+      'topic-1',
+      '2026-06-06T10:05:00.000Z',
+    );
+    const remoteProtocol = {
+      ...baseProtocol,
+      updates: [
+        baseProtocol.updates[0],
+        {
+          ...baseProtocol.updates[1],
+          comments: [
+            {
+              id: 'comment-remote-move',
+              body: 'Remote comment during protocol item move',
+              createdAt: '2026-06-06T10:06:00.000Z',
+              updatedAt: '2026-06-06T10:06:00.000Z',
+            },
+          ],
+          updatedAt: '2026-06-06T10:06:00.000Z',
+        },
+      ],
+      updatedAt: '2026-06-06T10:06:00.000Z',
+    };
+
+    const [merged] = mergeMeetingProtocols([baseProtocol], [localProtocol], [remoteProtocol]);
+
+    expect(merged.updates.map((item) => item.id)).toEqual(['update-1']);
+    expect(merged.topics.map((item) => item.id)).toEqual(['update-2', 'topic-1']);
+    expect(merged.topics[0].comments?.map((comment) => comment.body)).toEqual([
+      'Remote comment during protocol item move',
+    ]);
   });
 
   it('keeps both versions when protocol notes change on two devices', () => {

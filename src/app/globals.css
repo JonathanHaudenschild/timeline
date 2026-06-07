@@ -1983,14 +1983,9 @@ tr.selected td {
 
 .event-date-cell,
 .event-time-cell {
-  width: 92px;
   color: var(--text);
   font-weight: 950;
   white-space: nowrap;
-}
-
-.event-time-cell {
-  width: 62px;
 }
 
 .event-what-cell {

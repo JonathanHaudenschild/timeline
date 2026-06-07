@@ -2205,7 +2205,7 @@ function mergeTodoBoards(
 ) {
   const mergedBoards = mergeById(baseBoards, localBoards, remoteBoards);
 
-  return mergedBoards.map((board) => {
+  const boards = mergedBoards.map((board) => {
     const baseBoard = baseBoards.find((item) => item.id === board.id);
     const localBoard = localBoards.find((item) => item.id === board.id);
     const remoteBoard = remoteBoards.find((item) => item.id === board.id);
@@ -2213,6 +2213,8 @@ function mergeTodoBoards(
 
     return {
       ...board,
+      name: mergeTextField(baseBoard.name, localBoard.name, remoteBoard.name),
+      pinHash: mergeField(baseBoard.pinHash, localBoard.pinHash, remoteBoard.pinHash),
       todos: mergeTodosById(baseBoard.todos, localBoard.todos, remoteBoard.todos),
       statuses: mergeStringList(baseBoard.statuses ?? [], localBoard.statuses ?? [], remoteBoard.statuses ?? []),
       completedTodoStatus: changed(baseBoard.completedTodoStatus, localBoard.completedTodoStatus)
@@ -2220,6 +2222,76 @@ function mergeTodoBoards(
         : remoteBoard.completedTodoStatus,
     };
   });
+
+  return resolveMovedTodoDuplicates(baseBoards, localBoards, remoteBoards, boards);
+}
+
+function resolveMovedTodoDuplicates(
+  baseBoards: TimelineTodoBoardData[],
+  localBoards: TimelineTodoBoardData[],
+  remoteBoards: TimelineTodoBoardData[],
+  mergedBoards: TimelineTodoBoardData[],
+) {
+  const todoIds = new Set(mergedBoards.flatMap((board) => board.todos.map((todo) => todo.id)));
+  let boards = mergedBoards;
+
+  for (const todoId of todoIds) {
+    const locations = boards.filter((board) => board.todos.some((todo) => todo.id === todoId));
+    if (locations.length <= 1) continue;
+
+    const baseLocation = findTodoLocation(baseBoards, todoId);
+    const localLocation = findTodoLocation(localBoards, todoId);
+    const remoteLocation = findTodoLocation(remoteBoards, todoId);
+    const targetBoardId = movedTodoTargetBoardId(baseLocation, localLocation, remoteLocation);
+    if (!targetBoardId || !boards.some((board) => board.id === targetBoardId)) continue;
+
+    const mergedTodo =
+      baseLocation?.todo && localLocation?.todo && remoteLocation?.todo
+        ? mergeTodoFields(baseLocation.todo, localLocation.todo, remoteLocation.todo)
+        : locations.find((board) => board.id === targetBoardId)?.todos.find((todo) => todo.id === todoId);
+    if (!mergedTodo) continue;
+
+    boards = boards.map((board) => {
+      const todosWithoutDuplicate = board.todos.filter((todo) => todo.id !== todoId);
+      if (board.id !== targetBoardId) return { ...board, todos: todosWithoutDuplicate };
+
+      return {
+        ...board,
+        todos: [...todosWithoutDuplicate, { ...mergedTodo, boardId: undefined }],
+      };
+    });
+  }
+
+  return boards;
+}
+
+function findTodoLocation(boards: TimelineTodoBoardData[], todoId: string) {
+  for (const board of boards) {
+    const todo = board.todos.find((item) => item.id === todoId);
+    if (todo) return { boardId: board.id, todo };
+  }
+
+  return null;
+}
+
+function movedTodoTargetBoardId(
+  baseLocation: ReturnType<typeof findTodoLocation>,
+  localLocation: ReturnType<typeof findTodoLocation>,
+  remoteLocation: ReturnType<typeof findTodoLocation>,
+) {
+  if (!baseLocation || !localLocation || !remoteLocation) return undefined;
+
+  const localMoved = localLocation.boardId !== baseLocation.boardId;
+  const remoteMoved = remoteLocation.boardId !== baseLocation.boardId;
+  if (localMoved && !remoteMoved) return localLocation.boardId;
+  if (remoteMoved && !localMoved) return remoteLocation.boardId;
+  if (localMoved && remoteMoved && localLocation.boardId !== remoteLocation.boardId) {
+    return isLocalTodoNewer(localLocation.todo, remoteLocation.todo)
+      ? localLocation.boardId
+      : remoteLocation.boardId;
+  }
+
+  return undefined;
 }
 
 function mergeById<T extends { id: string }>(

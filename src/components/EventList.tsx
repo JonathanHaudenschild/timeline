@@ -8,6 +8,7 @@ import {
   EyeOff,
   History,
   ListTodo,
+  X,
 } from "lucide-react";
 import { useAppDialog } from "./AppDialog";
 import { FilterBadge } from "./FilterBadge";
@@ -293,7 +294,7 @@ export function EventList({
                         "bg-[repeating-linear-gradient(135deg,transparent_0_12px,rgba(17,17,17,0.035)_12px_18px)] [&>td]:bg-[repeating-linear-gradient(135deg,transparent_0_12px,rgba(17,17,17,0.035)_12px_18px)] [&>td]:text-[var(--muted)]",
                     )}
                   >
-                <td className="event-date-cell bg-[#fff8d8]" data-label="Date">
+                <td className="event-date-cell w-[188px] min-w-[188px] bg-[#fff8d8] max-sm:w-auto max-sm:min-w-0" data-label="Date">
                   {canEdit ? (
                     <div
                       className="inline-date-range"
@@ -352,16 +353,29 @@ export function EventList({
                     formatShortGermanDateRange(event.date, event.endDate)
                   )}
                 </td>
-                <td className="event-time-cell bg-[#e8fbff]" data-label="Time">
+                <td className="event-time-cell w-[140px] min-w-[140px] bg-[#e8fbff] max-sm:w-auto max-sm:min-w-0" data-label="Time">
                   {canEdit ? (
                     <div className="inline-time-range" onClick={(click) => click.stopPropagation()}>
-                      <InlineTextInput
-                        className="event-inline-input"
-                        type="time"
-                        value={event.time}
-                        onValueChange={(time) => onChange({ ...event, time, endTime: time ? event.endTime : undefined })}
-                        aria-label={`Time for ${event.what}`}
-                      />
+                      <div className={cn("inline-time-with-action", !event.time && "grid-cols-1")}>
+                        <InlineTextInput
+                          className="event-inline-input"
+                          type="time"
+                          value={event.time}
+                          onValueChange={(time) => onChange({ ...event, time, endTime: time ? event.endTime : undefined })}
+                          aria-label={`Time for ${event.what}`}
+                        />
+                        {event.time ? (
+                          <button
+                            type="button"
+                            className="inline-date-add"
+                            onClick={() => onChange({ ...event, time: "", endTime: undefined })}
+                            aria-label={`Make ${event.what || "event"} all day`}
+                            title="Make all day"
+                          >
+                            <X size={13} aria-hidden="true" />
+                          </button>
+                        ) : null}
+                      </div>
                       {!event.time ? (
                         <span className="text-[10px] font-black uppercase text-[var(--muted)]">All day</span>
                       ) : event.endDate ? (
