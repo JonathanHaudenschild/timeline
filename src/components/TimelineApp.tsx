@@ -42,9 +42,10 @@ import {
   syncProjectTodoBoard,
 } from '@/lib/todoBoards';
 import { normalizeCompletedTodoStatus, normalizeTodoStatuses, normalizeTodoTags, renameTodoStatus, touchTodo } from '@/lib/todos';
-import type { TimelineEvent, TimelineMode, TimelineProject, TimelineTodo, TimelineTodoBoard as TimelineTodoBoardData } from '@/lib/types';
+import type { MeetingProtocol, TimelineEvent, TimelineMode, TimelineProject, TimelineTodo, TimelineTodoBoard as TimelineTodoBoardData } from '@/lib/types';
 import { uiCard, uiIconButton } from '@/lib/ui';
 import { usePersistentState } from '@/lib/usePersistentState';
+import packageJson from '../../package.json';
 
 type PinDialogConfig = {
   title: string;
@@ -88,6 +89,8 @@ const mutedDescriptionClass = 'm-0 text-[var(--muted)] font-extrabold';
 const pinFormClass = 'grid gap-3';
 const formErrorClass =
   'rounded-[2px] border border-[rgba(207,45,36,0.42)] bg-[#fff6f5] px-2.5 py-2 text-xs font-black text-[var(--danger)] uppercase';
+const appVersion = packageJson.version;
+const appVersionDate = '2026-06-07';
 
 export function TimelineApp() {
   const { dialog: appDialogElement, alert: showAlert, confirm: showConfirm, prompt: showPrompt } = useAppDialog();
@@ -114,6 +117,7 @@ export function TimelineApp() {
   const [urlTarget, setUrlTarget] = useState<ProjectUrlTarget | undefined>(() =>
     typeof window === 'undefined' ? undefined : parseProjectLocationHash(window.location.hash).target,
   );
+  const [protocolItemTarget, setProtocolItemTarget] = useState<{ protocolId: string; itemId: string } | null>(null);
   const [copiedSectionLink, setCopiedSectionLink] = useState<ProjectUrlTarget['section'] | ''>('');
   const [unlockedTodoBoardIds, setUnlockedTodoBoardIds] = useState<string[]>([]);
   const sectionOrder = normalizeSectionOrder(project.settings.sectionOrder as MovableSection[] | undefined);
@@ -428,6 +432,10 @@ export function TimelineApp() {
       completedTodoStatus,
     },
   };
+  const requestedProtocolId =
+    urlTarget?.section === 'protocol' && 'protocolId' in urlTarget ? urlTarget.protocolId : undefined;
+  const requestedProtocolItemId =
+    protocolItemTarget && protocolItemTarget.protocolId === requestedProtocolId ? protocolItemTarget.itemId : undefined;
 
   function updateProject(nextProject: TimelineProject) {
     setCollaborationNotice('');
@@ -666,6 +674,7 @@ export function TimelineApp() {
     const todoForSave = {
       id: crypto.randomUUID(),
       protocolId: source.protocolId,
+      protocolItemId: source.protocolItemId,
       title: source.title || 'Protocol todo',
       who: source.who ?? '',
       body: source.body,
@@ -884,6 +893,28 @@ export function TimelineApp() {
         ) : null}
       </>
     );
+  }
+
+  function openProtocolItemFromTodo(todo: TimelineTodo) {
+    if (!todo.protocolId) return;
+
+    const protocol = meetingProtocols.find((item) => item.id === todo.protocolId);
+    if (!protocol) {
+      void showAlert({ title: 'Protocol not found', message: 'The linked protocol could not be found. It may have been deleted.' });
+      return;
+    }
+
+    const linkedItem = findProtocolItemForTodo(protocol, todo);
+    setProtocolItemTarget(linkedItem ? { protocolId: protocol.id, itemId: linkedItem.itemId } : null);
+    navigateToTarget({ section: 'protocol', protocolId: protocol.id });
+    scrollToElement(protocolsRef.current);
+
+    if (!linkedItem) return;
+    window.setTimeout(() => {
+      document
+        .getElementById(`protocol-${protocol.id}-${linkedItem.kind}-${linkedItem.itemId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+    }, 120);
   }
 
   function createEvent(moment: { date: string; time: string }) {
@@ -1271,7 +1302,8 @@ export function TimelineApp() {
   function navigateToTarget(target: ProjectUrlTarget) {
     const nextHash = buildProjectLocationHash(project.hash, target);
     if (window.location.hash !== `#${nextHash}`) {
-      window.location.hash = nextHash;
+      window.history.pushState(null, '', `#${nextHash}`);
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
       return;
     }
 
@@ -1543,7 +1575,8 @@ export function TimelineApp() {
           canEdit={canEdit}
           protocols={meetingProtocols}
           instructionTemplate={project.protocolInstructionTemplate}
-          requestedProtocolId={urlTarget?.section === 'protocol' && 'protocolId' in urlTarget ? urlTarget.protocolId : undefined}
+          requestedProtocolId={requestedProtocolId}
+          requestedProtocolItemId={requestedProtocolItemId}
           onProtocolSelect={(protocolId) => navigateToTarget({ section: 'protocol', protocolId })}
           onChange={(protocols) => updateProject({ ...project, meetingProtocols: protocols })}
           onInstructionTemplateChange={(protocolInstructionTemplate) =>
@@ -1822,6 +1855,7 @@ export function TimelineApp() {
               }
               onMoveTodoToBoard={(todo, targetBoardId) => moveTodoToBoard(todo, activeBoard.id, targetBoardId)}
               onConvertTodoToEvent={convertTodoToEvent}
+              onOpenProtocolItem={openProtocolItemFromTodo}
               onStatusesChange={(todoStatuses) =>
                 updateActiveTodoBoard({
                   ...activeBoard,
@@ -1852,8 +1886,26 @@ export function TimelineApp() {
         </SectionShell>
       </div>
 
-      <footer className="footer-line">
-        Project data is saved in Postgres under <code>#{project.hash}</code>.
+      <footer className="footer-line rounded-[2px] border border-[rgba(36,34,29,0.16)] bg-[#fffef8] px-3 py-2 shadow-none max-sm:gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <Image
+            className="h-6 w-6 flex-none"
+            src="/icon.svg"
+            alt=""
+            width={24}
+            height={24}
+            aria-hidden="true"
+          />
+          <div className="min-w-0">
+            <div className="text-[11px] font-black uppercase leading-none text-[var(--text)]">YUZZA</div>
+            <div className="mt-0.5 text-[10px] font-black uppercase leading-none text-[var(--muted)]">
+              v{appVersion} · {appVersionDate}
+            </div>
+          </div>
+        </div>
+        <span className="min-w-0 text-right max-sm:text-left">
+          Project data is saved in Postgres under <code>#{project.hash}</code>.
+        </span>
       </footer>
 
       {revisionDialogRevisions ? (
@@ -1948,6 +2000,21 @@ function nextTodoOrder(todos: readonly TimelineTodo[], status: string) {
   return todos
     .filter((todo) => todo.status === status)
     .reduce((max, todo) => Math.max(max, todo.order ?? 0), 0) + 1;
+}
+
+function findProtocolItemForTodo(protocol: MeetingProtocol, todo: TimelineTodo) {
+  const sections = ['updates', 'topics', 'todos'] as const;
+
+  for (const kind of sections) {
+    const item = protocol[kind].find((protocolItem) =>
+      todo.protocolItemId
+        ? protocolItem.id === todo.protocolItemId
+        : protocolItem.convertedTodoId === todo.id,
+    );
+    if (item) return { kind, itemId: item.id };
+  }
+
+  return undefined;
 }
 
 function fallbackCopyText(text: string) {
@@ -2236,6 +2303,7 @@ function mergeTodoFields(baseTodo: TimelineTodo, localTodo: TimelineTodo, remote
   return {
     ...remoteTodo,
     protocolId: mergeField(baseTodo.protocolId, localTodo.protocolId, remoteTodo.protocolId),
+    protocolItemId: mergeField(baseTodo.protocolItemId, localTodo.protocolItemId, remoteTodo.protocolItemId),
     title: mergeTodoChoiceField(baseTodo.title, localTodo.title, remoteTodo.title, localTodo, remoteTodo),
     who: mergeTodoChoiceField(baseTodo.who, localTodo.who, remoteTodo.who, localTodo, remoteTodo),
     body: mergeTodoTextField(baseTodo.body, localTodo.body, remoteTodo.body),

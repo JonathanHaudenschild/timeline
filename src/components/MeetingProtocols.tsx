@@ -33,6 +33,7 @@ type MeetingProtocolsProps = {
   protocols: MeetingProtocol[];
   instructionTemplate: string;
   requestedProtocolId?: string;
+  requestedProtocolItemId?: string;
   onProtocolSelect: (protocolId: string) => void;
   onCopyLink: () => void;
   linkCopied: boolean;
@@ -121,6 +122,7 @@ export function MeetingProtocols({
   protocols,
   instructionTemplate,
   requestedProtocolId,
+  requestedProtocolItemId,
   onProtocolSelect,
   onCopyLink,
   linkCopied,
@@ -194,20 +196,36 @@ export function MeetingProtocols({
 
   useEffect(() => {
     if (!requestedProtocolId) return;
-    if (!protocols.some((protocol) => protocol.id === requestedProtocolId)) return;
-    const requestKey = `${projectHash}:${requestedProtocolId}`;
+    const requestedProtocol = protocols.find((protocol) => protocol.id === requestedProtocolId);
+    if (!requestedProtocol) return;
+    const requestKey = `${projectHash}:${requestedProtocolId}:${requestedProtocolItemId ?? ''}`;
     if (consumedRequestedProtocolRef.current === requestKey) return;
     consumedRequestedProtocolRef.current = requestKey;
 
     const timeout = window.setTimeout(() => {
+      const focusedSection = requestedProtocolItemId
+        ? (['updates', 'topics', 'todos'] as const).find((kind) =>
+          requestedProtocol[kind].some((item) => item.id === requestedProtocolItemId),
+        )
+        : undefined;
       setSelectedProtocolId(requestedProtocolId);
       setSelectedOverviewItemId('');
       setShowProtocolEntries(false);
       setIsMinimized(false);
+      if (focusedSection) {
+        setCollapsedProtocolSections((sections) => ({ ...sections, [focusedSection]: false }));
+      }
+      if (requestedProtocolItemId) {
+        window.setTimeout(() => {
+          document
+            .getElementById(`protocol-${requestedProtocolId}-${focusedSection}-${requestedProtocolItemId}`)
+            ?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+        }, 80);
+      }
     }, 0);
 
     return () => window.clearTimeout(timeout);
-  }, [projectHash, protocols, requestedProtocolId, setIsMinimized, setShowProtocolEntries]);
+  }, [projectHash, protocols, requestedProtocolId, requestedProtocolItemId, setCollapsedProtocolSections, setIsMinimized, setShowProtocolEntries]);
 
   function addProtocol() {
     const protocol = createMeetingProtocol();
@@ -922,9 +940,9 @@ function ProtocolStructuredSection({
       <div
         className={cn(
           protocolSectionTitleClass,
-          kind === 'updates' && 'bg-[#f2fbfe]',
-          kind === 'topics' && 'bg-[#fff2f8]',
-          kind === 'todos' && 'bg-[#fbfee9]',
+          kind === 'updates' && '!bg-[#f7fcfe]',
+          kind === 'topics' && '!bg-[#fff2f8]',
+          kind === 'todos' && '!bg-[#fbfee9]',
         )}
       >
         <div>

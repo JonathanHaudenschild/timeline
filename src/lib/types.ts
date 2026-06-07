@@ -28,6 +28,7 @@ export type TimelineTodo = {
   id: string;
   boardId?: string;
   protocolId?: string;
+  protocolItemId?: string;
   title: string;
   who: string;
   body: string;

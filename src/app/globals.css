@@ -1188,50 +1188,82 @@ label {
   width: 28px;
   min-width: 28px;
   min-height: 26px;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
   padding: 0;
   font-size: 9px;
 }
 
-.protocol-entry-actions .icon-button {
-  border-color: transparent;
-  background: transparent;
-  box-shadow: none;
-}
-
+.protocol-entry-controls .icon-button:hover,
 .protocol-entry-actions .icon-button:hover {
   border-color: rgba(36, 34, 29, 0.26);
   background: var(--primary);
 }
 
+.protocol-entry-controls .icon-button.danger,
 .protocol-entry-actions .icon-button.danger {
-  border-color: rgba(207, 45, 36, 0.3);
-  background: #fffdf8;
-  box-shadow: 0 1px 0 rgba(36, 34, 29, 0.12);
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
 }
 
+.protocol-entry-controls .icon-button.danger:hover,
 .protocol-entry-actions .icon-button.danger:hover {
   border-color: rgba(207, 45, 36, 0.48);
   background: #fff4f6;
 }
 
 .protocol-create-todo {
-  background: #fbffcf;
+  background: transparent;
+  border-color: transparent;
+  color: var(--text);
 }
 
 .protocol-create-event {
-  background: #eafaff;
+  background: transparent;
+  border-color: transparent;
+  color: var(--text);
+}
+
+.protocol-entry-actions .protocol-create-todo {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text);
+}
+
+.protocol-entry-actions .protocol-create-event {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text);
 }
 
 .protocol-linked-todo {
   background: var(--primary);
   border-color: rgba(36, 34, 29, 0.34);
   box-shadow: 0 1px 0 rgba(36, 34, 29, 0.18);
+  color: var(--text);
 }
 
 .protocol-linked-event {
-  background: var(--cyan);
+  background: var(--primary);
   border-color: rgba(36, 34, 29, 0.34);
   box-shadow: 0 1px 0 rgba(36, 34, 29, 0.18);
+  color: var(--text);
+}
+
+.protocol-entry-actions .protocol-linked-todo,
+.protocol-entry-actions .protocol-linked-event {
+  background: var(--primary);
+  border-color: rgba(36, 34, 29, 0.34);
+  box-shadow: 0 1px 0 rgba(36, 34, 29, 0.18);
+  color: var(--text);
+}
+
+.protocol-entry-actions .protocol-linked-todo:hover,
+.protocol-entry-actions .protocol-linked-event:hover {
+  background: var(--primary-strong);
+  border-color: rgba(36, 34, 29, 0.42);
 }
 
 .protocol-editor {
@@ -1523,15 +1555,18 @@ label {
 .app-dialog-header h2 {
   margin: 0;
   font-size: 20px;
+  font-weight: 950;
   line-height: 1;
+  color: var(--text);
   text-transform: uppercase;
 }
 
 .app-dialog-header p {
   margin: 0;
   color: var(--muted);
-  font-weight: 800;
-  line-height: 1.35;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
   white-space: pre-line;
 }
 
@@ -2191,6 +2226,35 @@ tr.selected td {
   border-color: rgba(36, 34, 29, 0.34);
 }
 
+.protocol-entry-controls .protocol-entry-icon-button,
+.protocol-entry-actions .protocol-entry-icon-button,
+.protocol-entry-actions .protocol-create-todo,
+.protocol-entry-actions .protocol-create-event {
+  border-color: transparent !important;
+  background: transparent;
+  box-shadow: none;
+}
+
+.protocol-entry-controls .protocol-entry-icon-button:hover,
+.protocol-entry-controls .protocol-entry-icon-button:focus-visible,
+.protocol-entry-actions .protocol-entry-icon-button:hover,
+.protocol-entry-actions .protocol-entry-icon-button:focus-visible {
+  border-color: transparent !important;
+  background: var(--primary);
+}
+
+.column-title-actions-row .column-rename-trigger,
+.column-title-actions-row .column-add,
+.column-title-actions-row .column-remove,
+.column-title-actions-row .column-move {
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+  min-height: 20px;
+  max-width: 20px;
+  max-height: 20px;
+}
+
 .icon-button.danger:hover {
   border-color: rgba(207, 45, 36, 0.48);
   background: #fff4f6;
@@ -2341,11 +2405,11 @@ tr.selected td {
   width: 4px;
   height: auto;
   clip-path: none;
-  background: #9ff0a8;
+  background: #c9c4b8;
 }
 
 .todo-item.scheduled {
-  background: #fefffb;
+  background: #fffdf8;
 }
 
 .todo-item.due-soon {
@@ -2370,6 +2434,22 @@ tr.selected td {
 
 .todo-item.no-due::before {
   background: #c9c4b8;
+}
+
+.todo-item.linked {
+  background: #fffdf8;
+}
+
+.todo-item.linked::before {
+  background: #c9c4b8;
+}
+
+.todo-item.linked.done {
+  background: #f4f2ec;
+}
+
+.todo-item.linked.done::before {
+  background: #777;
 }
 
 .todo-item.done {
@@ -2409,6 +2489,28 @@ tr.selected td {
   gap: 8px;
 }
 
+.todo-linked-badge {
+  display: inline-grid;
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+  min-height: 20px;
+  place-items: center;
+  border: 1px solid rgba(36, 34, 29, 0.24);
+  border-radius: 2px;
+  background: var(--primary);
+  color: var(--text);
+  padding: 0;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.todo-linked-badge:hover,
+.todo-linked-badge:focus-visible {
+  border-color: rgba(36, 34, 29, 0.38);
+  background: var(--primary-strong);
+}
+
 .todo-card-title {
   font-size: 14px;
   font-weight: 950;
@@ -2428,47 +2530,45 @@ tr.selected td {
 
 .todo-card-actions {
   display: flex;
-  gap: 0;
+  gap: 4px;
   align-items: center;
   justify-content: flex-end;
   flex: 0 0 auto;
   margin-left: auto;
-  overflow: hidden;
-  border: 1px solid rgba(36, 34, 29, 0.18);
-  border-radius: 2px;
-  background: #fffef8;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .todo-card-actions .icon-button {
   width: var(--icon-button-compact-size);
   min-width: var(--icon-button-compact-size);
-  height: var(--icon-button-compact-size);
-  min-height: var(--icon-button-compact-size);
-  border: 0;
-  border-right: 1px solid rgba(36, 34, 29, 0.16);
-  border-radius: 0;
+  height: 26px;
+  min-height: 26px;
+  border: 1px solid transparent;
+  border-radius: 2px;
   background: transparent;
   box-shadow: none;
   padding: 0;
   font-size: 10px;
 }
 
-.todo-card-actions .icon-button:last-child {
-  border-right: 0;
-}
-
 .todo-card-actions .icon-button:hover {
+  border-color: rgba(36, 34, 29, 0.26);
   background: var(--primary);
 }
 
 .todo-card-actions .icon-button.danger {
-  border-color: rgba(36, 34, 29, 0.16);
+  border-color: transparent;
   background: transparent;
   color: var(--danger);
+  box-shadow: none;
 }
 
 .todo-card-actions .icon-button.danger:hover {
-  background: #fff0f8;
+  border-color: rgba(207, 45, 36, 0.48);
+  background: #fff4f6;
 }
 
 .todo-card-actions .icon-button svg {
@@ -2854,7 +2954,7 @@ tr.selected td {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 5px;
-    border-top: 1px solid rgba(36, 34, 29, 0.14);
+    border-top: 0;
     margin: 4px -7px -7px -11px;
     padding: 6px;
     background: rgba(255, 253, 248, 0.78);
@@ -2904,12 +3004,18 @@ tr.selected td {
     min-width: 0;
     min-height: 36px;
     border-radius: 2px;
-    border: 1px solid rgba(36, 34, 29, 0.14);
+    border: 1px solid transparent;
+    background: transparent;
     padding: 0;
   }
 
   .protocol-entry-actions .icon-button:last-child {
-    border-right: 1px solid rgba(36, 34, 29, 0.14);
+    border-right: 1px solid transparent;
+  }
+
+  .protocol-entry-actions .protocol-linked-todo,
+  .protocol-entry-actions .protocol-linked-event {
+    border-color: rgba(36, 34, 29, 0.34);
   }
 
   .protocol-entry-controls {
@@ -3092,19 +3198,6 @@ tr.selected td {
     min-width: 0;
   }
 
-  /* Column action buttons: full touch size on mobile */
-  .column-rename-trigger,
-  .column-add,
-  .column-remove,
-  .column-move {
-    width: var(--icon-button-size) !important;
-    min-width: var(--icon-button-size) !important;
-    height: var(--icon-button-size) !important;
-    min-height: var(--icon-button-size) !important;
-    max-width: none !important;
-    max-height: none !important;
-  }
-
   /* Column title stacks at 421-640px too */
   .column-title-actions-row {
     grid-template-columns: 1fr;
@@ -3123,19 +3216,19 @@ tr.selected td {
   }
 
   .todo-card-actions {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(34px, 1fr));
-    gap: 0;
-    width: 100%;
-    justify-content: stretch;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    width: auto;
+    justify-content: flex-end;
     margin-left: 0;
   }
 
   .todo-card-actions .icon-button {
-    width: 100%;
-    min-width: 0;
-    min-height: var(--icon-button-size);
-    height: var(--icon-button-size);
+    width: var(--icon-button-compact-size);
+    min-width: var(--icon-button-compact-size);
+    min-height: 26px;
+    height: 26px;
   }
 
   .todo-card-topline {

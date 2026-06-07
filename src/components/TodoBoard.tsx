@@ -2,7 +2,7 @@
 
 import { Fragment, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Columns3, MessageCircle, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Columns3, Link2, MessageCircle, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useAppDialog } from './AppDialog';
 import { FilterBadge } from './FilterBadge';
 import { InlineTextInput, SearchInput, SelectField, TextField } from './FormControls';
@@ -41,15 +41,15 @@ const todoColumnsClass =
 const todoColumnClass =
   `${uiCard} relative min-h-[150px] min-w-[300px] flex-[0_0_300px] overflow-visible border-[rgba(36,34,29,0.22)] bg-[#fbfee9] p-[9px] shadow-[inset_0_3px_0_rgba(36,34,29,0.18),0_6px_14px_rgba(36,34,29,0.05)] [scroll-snap-align:start] hover:z-20 focus-within:z-20 max-sm:w-full max-sm:min-w-0 max-sm:scroll-snap-align-none max-sm:py-[7px] max-sm:pr-[7px] max-sm:pb-[7px] max-sm:pl-3`;
 const columnTitleClass =
-  'relative z-[3] mb-[4px] grid items-center gap-2 bg-transparent pt-1 pb-[7px] text-[11px] font-black text-[var(--text)] uppercase shadow-none max-sm:gap-1.5';
+  'relative z-[3] mb-[4px] grid items-end gap-2 bg-transparent pt-1 pb-[7px] text-[11px] font-black text-[var(--text)] uppercase shadow-none max-sm:gap-1.5';
 const columnTitleLabelClass =
-  'flex min-w-0 items-center gap-1.5 rounded-[2px] border border-[rgba(36,34,29,0.14)] bg-[rgba(255,255,255,0.38)] px-1.5 py-1';
+  'flex min-w-0 items-center gap-1.5 rounded-[2px] border border-[rgba(36,34,29,0.16)] bg-[#f5fbdc] px-1.5 py-1';
 const columnTitleActionsClass =
-  'inline-flex min-w-0 items-center justify-end gap-1 max-[420px]:justify-start';
+  'column-title-actions-row inline-flex min-w-0 items-center justify-end gap-1 max-[420px]:justify-start';
 const columnMiniButtonClass =
-  'icon-button relative inline-grid h-5 max-h-5 min-h-5 w-5 min-w-5 max-sm:h-[var(--icon-button-size)] max-sm:max-h-[var(--icon-button-size)] max-sm:min-h-[var(--icon-button-size)] max-sm:w-[var(--icon-button-size)] max-sm:min-w-[var(--icon-button-size)] place-items-center rounded-[2px] border border-[rgba(36,34,29,0.22)] bg-[#fffdf8] p-0 text-[10px] leading-none shadow-none hover:border-[var(--hot)] hover:bg-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-35 disabled:transform-none';
+  'icon-button relative inline-grid h-5 max-h-5 min-h-5 w-5 min-w-5 place-items-center rounded-[2px] border border-[rgba(36,34,29,0.22)] bg-[#fffdf8] p-0 text-[10px] leading-none shadow-none hover:border-[var(--hot)] hover:bg-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-35 disabled:transform-none';
 const columnCountClass =
-  'inline-grid h-6 max-h-6 min-h-6 w-6 min-w-6 place-items-center rounded-[2px] border border-[rgba(36,34,29,0.18)] bg-[#fffdf8] text-[10px] leading-none font-black text-[var(--muted)] shadow-none';
+  'inline-grid h-6 max-h-6 min-h-6 w-6 min-w-6 place-items-center rounded-[2px] border border-[rgba(36,34,29,0.18)] bg-[#fbfee9] text-[10px] leading-none font-black text-[var(--muted)] shadow-none';
 const columnAddCardClass =
   'column-add-card relative mb-2.5 ml-auto mt-[-2px] inline-flex min-h-[var(--icon-button-size)] w-full items-center justify-center gap-1.5 rounded-[2px] border border-dashed border-[rgba(36,34,29,0.34)] bg-white px-2 text-[11px] font-black text-[var(--muted)] uppercase shadow-none hover:border-[var(--hot)] hover:bg-[var(--primary)] hover:text-[var(--text)]';
 
@@ -66,6 +66,7 @@ type TodoBoardProps = {
   onChange: (todos: TimelineTodo[]) => void;
   onMoveTodoToBoard: (todo: TimelineTodo, targetBoardId: string) => void;
   onConvertTodoToEvent: (todo: TimelineTodo) => boolean | void | Promise<boolean | void>;
+  onOpenProtocolItem?: (todo: TimelineTodo) => void;
   onStatusesChange: (statuses: TodoStatus[]) => void;
   onRenameStatus: (fromStatus: TodoStatus, toStatus: TodoStatus) => void;
   renderBoardActions?: () => ReactNode;
@@ -84,6 +85,7 @@ export function TodoBoard({
   onChange,
   onMoveTodoToBoard,
   onConvertTodoToEvent,
+  onOpenProtocolItem,
   onStatusesChange,
   onRenameStatus,
   renderBoardActions,
@@ -558,7 +560,7 @@ export function TodoBoard({
                       <div className="todo-drop-indicator" aria-hidden="true" />
                     ) : null}
                     <article
-                      className={`todo-item ${todoDueClass(todo, completedTodoStatus)} ${draggedTodoId === todo.id ? 'dragging' : ''}`}
+                      className={`todo-item ${todo.protocolId ? 'linked' : ''} ${todoDueClass(todo, completedTodoStatus)} ${draggedTodoId === todo.id ? 'dragging' : ''}`}
                       id={`todo-card-${todo.id}`}
                       draggable
                       onDragStart={(event) => {
@@ -592,6 +594,20 @@ export function TodoBoard({
                   >
                     <div className="todo-card-topline">
                       <div className="todo-card-title">{todo.title}</div>
+                      {todo.protocolId ? (
+                        <button
+                          type="button"
+                          className="todo-linked-badge"
+                          title="Open linked protocol item"
+                          aria-label="Open linked protocol item"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onOpenProtocolItem?.(todo);
+                          }}
+                        >
+                          <Link2 size={12} aria-hidden="true" />
+                        </button>
+                      ) : null}
                     </div>
                     {todo.who || todo.dueDate ? (
                       <div className="todo-card-meta">
