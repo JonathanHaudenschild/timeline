@@ -617,8 +617,10 @@ export function MeetingProtocols({
                       </div>
                     </button>
                   ))
-                ) : (
+                ) : protocols.length ? (
                   <div className="protocol-empty">No entries</div>
+                ) : (
+                  <ProtocolEmptyAdd onAdd={addProtocol} disabled={!canUseProtocol} compact />
                 )}
               </>
             ) : filteredProtocols.length ? (
@@ -642,7 +644,7 @@ export function MeetingProtocols({
                 </button>
               ))
             ) : (
-              <div className="protocol-empty">No protocols</div>
+              <ProtocolEmptyAdd onAdd={addProtocol} disabled={!canUseProtocol} compact />
             )}
           </aside>
           {selectedProtocol ? (
@@ -832,7 +834,7 @@ export function MeetingProtocols({
               </div>
             </div>
           ) : (
-            <div className="protocol-empty protocol-empty-detail">No protocol selected</div>
+            <ProtocolEmptyAdd onAdd={addProtocol} disabled={!canUseProtocol} />
           )}
         </div>
       {editingItem ? (
@@ -845,6 +847,41 @@ export function MeetingProtocols({
       ) : null}
       {appDialog.dialog}
     </SectionShell>
+  );
+}
+
+function ProtocolEmptyAdd({
+  onAdd,
+  disabled,
+  compact = false,
+}: {
+  onAdd: () => void;
+  disabled: boolean;
+  compact?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        'protocol-empty flex items-center justify-center text-center',
+        compact ? 'min-h-[72px]' : 'protocol-empty-detail',
+      )}
+    >
+      <div className="flex flex-col items-center justify-center gap-1.5">
+        <span className="text-[11px] font-black uppercase text-[var(--muted)]">
+          No protocols
+        </span>
+        <button
+          type="button"
+          className="icon-button"
+          onClick={onAdd}
+          disabled={disabled}
+          aria-label="Add first protocol"
+          title="Add protocol"
+        >
+          <Plus size={17} aria-hidden="true" />
+        </button>
+      </div>
+    </div>
   );
 }
 
