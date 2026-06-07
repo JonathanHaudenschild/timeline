@@ -140,14 +140,14 @@ export function EventList({
       }}
       moveControls={moveControls}
       meta={`${sortedEventRows.length} / ${events.length}`}
-      subheaderClassName="mt-3 mb-1.5 flex flex-nowrap items-center gap-1.5"
+      subheaderClassName="mt-3 mb-1.5 flex w-full min-w-0 flex-wrap items-center justify-end gap-1.5"
       subheader={
         <>
           <SearchInput
             value={search}
             onValueChange={setSearch}
             placeholder="Event, person, note"
-            className="flex-[1_1_auto] min-w-0 max-sm:max-w-none"
+            className="flex-[1_1_320px] sm:max-w-[380px] max-sm:max-w-none"
           />
           <SelectField
             label="Sort"
@@ -264,18 +264,29 @@ export function EventList({
             </tr>
           </thead>
           <tbody>
-            {sortedEventRows.map((event) => (
-              <tr
-                key={event.id}
-                id={`event-row-${event.id}`}
-                className={cn(
-                  event.type.trim().toLowerCase() === "alt"
-                    ? "event-row-alt"
-                    : "",
-                  isPastEvent(event) ? "event-row-past" : "",
-                )}
-              >
-                <td className="event-date-cell" data-label="Date">
+            {sortedEventRows.map((event) => {
+              const isAlt = event.type.trim().toLowerCase() === "alt";
+              const isPast = isPastEvent(event);
+              const isHidden = event.showOnTimeline === false;
+
+              return (
+                <tr
+                  key={event.id}
+                  id={`event-row-${event.id}`}
+                  className={cn(
+                    "max-sm:p-2",
+                    isAlt &&
+                      "[&>td]:bg-[#eef7ff] [&>.event-date-cell]:bg-[#dff1ff] [&>.event-time-cell]:bg-[#dff1ff]",
+                    isPast &&
+                      "bg-[#f0eee7] bg-[repeating-linear-gradient(135deg,transparent_0_11px,rgba(36,34,29,0.045)_11px_17px)] [&>td]:border-t-[rgba(36,34,29,0.1)] [&>td]:bg-[#f0eee7] [&>td]:bg-[repeating-linear-gradient(135deg,transparent_0_11px,rgba(36,34,29,0.045)_11px_17px)] [&>td]:text-[rgba(36,34,29,0.66)]",
+                    isAlt &&
+                      isPast &&
+                      "bg-[#e6eef0] bg-[repeating-linear-gradient(135deg,transparent_0_11px,rgba(36,34,29,0.05)_11px_17px)] [&>td]:border-t-[rgba(36,34,29,0.12)] [&>td]:bg-[#e6eef0] [&>td]:bg-[repeating-linear-gradient(135deg,transparent_0_11px,rgba(36,34,29,0.05)_11px_17px)]",
+                    isHidden &&
+                      "bg-[repeating-linear-gradient(135deg,transparent_0_12px,rgba(17,17,17,0.035)_12px_18px)] [&>td]:bg-[repeating-linear-gradient(135deg,transparent_0_12px,rgba(17,17,17,0.035)_12px_18px)] [&>td]:text-[var(--muted)]",
+                  )}
+                >
+                <td className="event-date-cell bg-[#fff8d8]" data-label="Date">
                   {canEdit ? (
                     <div
                       className="inline-date-range"
@@ -334,7 +345,7 @@ export function EventList({
                     formatShortGermanDateRange(event.date, event.endDate)
                   )}
                 </td>
-                <td className="event-time-cell" data-label="Time">
+                <td className="event-time-cell bg-[#e8fbff]" data-label="Time">
                   {canEdit ? (
                     <div className="inline-time-range" onClick={(click) => click.stopPropagation()}>
                       <InlineTextInput
@@ -410,7 +421,10 @@ export function EventList({
                 <td data-label="Type">
                   {canEdit ? (
                     <InlineTextInput
-                      className="event-inline-input event-inline-type"
+                      className={cn(
+                        "event-inline-input event-inline-type",
+                        isAlt && "bg-[var(--cyan)]",
+                      )}
                       list="event-list-type-suggestions"
                       value={event.type}
                       onClick={(click) => click.stopPropagation()}
@@ -424,7 +438,7 @@ export function EventList({
                       aria-label={`Type for ${event.what}`}
                     />
                   ) : (
-                    <span className="event-badge type-badge">{event.type}</span>
+                    <span className={cn("event-badge type-badge", isAlt && "bg-[var(--cyan)]")}>{event.type}</span>
                   )}
                 </td>
                 <td data-label="Category">
@@ -530,8 +544,9 @@ export function EventList({
                     </div>
                   ) : null}
                 </td>
-              </tr>
-            ))}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

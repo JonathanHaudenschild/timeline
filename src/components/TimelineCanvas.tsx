@@ -269,11 +269,11 @@ export function TimelineCanvas({
   const filterRowClass = 'flex min-w-0 max-w-full flex-wrap items-center gap-[5px] py-[3px] max-sm:hidden';
   const filterLabelClass = 'flex-none min-w-[68px] text-[10px] font-black uppercase tracking-[0.04em] text-[var(--muted)]';
   const filterMiniButtonClass = 'flex-none min-h-[22px] rounded-[2px] border border-[rgba(36,34,29,0.2)] bg-transparent text-[var(--muted)] shadow-none px-[6px] py-0 text-[10px] font-black uppercase';
-  const filterChipBase = 'flex-none min-h-[22px] overflow-hidden rounded-[2px] border text-[10px] font-black uppercase px-[7px] py-0 shadow-none';
-  const filterChipOn = 'max-w-[min(190px,42vw)] text-ellipsis whitespace-nowrap border-[rgba(36,34,29,0.26)] bg-[#fffef8] text-[var(--text)] shadow-[inset_0_-2px_0_var(--hot)]';
-  const filterChipOff = 'max-w-[min(190px,42vw)] text-ellipsis whitespace-nowrap border-[rgba(36,34,29,0.16)] bg-transparent text-[var(--muted)]';
-  const filterChipMobileOn = 'max-w-full text-left [overflow-wrap:anywhere] whitespace-normal border-[rgba(36,34,29,0.26)] bg-[#fffef8] text-[var(--text)] shadow-[inset_0_-2px_0_var(--hot)]';
-  const filterChipMobileOff = 'max-w-full text-left [overflow-wrap:anywhere] whitespace-normal border-[rgba(36,34,29,0.16)] bg-transparent text-[var(--muted)]';
+  const filterChipBase = 'flex-none min-h-[24px] overflow-hidden rounded-[2px] border text-[10px] font-black uppercase px-[7px] py-0 shadow-none';
+  const filterChipOn = 'max-w-[min(190px,42vw)] text-ellipsis whitespace-nowrap border-[rgba(36,34,29,0.36)] bg-[var(--primary)] text-[var(--text)] shadow-[inset_0_-3px_0_var(--hot)]';
+  const filterChipOff = 'max-w-[min(190px,42vw)] text-ellipsis whitespace-nowrap border-[rgba(36,34,29,0.14)] bg-transparent text-[var(--muted)] opacity-65';
+  const filterChipMobileOn = 'max-w-full text-left [overflow-wrap:anywhere] whitespace-normal border-[rgba(36,34,29,0.36)] bg-[var(--primary)] text-[var(--text)] shadow-[inset_0_-3px_0_var(--hot)]';
+  const filterChipMobileOff = 'max-w-full text-left [overflow-wrap:anywhere] whitespace-normal border-[rgba(36,34,29,0.14)] bg-transparent text-[var(--muted)] opacity-65';
 
   return (
     <SectionShell
@@ -289,29 +289,123 @@ export function TimelineCanvas({
       }}
       moveControls={moveControls}
       meta={`${project.startDate} / ${project.endDate}`}
-      metaClassName="border-[rgba(36,34,29,0.38)] bg-[var(--line)] font-mono text-xs text-[var(--primary)] max-sm:col-span-full max-sm:justify-self-start max-sm:overflow-hidden max-sm:text-ellipsis"
+      metaClassName="timeline-range-chip font-mono max-sm:overflow-hidden max-sm:text-ellipsis"
+      subheaderClassName="mt-3 mb-2"
       subheader={
-        <>
-          <div className="zoom-control-group max-sm:grid max-sm:w-full max-sm:grid-cols-[var(--icon-button-size)_minmax(46px,1fr)_var(--icon-button-size)] max-sm:gap-1.5">
-            <button
-              type="button"
-              className="tertiary"
-              onClick={() => setZoom((current) => Math.max(0.8, current - 0.3))}
-            >
-              -
-            </button>
-            <span className="zoom-readout">{Math.round(zoom * 100)}%</span>
-            <button
-              type="button"
-              className="tertiary"
-              onClick={() => setZoom((current) => Math.min(8, current + 0.3))}
-            >
-              +
-            </button>
+        <div className="flex w-full min-w-0 items-start justify-between gap-3 max-sm:grid max-sm:grid-cols-1 max-sm:items-stretch max-sm:gap-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1.5 max-sm:contents">
+            {eventTypes.length > 1 ? (
+              <div className={filterRowClass}>
+                <span className={filterLabelClass}>Types</span>
+                <button
+                  type="button"
+                  className={filterMiniButtonClass}
+                  onClick={() => setHiddenTypes(hiddenTypes.length ? [] : eventTypes)}
+                >
+                  ↕ {hiddenTypes.length ? "All" : "None"}
+                </button>
+                {eventTypes.map((type) => (
+                  <button
+                    type="button"
+                    className={cn(filterChipBase, hiddenTypes.includes(type) ? filterChipOff : filterChipOn)}
+                    key={type}
+                    onClick={() => setHiddenTypes((current) => toggleValue(current, type))}
+                  >
+                    {hiddenTypes.includes(type) ? type : `✓ ${type}`}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            {eventCategories.length > 1 ? (
+              <div className={filterRowClass}>
+                <span className={filterLabelClass}>Categories</span>
+                <button
+                  type="button"
+                  className={filterMiniButtonClass}
+                  onClick={() => setHiddenCategories(hiddenCategories.length ? [] : eventCategories)}
+                >
+                  ↕ {hiddenCategories.length ? "All" : "None"}
+                </button>
+                {eventCategories.map((category) => (
+                  <button
+                    type="button"
+                    className={cn(filterChipBase, hiddenCategories.includes(category) ? filterChipOff : filterChipOn)}
+                    key={category}
+                    onClick={() => setHiddenCategories((current) => toggleValue(current, category))}
+                  >
+                    {hiddenCategories.includes(category) ? category : `✓ ${category}`}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+            <div className={filterRowClass}>
+              <span className={filterLabelClass}>Todos</span>
+              <label className="relative inline-flex min-w-0 cursor-pointer items-center gap-[7px] pl-[38px] text-[11px] font-black uppercase text-[var(--muted)]">
+                <input
+                  type="checkbox"
+                  className="peer absolute left-0 top-1/2 h-[15px] w-[25px] -translate-y-1/2 appearance-none rounded-full border border-[rgba(36,34,29,0.34)] bg-[#fffef8] cursor-pointer transition-colors checked:border-[var(--hot)] checked:bg-[var(--primary)]"
+                  checked={project.settings.showTodosOnTimeline}
+                  onChange={(event) => onToggleTodoOverlay(event.target.checked)}
+                />
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-[3px] top-1/2 h-[9px] w-[9px] -translate-y-1/2 rounded-full bg-[var(--line)] transition-transform peer-checked:translate-x-[10px] peer-checked:bg-[var(--hot)]"
+                />
+                <span className="min-w-0 truncate">Show on timeline</span>
+              </label>
+            </div>
           </div>
-          <details className="mobile-control-menu timeline-mobile-menu max-sm:min-w-0 max-sm:w-full">
-            <summary>Tools</summary>
-            <div className="mobile-control-panel">
+          <div className="flex shrink-0 items-center justify-end gap-1.5 max-sm:grid max-sm:w-full max-sm:grid-cols-1 max-sm:items-stretch">
+            <FilterBadge
+              active={hiddenTimelineFilterCount > 0}
+              label={`${hiddenTimelineFilterCount} hidden`}
+              detail={`${hiddenTypes.length} types, ${hiddenCategories.length} categories hidden`}
+              onClear={() => {
+                setHiddenTypes([]);
+                setHiddenCategories([]);
+              }}
+              clearLabel="Clear timeline filters"
+              className="max-sm:w-full"
+            />
+            <div className="zoom-control-group max-sm:grid max-sm:w-full max-sm:grid-cols-3 max-sm:gap-1.5 max-sm:[&>button]:w-full max-sm:[&>button]:min-w-0">
+              <button
+                type="button"
+                className="tertiary"
+                onClick={() => setZoom((current) => Math.max(0.8, current - 0.3))}
+              >
+                -
+              </button>
+              <span className="zoom-readout">{Math.round(zoom * 100)}%</span>
+              <button
+                type="button"
+                className="tertiary"
+                onClick={() => setZoom((current) => Math.min(8, current + 0.3))}
+              >
+                +
+              </button>
+            </div>
+            <details className="mobile-control-menu timeline-mobile-menu max-sm:min-w-0 max-sm:w-full">
+              <summary>Tools</summary>
+              <div className="mobile-control-panel">
+                <button
+                  type="button"
+                  className="secondary today-button"
+                  onClick={panToNow}
+                  aria-label="Jump to now"
+                  title="Jump to now"
+                >
+                  Now
+                </button>
+                <button
+                  type="button"
+                  className="secondary today-button"
+                  onClick={fitTimeline}
+                >
+                  Fit timeline
+                </button>
+              </div>
+            </details>
+            <div className="desktop-control-group">
               <button
                 type="button"
                 className="secondary today-button"
@@ -323,105 +417,32 @@ export function TimelineCanvas({
               </button>
               <button
                 type="button"
-                className="secondary today-button"
+                className="icon-button secondary timeline-tool-button"
                 onClick={fitTimeline}
+                aria-label="Fit timeline"
+                title="Fit timeline"
               >
-                Fit timeline
+                <Maximize2 size={18} aria-hidden="true" />
               </button>
+              {canEdit ? (
+                <button
+                  type="button"
+                  className="icon-button timeline-tool-button"
+                  onClick={() =>
+                    onCreateEvent({ date: project.startDate, time: "09:00" })
+                  }
+                  aria-label="Add event"
+                  title="Add event"
+                >
+                  <CalendarPlus size={18} aria-hidden="true" />
+                </button>
+              ) : null}
             </div>
-          </details>
-          <div className="desktop-control-group">
-            <button
-              type="button"
-              className="secondary today-button"
-              onClick={panToNow}
-              aria-label="Jump to now"
-              title="Jump to now"
-            >
-              Now
-            </button>
-            <button
-              type="button"
-              className="icon-button secondary timeline-tool-button"
-              onClick={fitTimeline}
-              aria-label="Fit timeline"
-              title="Fit timeline"
-            >
-              <Maximize2 size={18} aria-hidden="true" />
-            </button>
-            {canEdit ? (
-              <button
-                type="button"
-                className="icon-button timeline-tool-button"
-                onClick={() =>
-                  onCreateEvent({ date: project.startDate, time: "09:00" })
-                }
-                aria-label="Add event"
-                title="Add event"
-              >
-                <CalendarPlus size={18} aria-hidden="true" />
-              </button>
-            ) : null}
           </div>
-          <FilterBadge
-            active={hiddenTimelineFilterCount > 0}
-            label={`${hiddenTimelineFilterCount} hidden`}
-            detail={`${hiddenTypes.length} types, ${hiddenCategories.length} categories hidden`}
-            onClear={() => {
-              setHiddenTypes([]);
-              setHiddenCategories([]);
-            }}
-            clearLabel="Clear timeline filters"
-            className="max-sm:col-span-full"
-          />
-        </>
+        </div>
       }
     >
       <div className="mb-2 flex min-w-0 max-w-full flex-col gap-1">
-        {eventTypes.length > 1 ? (
-          <div className={filterRowClass}>
-            <span className={filterLabelClass}>Types</span>
-            <button
-              type="button"
-              className={filterMiniButtonClass}
-              onClick={() => setHiddenTypes(hiddenTypes.length ? [] : eventTypes)}
-            >
-              ↕ {hiddenTypes.length ? "All" : "None"}
-            </button>
-            {eventTypes.map((type) => (
-              <button
-                type="button"
-                className={cn(filterChipBase, hiddenTypes.includes(type) ? filterChipOff : filterChipOn)}
-                key={type}
-                onClick={() => setHiddenTypes((current) => toggleValue(current, type))}
-              >
-                {type}
-              </button>
-            ))}
-          </div>
-        ) : null}
-        {eventCategories.length > 1 ? (
-          <div className={filterRowClass}>
-            <span className={filterLabelClass}>Categories</span>
-            <button
-              type="button"
-              className={filterMiniButtonClass}
-              onClick={() => setHiddenCategories(hiddenCategories.length ? [] : eventCategories)}
-            >
-              ↕ {hiddenCategories.length ? "All" : "None"}
-            </button>
-            {eventCategories.map((category) => (
-              <button
-                type="button"
-                className={cn(filterChipBase, hiddenCategories.includes(category) ? filterChipOff : filterChipOn)}
-                key={category}
-                onClick={() => setHiddenCategories((current) => toggleValue(current, category))}
-              >
-                {category}
-              </button>
-            ))}
-          </div>
-        ) : null}
         {eventTypes.length > 1 ? (
           <details className="mobile-control-menu timeline-filter-menu">
             <summary>
@@ -442,7 +463,7 @@ export function TimelineCanvas({
                   key={type}
                   onClick={() => setHiddenTypes((current) => toggleValue(current, type))}
                 >
-                  {type}
+                  {hiddenTypes.includes(type) ? type : `✓ ${type}`}
                 </button>
               ))}
             </div>
@@ -468,28 +489,12 @@ export function TimelineCanvas({
                   key={category}
                   onClick={() => setHiddenCategories((current) => toggleValue(current, category))}
                 >
-                  {category}
+                  {hiddenCategories.includes(category) ? category : `✓ ${category}`}
                 </button>
               ))}
             </div>
           </details>
         ) : null}
-        <div className={filterRowClass}>
-          <span className={filterLabelClass}>Todos</span>
-          <label className="relative inline-flex min-w-0 cursor-pointer items-center gap-[7px] pl-[38px] text-[11px] font-black uppercase text-[var(--muted)]">
-            <input
-              type="checkbox"
-              className="peer absolute left-0 top-1/2 h-[15px] w-[25px] -translate-y-1/2 appearance-none rounded-full border border-[rgba(36,34,29,0.34)] bg-[#fffef8] cursor-pointer transition-colors checked:border-[var(--hot)] checked:bg-[var(--primary)]"
-              checked={project.settings.showTodosOnTimeline}
-              onChange={(event) => onToggleTodoOverlay(event.target.checked)}
-            />
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute left-[3px] top-1/2 h-[9px] w-[9px] -translate-y-1/2 rounded-full bg-[var(--line)] transition-transform peer-checked:translate-x-[10px] peer-checked:bg-[var(--hot)]"
-            />
-            <span className="min-w-0 truncate">Show on timeline</span>
-          </label>
-        </div>
       </div>
       <canvas
         ref={canvasRef}
@@ -552,7 +557,7 @@ function drawTimeline(
   hitBoxesRef: MutableRefObject<HitBox[]>,
 ) {
   ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = "#fffdf4";
+  ctx.fillStyle = "#fffef8";
   ctx.fillRect(0, 0, width, height);
 
   const timelineY = Math.round(height * 0.48);
@@ -560,10 +565,17 @@ function drawTimeline(
   const days = totalDays(project);
   const tickEvery = Math.max(1, Math.ceil(days / (10 * zoom)));
   const showHours = zoom >= 2;
+  const ink = "#24221d";
+  const mutedLine = "#d6d0c2";
+  const softLine = "#e8e1d2";
+  const panel = "#fffef8";
+  const panelAlt = "#f6f3ea";
+  const primary = "#ddf85a";
+  const hot = "#f46aa8";
 
   ctx.font = "12px system-ui, sans-serif";
   ctx.textBaseline = "top";
-  ctx.fillStyle = "#111111";
+  ctx.fillStyle = ink;
 
   for (let day = 0; day <= days; day += tickEvery) {
     const date = dayToDate(day, project.startDate);
@@ -575,20 +587,32 @@ function drawTimeline(
         project.startDate,
       );
       const nextX = timeToPixel(nextDate, project, rangeWidth, pan);
-      ctx.fillStyle = (day / tickEvery) % 2 === 0 ? "#fff8d8" : "#f8efc7";
+      ctx.fillStyle = (day / tickEvery) % 2 === 0 ? panel : panelAlt;
       ctx.fillRect(x, 0, Math.max(0, nextX - x), height);
     }
-    ctx.strokeStyle = "#ded7c7";
+    ctx.strokeStyle = mutedLine;
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(x, 30);
     ctx.lineTo(x, height - 34);
     ctx.stroke();
-    ctx.fillStyle = "#111111";
-    ctx.fillRect(x + 4, 16, 58, 22);
-    ctx.fillStyle = "#d7ff2f";
+
     ctx.font = "900 12px system-ui, sans-serif";
-    ctx.fillText(formatShortGermanDate(date), x + 9, 21);
+    const label = formatShortGermanDate(date);
+    const chipX = x + 6;
+    const chipY = 16;
+    const chipWidth = Math.ceil(ctx.measureText(label).width) + 18;
+    const chipHeight = 24;
+    ctx.fillStyle = panel;
+    ctx.strokeStyle = "rgba(36,34,29,0.28)";
+    ctx.lineWidth = 1;
+    roundRect(ctx, chipX, chipY, chipWidth, chipHeight, 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = primary;
+    ctx.fillRect(chipX, chipY + chipHeight - 4, chipWidth, 4);
+    ctx.fillStyle = ink;
+    ctx.fillText(label, chipX + 9, chipY + 5);
 
     if (showHours && day < days) {
       [6, 12, 18].forEach((hour) => {
@@ -600,7 +624,7 @@ function drawTimeline(
           pan,
         );
         if (hourX < -40 || hourX > width + 40) return;
-        ctx.strokeStyle = "#eee7d7";
+        ctx.strokeStyle = softLine;
         ctx.beginPath();
         ctx.moveTo(hourX, 62);
         ctx.lineTo(hourX, height - 44);
@@ -609,13 +633,13 @@ function drawTimeline(
     }
   }
 
-  ctx.strokeStyle = "#111111";
-  ctx.lineWidth = 5;
+  ctx.strokeStyle = ink;
+  ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(24, timelineY);
   ctx.lineTo(width - 34, timelineY);
   ctx.stroke();
-  ctx.fillStyle = "#111111";
+  ctx.fillStyle = ink;
   ctx.beginPath();
   ctx.moveTo(width - 24, timelineY);
   ctx.lineTo(width - 40, timelineY - 8);
@@ -662,11 +686,15 @@ function drawTimeline(
   const hasSelectedEvent = Boolean(selectedEventId);
 
   if (denseMode) {
-    ctx.fillStyle = "#111111";
-    ctx.fillRect(18, height - 34, 154, 22);
-    ctx.fillStyle = "#d7ff2f";
+    ctx.fillStyle = panel;
+    ctx.strokeStyle = "rgba(36,34,29,0.28)";
+    ctx.lineWidth = 1;
+    roundRect(ctx, 18, height - 36, 154, 26, 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = hot;
     ctx.font = "900 12px system-ui, sans-serif";
-    ctx.fillText("KEY VIEW - ZOOM IN", 28, height - 29);
+    ctx.fillText("KEY VIEW - ZOOM IN", 28, height - 31);
   }
 
   displayEvents.forEach(({ event, x }) => {
@@ -1181,18 +1209,29 @@ function drawNowMarker(
   const x = momentToPixel(today, time, project, rangeWidth, pan);
   if (x < -40 || x > width + 40) return;
 
-  ctx.strokeStyle = "#00c2ff";
-  ctx.lineWidth = 5;
+  ctx.strokeStyle = "#f46aa8";
+  ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(x, 34);
   ctx.lineTo(x, height - 38);
   ctx.stroke();
 
-  ctx.fillStyle = "#111111";
-  ctx.fillRect(Math.max(12, Math.min(width - 112, x - 56)), 48, 112, 30);
-  ctx.fillStyle = "#00c2ff";
+  const label = `NOW ${time}`;
   ctx.font = "900 13px system-ui, sans-serif";
-  ctx.fillText(`NOW ${time}`, Math.max(20, Math.min(width - 104, x - 48)), 56);
+  const labelWidth = Math.ceil(ctx.measureText(label).width) + 20;
+  const labelX = Math.max(12, Math.min(width - labelWidth - 12, x - labelWidth / 2));
+  const labelY = 48;
+  ctx.fillStyle = "#fffef8";
+  ctx.strokeStyle = "rgba(36,34,29,0.3)";
+  ctx.lineWidth = 1;
+  roundRect(ctx, labelX, labelY, labelWidth, 30, 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#ddf85a";
+  ctx.fillRect(labelX, labelY + 26, labelWidth, 4);
+  ctx.fillStyle = "#24221d";
+  ctx.font = "900 13px system-ui, sans-serif";
+  ctx.fillText(label, labelX + 10, labelY + 8);
 }
 
 function localDateString(date: Date) {

@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PointerEvent } from 'react';
-import { Eye, GripVertical, KeyRound, Pencil, Plus, Trash2 } from 'lucide-react';
+import Image from 'next/image';
+import { ArrowUp, Eye, GripVertical, KeyRound, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useAppDialog } from './AppDialog';
 import { EventEditor } from './EventEditor';
 import { EventList } from './EventList';
@@ -62,6 +63,13 @@ type PinDialogResult = {
 type MovableSection = 'info' | 'protocol' | 'timeline' | 'events' | 'todos';
 
 const defaultSectionOrder: MovableSection[] = ['info', 'protocol', 'timeline', 'events', 'todos'];
+const sectionNavigationLabels: Record<MovableSection, string> = {
+  info: 'Info',
+  protocol: 'Protocols',
+  timeline: 'Timeline',
+  events: 'Events',
+  todos: 'Todos',
+};
 const todoBoardTabsClass =
   'mt-3 mb-2 flex min-w-0 flex-wrap items-center gap-1 rounded-[2px] border border-[rgba(36,34,29,0.18)] bg-[var(--bg)] p-1 shadow-none max-sm:hidden';
 const todoBoardTabButtonClass =
@@ -72,6 +80,14 @@ const todoBoardTabButtonActiveClass =
   'border-[rgba(36,34,29,0.28)] bg-[var(--primary)] text-[var(--text)] shadow-[inset_0_-3px_0_var(--hot)]';
 const todoBoardTabAddButtonClass =
   'icon-button tertiary ml-auto h-8 min-h-8 w-8 min-w-8 border-[rgba(36,34,29,0.22)] bg-[#fffdf8] p-0 max-xl:ml-0';
+const lockShellClass = 'app-shell !grid min-h-screen !w-full place-items-center !p-4';
+const lockPanelClass =
+  'grid w-full max-w-[520px] gap-[18px] rounded-[3px] border border-[rgba(36,34,29,0.22)] bg-[var(--panel)] p-[18px] shadow-[var(--shadow)]';
+const lockTitleClass = 'm-0 mb-2 text-[28px] leading-none font-black uppercase';
+const mutedDescriptionClass = 'm-0 text-[var(--muted)] font-extrabold';
+const pinFormClass = 'grid gap-3';
+const formErrorClass =
+  'rounded-[2px] border border-[rgba(207,45,36,0.42)] bg-[#fff6f5] px-2.5 py-2 text-xs font-black text-[var(--danger)] uppercase';
 
 export function TimelineApp() {
   const { dialog: appDialogElement, alert: showAlert, confirm: showConfirm, prompt: showPrompt } = useAppDialog();
@@ -121,6 +137,7 @@ export function TimelineApp() {
   const pinDialogResolverRef = useRef<((result: PinDialogResult | null) => void) | null>(null);
   const consumedUrlTargetRef = useRef('');
   const topRef = useRef<HTMLElement | null>(null);
+  const infoRef = useRef<HTMLDivElement | null>(null);
   const protocolsRef = useRef<HTMLDivElement | null>(null);
   const timelineRef = useRef<HTMLDivElement | null>(null);
   const eventsRef = useRef<HTMLElement | null>(null);
@@ -1031,6 +1048,16 @@ export function TimelineApp() {
     });
   }
 
+  function lockProject() {
+    clearProjectPinSession(project.hash);
+    projectPinRef.current = undefined;
+    canSaveRef.current = false;
+    setLockedHash(project.hash);
+    setUnlockPin('');
+    setLockError('');
+    setSaveState('error');
+  }
+
   async function restoreRevision() {
     try {
       const { revisions } = await fetchProjectRevisions(project.hash, projectPinRef.current);
@@ -1291,6 +1318,9 @@ export function TimelineApp() {
         case 'top':
           scrollToElement(topRef.current);
           break;
+        case 'info':
+          scrollToElement(infoRef.current);
+          break;
         case 'todos':
           setIsTodoSectionMinimized(false);
           scrollToElement(todoRef.current);
@@ -1312,15 +1342,25 @@ export function TimelineApp() {
 
   if (lockedHash) {
     return (
-      <main className="app-shell locked-shell">
-        <section className="lock-panel">
-          <div>
-            <h1>Project locked</h1>
-            <p>
+      <main className={lockShellClass}>
+        <section className={lockPanelClass}>
+          <div className="grid justify-items-center text-center">
+            <Image
+              className="mb-3 block h-[58px] w-[58px]"
+              src="/icon.svg"
+              alt=""
+              width={58}
+              height={58}
+              aria-hidden="true"
+              priority
+            />
+            <h1 className={lockTitleClass}>YUZZA</h1>
+            <p className={mutedDescriptionClass}>
               <code>#{lockedHash}</code> needs a project PIN before it can be viewed.
             </p>
           </div>
           <form
+            className={pinFormClass}
             onSubmit={(event) => {
               event.preventDefault();
               void fetchProject(lockedHash, unlockPin)
@@ -1352,7 +1392,7 @@ export function TimelineApp() {
               onValueChange={setUnlockPin}
               autoFocus
             />
-            {lockError ? <div className="form-error">{lockError}</div> : null}
+            {lockError ? <div className={formErrorClass}>{lockError}</div> : null}
             <button type="submit">Unlock project</button>
           </form>
         </section>
@@ -1364,21 +1404,25 @@ export function TimelineApp() {
   return (
     <main className="app-shell" ref={topRef}>
       <nav className="quick-jump" aria-label="Quick navigation">
-        <button type="button" className="secondary" onClick={() => navigateToTarget({ section: 'top' })}>
-          Top
+        <button
+          type="button"
+          className="icon-button secondary"
+          onClick={() => navigateToTarget({ section: 'top' })}
+          aria-label="Back to top"
+          title="Back to top"
+        >
+          <ArrowUp size={16} aria-hidden="true" />
         </button>
-        <button type="button" className="secondary" onClick={() => navigateToTarget({ section: 'todos' })}>
-          Todos
-        </button>
-        <button type="button" className="secondary" onClick={() => navigateToTarget({ section: 'timeline' })}>
-          Timeline
-        </button>
-        <button type="button" className="secondary" onClick={() => navigateToTarget({ section: 'events' })}>
-          Events
-        </button>
-        <button type="button" className="secondary" onClick={() => navigateToTarget({ section: 'protocol' })}>
-          Protocols
-        </button>
+        {sectionOrder.map((section) => (
+          <button
+            type="button"
+            className="secondary"
+            key={section}
+            onClick={() => navigateToTarget({ section })}
+          >
+            {sectionNavigationLabels[section]}
+          </button>
+        ))}
       </nav>
 
       <StickyLinks
@@ -1424,6 +1468,7 @@ export function TimelineApp() {
             if (hash) window.location.hash = normalizeHash(hash);
           });
         }}
+        onLockProject={lockProject}
         onImport={(file) => {
           setSaveState('saving');
           importProjectFile(project.hash, file, projectPinRef.current)
@@ -1458,7 +1503,7 @@ export function TimelineApp() {
         </div>
       ) : null}
 
-	      <div className="ordered-section ordered-section-info" style={sectionOrderStyle('info')}>
+	      <div className="ordered-section ordered-section-info" ref={infoRef} style={sectionOrderStyle('info')}>
 	        <SectionShell
 	          title="Info"
 	          className="bg-[var(--panel)]"
@@ -1862,7 +1907,7 @@ function PinDialog({
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={config.title}>
       <form
-        className="editor-panel modal-panel pin-dialog"
+        className="editor-panel modal-panel grid gap-3"
         onSubmit={(event) => {
           event.preventDefault();
           onSubmit();
@@ -1870,7 +1915,7 @@ function PinDialog({
       >
         <div>
           <div className="panel-title">{config.title}</div>
-          <p>{config.description}</p>
+          <p className={mutedDescriptionClass}>{config.description}</p>
         </div>
         <TextField
           label={config.inputLabel ?? 'PIN'}
@@ -1887,7 +1932,7 @@ function PinDialog({
             onValueChange={onRepeatedPinChange}
           />
         ) : null}
-        {config.error ? <div className="form-error">{config.error}</div> : null}
+        {config.error ? <div className={formErrorClass}>{config.error}</div> : null}
         <div className="action-row">
           <button type="submit">{config.confirmLabel}</button>
           <button type="button" className="tertiary" onClick={onCancel}>

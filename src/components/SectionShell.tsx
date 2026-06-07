@@ -64,11 +64,10 @@ export function SectionShell({
       {hasHeaderContent ? (
         <div className={uiSectionHeader}>
           <div className="flex min-w-0 items-center gap-2 max-[420px]:w-full">
-            <h2 className={showTitle ? uiSectionTitle : "sr-only"}>{title}</h2>
             {copyLink ? (
               <button
                 type="button"
-                className={cn(uiIconButton, "secondary h-8 min-h-8 w-8 min-w-8")}
+                className={cn(uiIconButton, "section-copy-link tertiary h-4 min-h-4 w-4 min-w-4")}
                 onClick={copyLink.onCopy}
                 aria-label={copyLink.label}
                 title={copyLink.copied ? "Copied" : copyLink.label}
@@ -80,6 +79,7 @@ export function SectionShell({
                 )}
               </button>
             ) : null}
+            <h2 className={showTitle ? uiSectionTitle : "sr-only"}>{title}</h2>
           </div>
           <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 max-sm:gap-1.5 max-[420px]:w-full max-[420px]:justify-start">
             {meta ? <span className={chipClassName}>{meta}</span> : null}

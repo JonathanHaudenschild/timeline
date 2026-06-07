@@ -7,9 +7,6 @@ const defaultProtocolTitle = 'Tägliches Platz-Plenum';
 
 export const defaultProtocolInstructionTemplate = `{title}
 ---------------------------------------------------------------------------------------------------------------------
-Tägliches Platz-Plenum | Datum: {date} | Dauer: {duration}
-Moderation: NAME | Protokoll: NAME | Todo-person: NAME
-
 Begrüßung & Rahmen
 Guten Morgen, ich moderiere heute das Plenum möglichst zügig & strukturiert.
 Wer schreibt heute Protokoll? Wer ist heute Todo-person?

@@ -94,10 +94,12 @@ const protocolListToggleClass =
 const protocolListFilterClass =
   'sticky top-0 z-[2] grid gap-1.5 bg-[var(--panel)] pb-1';
 const protocolDetailClass = 'grid min-w-0 gap-2.5';
+const protocolMetaToolbarClass =
+  `${uiCard} flex min-w-0 items-end gap-2 overflow-visible p-[7px] max-lg:flex-wrap max-sm:w-full max-sm:grid max-sm:grid-cols-1 max-sm:p-1.5 max-[420px]:mx-[-2px] max-[420px]:gap-1 max-[420px]:rounded-none max-[420px]:border-x-0 max-[420px]:px-1`;
 const protocolMetaGridClass =
-  `${uiCard} grid min-w-0 grid-cols-[minmax(220px,1.25fr)_minmax(138px,0.58fr)_repeat(3,minmax(128px,0.78fr))] gap-1.5 overflow-x-auto p-[7px] [scrollbar-gutter:stable] max-sm:w-full max-sm:grid-cols-1 max-sm:overflow-hidden max-sm:p-1.5 max-[420px]:mx-[-2px] max-[420px]:gap-1 max-[420px]:rounded-none max-[420px]:border-x-0 max-[420px]:px-1`;
+  'flex-1 space-y-2 lg:space-y-0 lg:grid items-center grid-cols-[minmax(220px,1.25fr)_minmax(138px,0.58fr)_repeat(3,minmax(128px,0.78fr))] gap-1.5 max-lg:min-w-0 max-lg:flex-[1_0_100%] max-sm:w-full max-sm:grid-cols-1 max-[420px]:gap-1';
 const protocolActionsClass =
-  'flex flex-wrap items-center justify-end gap-2 max-sm:grid max-sm:grid-cols-[repeat(5,var(--icon-button-size))] max-sm:gap-1.5 max-sm:justify-end max-[420px]:grid-cols-[repeat(3,var(--icon-button-size))]';
+  'flex shrink-0 flex-wrap items-center justify-end gap-1.5 max-lg:flex-[1_0_100%] max-sm:grid max-sm:grid-cols-[repeat(5,var(--icon-button-size))] max-sm:gap-1.5 max-sm:justify-end max-[420px]:grid-cols-[repeat(3,var(--icon-button-size))]';
 const protocolTimerClass =
   'mr-auto grid grid-cols-[minmax(72px,auto)_repeat(2,34px)] items-center gap-[5px] max-sm:col-span-full max-sm:mr-0 max-sm:w-full max-sm:flex-[1_0_100%] max-sm:grid-cols-[minmax(0,1fr)_repeat(2,minmax(0,auto))] max-[420px]:grid-cols-[minmax(0,1fr)_auto_auto]';
 const protocolTimerReadoutClass =
@@ -602,112 +604,114 @@ export function MeetingProtocols({
           </aside>
           {selectedProtocol ? (
             <div className={protocolDetailClass}>
-              <div className={protocolMetaGridClass}>
-                <TextField
-                  label="Title"
-                  value={selectedProtocol.title}
-                  onValueChange={(title) => updateProtocol({ title })}
-                  placeholder="Tägliches Platz-Plenum"
-                  className="min-w-0"
-                  inputClassName="!text-sm sm:!text-base"
-                />
-                <TextField
-                  label="Date"
-                  type="date"
-                  value={selectedProtocol.date}
-                  onValueChange={updateDate}
-                  className="min-w-0"
-                />
-                <TextField
-                  label="Moderation"
-                  value={selectedProtocol.moderation}
-                  onValueChange={(moderation) => updateProtocol({ moderation })}
-                  placeholder="Name"
-                  aria-label="Moderation name"
-                  className="min-w-0"
-                />
-                <TextField
-                  label="Protokoll"
-                  value={selectedProtocol.protocolWriter}
-                  onValueChange={(protocolWriter) => updateProtocol({ protocolWriter })}
-                  placeholder="Name"
-                  aria-label="Protocol writer name"
-                  className="min-w-0"
-                />
-                <TextField
-                  label="Todo-person"
-                  value={selectedProtocol.todoOwner}
-                  onValueChange={(todoOwner) => updateProtocol({ todoOwner })}
-                  placeholder="Name"
-                  aria-label="Todo person name"
-                  className="min-w-0"
-                />
-              </div>
-              <div className={protocolActionsClass}>
-                <div className={protocolTimerClass} aria-label="Protocol duration">
-                  <strong className={protocolTimerReadoutClass}>{formatProtocolDuration(selectedProtocolDuration)}</strong>
-                  {isTimerRunning ? (
-                    <>
-                      <button type="button" className="icon-button secondary protocol-timer-button" onClick={pauseTimer} aria-label="Pause timer" title="Pause">
-                        <Pause size={16} aria-hidden="true" />
-                      </button>
-                      <button type="button" className="icon-button secondary protocol-timer-button" onClick={stopTimer} aria-label="Stop timer" title="Stop">
-                        <Square size={16} aria-hidden="true" />
-                      </button>
-                    </>
-                  ) : (
-                    <button type="button" className="icon-button secondary protocol-timer-button" onClick={startTimer} aria-label={`${timerStartLabel} timer`} title={timerStartLabel}>
-                      <Play size={16} aria-hidden="true" />
-                    </button>
-                  )}
+              <div className={protocolMetaToolbarClass}>
+                <div className={protocolMetaGridClass}>
+                  <TextField
+                    label="Title"
+                    value={selectedProtocol.title}
+                    onValueChange={(title) => updateProtocol({ title })}
+                    placeholder="Tägliches Platz-Plenum"
+                    className="min-w-0"
+                    inputClassName="!text-sm sm:!text-base"
+                  />
+                  <TextField
+                    label="Date"
+                    type="date"
+                    value={selectedProtocol.date}
+                    onValueChange={updateDate}
+                    className="min-w-0"
+                  />
+                  <TextField
+                    label="Moderation"
+                    value={selectedProtocol.moderation}
+                    onValueChange={(moderation) => updateProtocol({ moderation })}
+                    placeholder="Name"
+                    aria-label="Moderation name"
+                    className="min-w-0"
+                  />
+                  <TextField
+                    label="Protokoll"
+                    value={selectedProtocol.protocolWriter}
+                    onValueChange={(protocolWriter) => updateProtocol({ protocolWriter })}
+                    placeholder="Name"
+                    aria-label="Protocol writer name"
+                    className="min-w-0"
+                  />
+                  <TextField
+                    label="Todo-person"
+                    value={selectedProtocol.todoOwner}
+                    onValueChange={(todoOwner) => updateProtocol({ todoOwner })}
+                    placeholder="Name"
+                    aria-label="Todo person name"
+                    className="min-w-0"
+                  />
                 </div>
-                <button
-                  type="button"
-                  className="icon-button secondary protocol-action-button"
-                  onClick={() => setShowInstruction((visible) => !visible)}
-                  aria-label={showInstruction ? 'Hide instruction' : 'Show instruction'}
-                  title={showInstruction ? 'Hide instruction' : 'Show instruction'}
-                >
-                  {showInstruction ? <EyeOff size={17} aria-hidden="true" /> : <BookOpen size={17} aria-hidden="true" />}
-                </button>
-                {canEdit ? (
+                <div className={protocolActionsClass}>
+                  <div className={protocolTimerClass} aria-label="Protocol duration">
+                    <strong className={protocolTimerReadoutClass}>{formatProtocolDuration(selectedProtocolDuration)}</strong>
+                    {isTimerRunning ? (
+                      <>
+                        <button type="button" className="icon-button secondary protocol-timer-button" onClick={pauseTimer} aria-label="Pause timer" title="Pause">
+                          <Pause size={16} aria-hidden="true" />
+                        </button>
+                        <button type="button" className="icon-button secondary protocol-timer-button" onClick={stopTimer} aria-label="Stop timer" title="Stop">
+                          <Square size={16} aria-hidden="true" />
+                        </button>
+                      </>
+                    ) : (
+                      <button type="button" className="icon-button secondary protocol-timer-button" onClick={startTimer} aria-label={`${timerStartLabel} timer`} title={timerStartLabel}>
+                        <Play size={16} aria-hidden="true" />
+                      </button>
+                    )}
+                  </div>
                   <button
                     type="button"
                     className="icon-button secondary protocol-action-button"
-                    onClick={() => setIsEditingInstruction((editing) => !editing)}
-                    aria-label={isEditingInstruction ? 'Preview instruction' : 'Edit instruction'}
-                    title={isEditingInstruction ? 'Preview instruction' : 'Edit instruction'}
+                    onClick={() => setShowInstruction((visible) => !visible)}
+                    aria-label={showInstruction ? 'Hide instruction' : 'Show instruction'}
+                    title={showInstruction ? 'Hide instruction' : 'Show instruction'}
                   >
-                    {isEditingInstruction ? <Eye size={17} aria-hidden="true" /> : <Pencil size={17} aria-hidden="true" />}
+                    {showInstruction ? <EyeOff size={17} aria-hidden="true" /> : <BookOpen size={17} aria-hidden="true" />}
                   </button>
-                ) : null}
-                <button
-                  type="button"
-                  className="icon-button secondary protocol-action-button"
-                  onClick={createEventFromProtocol}
-                  aria-label="Create event from protocol"
-                  title="Event from protocol"
-                >
-                  <CalendarPlus size={17} aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  className="icon-button secondary protocol-action-button"
-                  onClick={exportProtocolPdf}
-                  aria-label="Export protocol as PDF"
-                  title="Export PDF"
-                >
-                  <Download size={17} aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  className="icon-button danger protocol-action-button"
-                  onClick={() => void deleteProtocol()}
-                  aria-label="Delete protocol"
-                  title="Delete protocol"
-                >
-                  <Trash2 size={17} aria-hidden="true" />
-                </button>
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      className="icon-button secondary protocol-action-button"
+                      onClick={() => setIsEditingInstruction((editing) => !editing)}
+                      aria-label={isEditingInstruction ? 'Preview instruction' : 'Edit instruction'}
+                      title={isEditingInstruction ? 'Preview instruction' : 'Edit instruction'}
+                    >
+                      {isEditingInstruction ? <Eye size={17} aria-hidden="true" /> : <Pencil size={17} aria-hidden="true" />}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="icon-button secondary protocol-action-button"
+                    onClick={createEventFromProtocol}
+                    aria-label="Create event from protocol"
+                    title="Event from protocol"
+                  >
+                    <CalendarPlus size={17} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-button secondary protocol-action-button"
+                    onClick={exportProtocolPdf}
+                    aria-label="Export protocol as PDF"
+                    title="Export PDF"
+                  >
+                    <Download size={17} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-button danger protocol-action-button"
+                    onClick={() => void deleteProtocol()}
+                    aria-label="Delete protocol"
+                    title="Delete protocol"
+                  >
+                    <Trash2 size={17} aria-hidden="true" />
+                  </button>
+                </div>
               </div>
               {showInstruction ? (
                 <details className="protocol-instruction" open>
@@ -919,7 +923,7 @@ function ProtocolStructuredSection({
         className={cn(
           protocolSectionTitleClass,
           kind === 'updates' && 'bg-[#f2fbfe]',
-          kind === 'topics' && 'bg-[#fffdf8]',
+          kind === 'topics' && 'bg-[#fff2f8]',
           kind === 'todos' && 'bg-[#fbfee9]',
         )}
       >

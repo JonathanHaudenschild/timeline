@@ -3,7 +3,7 @@ import { normalizeMeetingProtocols } from './meetingProtocols';
 import type { TimelineProject } from './types';
 
 export type ProjectUrlTarget =
-  | { section: 'top' | 'todos' | 'timeline' | 'events' | 'protocol' }
+  | { section: 'top' | 'info' | 'todos' | 'timeline' | 'events' | 'protocol' }
   | { section: 'protocol'; protocolId: string };
 
 export function loadProject(hash: string, storage: Storage = window.localStorage) {
@@ -69,7 +69,7 @@ function parseProjectUrlTarget(target: string): ProjectUrlTarget | undefined {
   if (section === 'todo') return { section: 'todos' };
   if (section === 'event' || section === 'event-table' || section === 'events-table') return { section: 'events' };
   if (section === 'protocols') return { section: 'protocol' };
-  if (section === 'top' || section === 'todos' || section === 'timeline' || section === 'events' || section === 'protocol') {
+  if (section === 'top' || section === 'info' || section === 'todos' || section === 'timeline' || section === 'events' || section === 'protocol') {
     return { section };
   }
 

@@ -29,7 +29,7 @@ type TodoSortKey = 'manual' | 'due-date' | 'a-z' | 'owner' | 'created';
 const todoBoardClass =
   `${uiSurface} min-w-0 max-w-full overflow-visible p-3.5 max-sm:p-2.5`;
 const todoHeadingClass =
-  'relative z-[5] mb-0.5 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3 pb-2 max-sm:z-[5] max-sm:grid-cols-1 max-sm:items-stretch max-sm:gap-2';
+  'relative z-[5] mb-0.5 grid grid-cols-[auto_minmax(0,1fr)] items-end gap-3 pb-2 max-sm:z-[5] max-sm:grid-cols-1 max-sm:items-stretch max-sm:gap-2';
 const todoActionsClass =
   'flex min-w-0 items-end justify-end gap-2 flex-wrap max-sm:grid max-sm:w-full max-sm:grid-cols-1 max-sm:items-stretch';
 const todoActionGroupClass =
@@ -39,7 +39,7 @@ const todoActionIconsClass =
 const todoColumnsClass =
   'relative z-[2] mt-[-12px] flex w-full max-w-full min-w-0 gap-2.5 overflow-x-auto overflow-y-visible overscroll-x-contain py-[18px] pr-0 pb-2.5 pl-0 [scroll-snap-type:x_proximity] [scrollbar-gutter:stable] max-sm:z-[1] max-sm:grid max-sm:grid-cols-1 max-sm:gap-2 max-sm:overflow-visible max-sm:px-0 max-sm:[scroll-snap-type:none]';
 const todoColumnClass =
-  `${uiCard} relative min-h-[150px] min-w-[300px] flex-[0_0_300px] overflow-visible border-[rgba(36,34,29,0.22)] bg-[var(--bg)] p-[9px] shadow-[inset_0_3px_0_rgba(36,34,29,0.18),0_6px_14px_rgba(36,34,29,0.05)] [scroll-snap-align:start] hover:z-20 focus-within:z-20 max-sm:w-full max-sm:min-w-0 max-sm:scroll-snap-align-none max-sm:py-[7px] max-sm:pr-[7px] max-sm:pb-[7px] max-sm:pl-3`;
+  `${uiCard} relative min-h-[150px] min-w-[300px] flex-[0_0_300px] overflow-visible border-[rgba(36,34,29,0.22)] bg-[#fbfee9] p-[9px] shadow-[inset_0_3px_0_rgba(36,34,29,0.18),0_6px_14px_rgba(36,34,29,0.05)] [scroll-snap-align:start] hover:z-20 focus-within:z-20 max-sm:w-full max-sm:min-w-0 max-sm:scroll-snap-align-none max-sm:py-[7px] max-sm:pr-[7px] max-sm:pb-[7px] max-sm:pl-3`;
 const columnTitleClass =
   'relative z-[3] mb-[4px] grid items-center gap-2 bg-transparent pt-1 pb-[7px] text-[11px] font-black text-[var(--text)] uppercase shadow-none max-sm:gap-1.5';
 const columnTitleLabelClass =
@@ -289,13 +289,13 @@ export function TodoBoard({
             value={search}
             onValueChange={setSearch}
             placeholder="Todo, owner, status, tag"
-            className="todo-search-control max-sm:max-w-none"
+            className="todo-search-control flex-[1_1_320px] sm:max-w-[380px] max-sm:max-w-none"
           />
           <SelectField
             label="Tag"
             value={tagFilter}
             onValueChange={setTagFilter}
-            className="todo-tag-filter-control max-sm:max-w-none"
+            className="todo-tag-filter-control flex-[0_1_240px] sm:max-w-[240px] max-sm:max-w-none"
           >
               <option value="">All tags</option>
               {tagFilter && !availableTags.some((tag) => tagsEqual(tag, tagFilter)) ? (

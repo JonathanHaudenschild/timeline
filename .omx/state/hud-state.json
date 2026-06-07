@@ -1,5 +1,5 @@
 {
-  "last_turn_at": "2026-06-06T22:56:41.905Z",
-  "turn_count": 367,
-  "last_agent_output": "Implemented:\n\n- Revision modal now has `Download revision`, exporting the selected revision as JSON."
+  "last_turn_at": "2026-06-07T00:33:24.836Z",
+  "turn_count": 400,
+  "last_agent_output": "Fixed the mobile timeline section shell:\n\n- Timeline header now splits into two mobile rows:\n  - Row"
 }
