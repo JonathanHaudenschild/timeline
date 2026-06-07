@@ -88,7 +88,15 @@ export function TodoEditor({
           saveWithPendingTag();
         }}
       >
-        <div className="panel-title">{title}</div>
+        <div className="mb-2 flex min-w-0 flex-wrap items-start justify-between gap-2">
+          <div className="panel-title mb-0">{title}</div>
+          <div className="flex min-w-0 flex-wrap justify-end gap-x-2 gap-y-0.5 text-[10px] font-black uppercase text-[var(--muted)]">
+            <time dateTime={localDraft.createdAt}>created {formatTodoCreatedAt(localDraft.createdAt)}</time>
+            <time dateTime={localDraft.updatedAt ?? localDraft.createdAt}>
+              updated {formatTodoCreatedAt(localDraft.updatedAt ?? localDraft.createdAt)}
+            </time>
+          </div>
+        </div>
         <div className="grid gap-3">
           <div className="grid gap-2">
             <TextField
@@ -109,6 +117,12 @@ export function TodoEditor({
               label="Who"
               value={localDraft.who}
               onValueChange={(who) => updateDraft({ who })}
+            />
+            <TextField
+              label="Due"
+              type="date"
+              value={localDraft.dueDate ?? ''}
+              onValueChange={(dueDate) => updateDraft({ dueDate })}
             />
             <SelectField
               label="Status"
@@ -151,19 +165,6 @@ export function TodoEditor({
                   ))}
               </SelectField>
             ) : null}
-            <TextField
-              label="Due"
-              type="date"
-              value={localDraft.dueDate ?? ''}
-              onValueChange={(dueDate) => updateDraft({ dueDate })}
-            />
-            <TextField
-              label="Created"
-              value={formatTodoCreatedAt(localDraft.createdAt)}
-              onValueChange={() => undefined}
-              readOnly
-              inputClassName="readonly-input"
-            />
           </div>
           <div className="todo-tags-field">
             <span className="field-label">Tags</span>
