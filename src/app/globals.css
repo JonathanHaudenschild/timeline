@@ -1136,7 +1136,6 @@ label {
   align-items: center;
   flex-wrap: nowrap;
   min-width: 0;
-  border-top: 1px solid rgba(36, 34, 29, 0.14);
   margin: 2px -1px -1px;
   padding: 5px 0 0;
 }
@@ -1288,6 +1287,13 @@ label {
 .protocol-entry-actions .protocol-linked-event:hover {
   background: var(--primary-strong);
   border-color: rgba(36, 34, 29, 0.42);
+}
+
+.protocol-entry-actions .protocol-recurring-action.active {
+  border-color: rgba(36, 34, 29, 0.34);
+  background: var(--primary);
+  box-shadow: 0 1px 0 rgba(36, 34, 29, 0.18);
+  color: var(--text);
 }
 
 .protocol-editor {
@@ -2347,6 +2353,13 @@ tr.selected td {
   background: #fff4f6;
 }
 
+.protocol-entry-actions .protocol-recurring-action.active {
+  border-color: rgba(36, 34, 29, 0.34) !important;
+  background: var(--primary);
+  box-shadow: 0 1px 0 rgba(36, 34, 29, 0.18);
+  color: var(--text);
+}
+
 .column-title-actions-row .column-rename-trigger,
 .column-title-actions-row .column-add,
 .column-title-actions-row .column-remove,
@@ -3101,7 +3114,7 @@ tr.selected td {
 
   .protocol-entry-action-buttons {
     display: grid;
-    grid-template-columns: repeat(4, minmax(34px, 1fr));
+    grid-template-columns: repeat(5, minmax(30px, 1fr));
     gap: 1px;
     width: 100%;
     margin-left: 0;
@@ -3136,7 +3149,8 @@ tr.selected td {
   }
 
   .protocol-entry-actions .protocol-linked-todo,
-  .protocol-entry-actions .protocol-linked-event {
+  .protocol-entry-actions .protocol-linked-event,
+  .protocol-entry-actions .protocol-recurring-action.active {
     border-color: rgba(36, 34, 29, 0.34);
   }
 

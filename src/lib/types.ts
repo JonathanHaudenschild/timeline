@@ -83,6 +83,8 @@ export type MeetingProtocolItem = {
   body: string;
   convertedTodoId?: string;
   convertedEventId?: string;
+  recurring?: boolean;
+  recurringSourceId?: string;
   comments?: TimelineComment[];
   createdAt: string;
   updatedAt: string;

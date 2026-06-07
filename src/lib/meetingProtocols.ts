@@ -100,6 +100,53 @@ export function createMeetingProtocol(date?: string, time?: string): MeetingProt
   };
 }
 
+export function seedRecurringProtocolItems(
+  protocol: MeetingProtocol,
+  sourceProtocols: readonly MeetingProtocol[],
+): MeetingProtocol {
+  const latestBySource = new Map<string, { kind: ProtocolItemKind; item: MeetingProtocolItem; protocol: MeetingProtocol }>();
+  const targetKey = protocolScheduleKey(protocol);
+
+  for (const sourceProtocol of sourceProtocols) {
+    if (protocolScheduleKey(sourceProtocol) >= targetKey) continue;
+
+    for (const kind of protocolItemKinds) {
+      for (const item of sourceProtocol[kind]) {
+        const sourceId = item.recurringSourceId ?? (item.recurring ? item.id : '');
+        if (!sourceId) continue;
+
+        const current = latestBySource.get(sourceId);
+        if (!current || protocolScheduleKey(sourceProtocol) >= protocolScheduleKey(current.protocol)) {
+          latestBySource.set(sourceId, { kind, item, protocol: sourceProtocol });
+        }
+      }
+    }
+  }
+
+  const now = new Date().toISOString();
+  const nextProtocol = { ...protocol };
+
+  for (const { kind, item } of latestBySource.values()) {
+    if (!item.recurring) continue;
+
+    nextProtocol[kind] = [
+      ...nextProtocol[kind],
+      {
+        id: crypto.randomUUID(),
+        title: item.title,
+        owner: item.owner,
+        body: item.body,
+        recurring: true,
+        recurringSourceId: item.recurringSourceId ?? item.id,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ];
+  }
+
+  return nextProtocol;
+}
+
 export function createProtocolItem(kind: ProtocolItemKind, index: number): MeetingProtocolItem {
   const now = new Date().toISOString();
 
@@ -213,6 +260,7 @@ export function protocolItemConversionBody(
   const parts = [
     `Protocol: ${protocol.title}`,
     `Date: ${protocol.date}`,
+    protocol.time ? `Time: ${protocol.time}` : '',
     `Duration: ${formatProtocolDuration(protocol.durationSeconds)}`,
     `Section: ${protocolItemLabel(kind)}`,
     item.owner ? `Owner: ${item.owner}` : '',
@@ -232,6 +280,7 @@ export function protocolConversionBody(protocol: MeetingProtocol, headline?: Pro
   const parts = [
     `Protocol: ${protocol.title}`,
     `Date: ${protocol.date}`,
+    protocol.time ? `Time: ${protocol.time}` : '',
     `Duration: ${formatProtocolDuration(protocol.durationSeconds)}`,
     headline ? `Headline: ${headline.text}` : '',
     headline?.excerpt || structuredBody,
@@ -302,6 +351,8 @@ function normalizeProtocolItems(
       body: item.body ?? '',
       convertedTodoId: item.convertedTodoId?.trim() || undefined,
       convertedEventId: item.convertedEventId?.trim() || undefined,
+      recurring: Boolean(item.recurring),
+      recurringSourceId: item.recurringSourceId?.trim() || undefined,
       comments: normalizeTimelineComments(item.comments),
       createdAt: item.createdAt || now,
       updatedAt: item.updatedAt || item.createdAt || now,
@@ -390,6 +441,10 @@ function formatProtocolDate(date: string) {
 
 function dateToNoon(date: string) {
   return new Date(`${date}T12:00:00`);
+}
+
+function protocolScheduleKey(protocol: MeetingProtocol) {
+  return `${protocol.date}T${protocol.time || '00:00'}:${protocol.createdAt}`;
 }
 
 function localDateString(date: Date) {
@@ -591,6 +646,14 @@ function mergeProtocolItem(
       baseItem.convertedEventId,
       localItem.convertedEventId,
       remoteItem.convertedEventId,
+      localItem,
+      remoteItem,
+    ),
+    recurring: mergeProtocolChoiceField(baseItem.recurring, localItem.recurring, remoteItem.recurring, localItem, remoteItem),
+    recurringSourceId: mergeProtocolChoiceField(
+      baseItem.recurringSourceId,
+      localItem.recurringSourceId,
+      remoteItem.recurringSourceId,
       localItem,
       remoteItem,
     ),

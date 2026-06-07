@@ -110,8 +110,7 @@ export async function getProject(hash: string) {
   }
 
   const project = createDefaultProject(normalizedHash);
-  await saveProjectToDb(project);
-  return project;
+  return saveProjectToDb(project);
 }
 
 export async function getProjectMetadata(hash: string) {

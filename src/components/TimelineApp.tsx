@@ -413,7 +413,7 @@ export function TimelineApp() {
   }, [lockedHash, setLastSavedProject]);
 
   const selectedEvent = project.events.find((event) => event.id === selectedEventId);
-  const canEdit = project.settings.mode === 'edit';
+  const canEdit = project.settings.mode === 'edit' && saveState !== 'loading';
   const todoBoards = normalizeTodoBoards(project);
   const activeBoard = todoBoards.find((board) => board.id === project.settings.activeTodoBoardId) ?? todoBoards[0];
   const todoStatuses = normalizeTodoStatuses(activeBoard.statuses, activeBoard.todos);
@@ -718,6 +718,7 @@ export function TimelineApp() {
     title: string;
     body: string;
     date: string;
+    time?: string;
     protocolId?: string;
     protocolItemId?: string;
     protocolItemKind?: 'updates' | 'topics' | 'todos';
@@ -727,7 +728,7 @@ export function TimelineApp() {
     const event: TimelineEvent = {
       id: crypto.randomUUID(),
       date: source.date || project.startDate,
-      time: '',
+      time: source.time ?? '',
       what: source.title || 'Protocol event',
       who: '',
       type: 'protocol',
@@ -1581,9 +1582,10 @@ export function TimelineApp() {
 	      </div>
 
       <div className="ordered-section ordered-section-protocols" ref={protocolsRef} style={sectionOrderStyle('protocol')}>
-        <MeetingProtocols
+          <MeetingProtocols
           projectHash={project.hash}
           canEdit={canEdit}
+          canUseProtocol={saveState !== 'loading'}
           protocols={meetingProtocols}
           instructionTemplate={project.protocolInstructionTemplate}
           requestedProtocolId={requestedProtocolId}

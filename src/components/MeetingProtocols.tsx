@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
-import { BookOpen, CalendarPlus, Download, Eye, EyeOff, ListTodo, MessageCircle, Pause, Pencil, Play, Plus, Save, Square, Trash2, X } from 'lucide-react';
+import { CalendarPlus, Download, Eye, EyeOff, ListTodo, MessageCircle, Pause, Pencil, Play, Plus, Repeat2, Save, Square, Trash2, X } from 'lucide-react';
 import { useAppDialog } from './AppDialog';
 import { FilterBadge } from './FilterBadge';
 import { SearchInput, TextField } from './FormControls';
@@ -22,6 +22,7 @@ import {
   protocolItemConversionBody,
   protocolItemLabel,
   protocolTitle,
+  seedRecurringProtocolItems,
   type ProtocolItemKind,
 } from '@/lib/meetingProtocols';
 import type { MeetingProtocol, MeetingProtocolItem } from '@/lib/types';
@@ -30,6 +31,7 @@ import { usePersistentState } from '@/lib/usePersistentState';
 type MeetingProtocolsProps = {
   projectHash: string;
   canEdit: boolean;
+  canUseProtocol?: boolean;
   protocols: MeetingProtocol[];
   instructionTemplate: string;
   requestedProtocolId?: string;
@@ -60,6 +62,7 @@ type MeetingProtocolsProps = {
     title: string;
     body: string;
     date: string;
+    time?: string;
     protocolId?: string;
     protocolItemId?: string;
     protocolItemKind?: ProtocolItemKind;
@@ -96,15 +99,15 @@ const protocolListFilterClass =
   'sticky top-0 z-[2] grid gap-1.5 bg-[var(--panel)] pb-1';
 const protocolDetailClass = 'grid min-w-0 gap-2.5';
 const protocolMetaToolbarClass =
-  `${uiCard} flex min-w-0 items-end gap-2 overflow-visible p-[7px] max-lg:flex-wrap max-sm:w-full max-sm:grid max-sm:grid-cols-1 max-sm:p-1.5 max-[420px]:mx-[-2px] max-[420px]:gap-1 max-[420px]:rounded-none max-[420px]:border-x-0 max-[420px]:px-1`;
+  `${uiCard} grid min-w-0 gap-2 overflow-visible p-[7px] max-sm:w-full max-sm:p-1.5 max-[420px]:mx-[-2px] max-[420px]:gap-1 max-[420px]:rounded-none max-[420px]:border-x-0 max-[420px]:px-1`;
 const protocolMetaGridClass =
-  'flex-1 space-y-2 lg:space-y-0 lg:grid items-center grid-cols-[minmax(220px,1.25fr)_minmax(138px,0.58fr)_repeat(3,minmax(128px,0.78fr))] gap-1.5 max-lg:min-w-0 max-lg:flex-[1_0_100%] max-sm:w-full max-sm:grid-cols-1 max-[420px]:gap-1';
+  'grid min-w-0 grid-cols-[minmax(220px,1.25fr)_minmax(138px,0.58fr)_minmax(104px,0.46fr)_repeat(3,minmax(128px,0.78fr))] items-center gap-1.5 max-xl:grid-cols-[minmax(220px,1.25fr)_minmax(132px,0.6fr)_minmax(104px,0.48fr)_repeat(2,minmax(128px,0.8fr))] max-lg:grid-cols-2 max-sm:w-full max-sm:grid-cols-1 max-[420px]:gap-1';
 const protocolActionsClass =
-  'flex shrink-0 flex-wrap items-center justify-end gap-1.5 max-lg:flex-[1_0_100%] max-sm:grid max-sm:grid-cols-[repeat(5,var(--icon-button-size))] max-sm:gap-1.5 max-sm:justify-end max-[420px]:grid-cols-[repeat(3,var(--icon-button-size))]';
+  'flex min-w-0 flex-wrap items-center justify-end gap-1.5 overflow-visible border-b border-[rgba(36,34,29,0.12)] pb-1.5 max-sm:flex-nowrap max-sm:justify-start max-sm:overflow-x-auto max-sm:overscroll-x-contain max-sm:border-b-0 max-sm:pb-0 max-sm:[scrollbar-gutter:stable]';
 const protocolTimerClass =
-  'mr-auto grid grid-cols-[minmax(72px,auto)_repeat(2,34px)] items-center gap-[5px] max-sm:col-span-full max-sm:mr-0 max-sm:w-full max-sm:flex-[1_0_100%] max-sm:grid-cols-[minmax(0,1fr)_repeat(2,minmax(0,auto))] max-[420px]:grid-cols-[minmax(0,1fr)_auto_auto]';
+  'mr-auto flex w-auto max-w-[148px] min-w-0 flex-none items-center gap-1 max-sm:mr-0 max-sm:w-auto max-sm:max-w-none';
 const protocolTimerReadoutClass =
-  'rounded-[2px] border border-[rgba(36,34,29,0.28)] bg-[var(--hot)] px-2 py-[10px] text-center font-mono text-[15px] leading-none font-black shadow-[inset_0_0_0_1px_rgba(255,255,255,0.35)] max-sm:min-w-0 max-sm:text-left';
+  'w-[62px] min-w-0 max-w-[62px] overflow-hidden truncate rounded-[2px] border border-[rgba(36,34,29,0.28)] bg-[var(--hot)] px-1.5 py-[9px] text-center font-mono text-[13px] leading-none font-black shadow-[inset_0_0_0_1px_rgba(255,255,255,0.35)] max-sm:flex-none max-sm:text-center';
 const protocolSectionsClass =
   'grid min-w-0 max-w-full gap-3.5 overflow-x-clip overflow-y-visible';
 const protocolStructuredSectionBaseClass =
@@ -119,6 +122,7 @@ const protocolAddInlineClass =
 export function MeetingProtocols({
   projectHash,
   canEdit,
+  canUseProtocol = canEdit,
   protocols,
   instructionTemplate,
   requestedProtocolId,
@@ -136,7 +140,6 @@ export function MeetingProtocols({
 }: MeetingProtocolsProps) {
   const appDialog = useAppDialog();
   const [isMinimized, setIsMinimized] = usePersistentState(`timeline:ui:meeting-protocols-minimized:${projectHash}`, false);
-  const [showInstruction, setShowInstruction] = usePersistentState(`timeline:ui:meeting-protocols-instruction:${projectHash}`, true);
   const [isEditingInstruction, setIsEditingInstruction] = usePersistentState(`timeline:ui:meeting-protocols-edit-instruction:${projectHash}`, false);
   const [showProtocolEntries, setShowProtocolEntries] = usePersistentState(`timeline:ui:meeting-protocols-left-entries:${projectHash}`, false);
   const [collapsedProtocolSections, setCollapsedProtocolSections] = usePersistentState<Record<ProtocolItemKind, boolean>>(
@@ -157,17 +160,18 @@ export function MeetingProtocols({
   const [timerTick, setTimerTick] = useState(0);
   const entryScrollTimeoutRef = useRef<number | undefined>(undefined);
   const consumedRequestedProtocolRef = useRef('');
-  const selectedProtocol = protocols.find((protocol) => protocol.id === selectedProtocolId) ?? protocols[0];
+  const sortedProtocols = useMemo(() => sortProtocolsByDateTime(protocols), [protocols]);
+  const selectedProtocol = protocols.find((protocol) => protocol.id === selectedProtocolId) ?? sortedProtocols[0];
   const selectedProtocolDuration = selectedProtocol ? currentProtocolDuration(selectedProtocol, timerTick) : 0;
   const isTimerRunning = Boolean(selectedProtocol?.timerStartedAt);
   const timerStartLabel = selectedProtocolDuration > 0 ? 'Resume' : 'Start';
   const searchTimerTick = search.trim() ? timerTick : 0;
   const filteredProtocols = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return protocols;
+    if (!query) return sortedProtocols;
 
-    return protocols.filter((protocol) => protocolMatchesQuery(protocol, query, searchTimerTick));
-  }, [protocols, search, searchTimerTick]);
+    return sortedProtocols.filter((protocol) => protocolMatchesQuery(protocol, query, searchTimerTick));
+  }, [sortedProtocols, search, searchTimerTick]);
   const overviewItems = useMemo(
     () => buildProtocolOverviewItems(protocols, search, searchTimerTick),
     [protocols, search, searchTimerTick],
@@ -229,7 +233,9 @@ export function MeetingProtocols({
   }, [projectHash, protocols, requestedProtocolId, requestedProtocolItemId, setCollapsedProtocolSections, setIsMinimized, setShowProtocolEntries]);
 
   function addProtocol() {
-    const protocol = createMeetingProtocol();
+    if (!canUseProtocol) return;
+
+    const protocol = seedRecurringProtocolItems(createMeetingProtocol(), protocols);
     onChange([protocol, ...protocols]);
     setSelectedProtocolId(protocol.id);
     setSelectedOverviewItemId('');
@@ -258,6 +264,7 @@ export function MeetingProtocols({
   }
 
   function updateProtocol(patch: Partial<MeetingProtocol>) {
+    if (!canUseProtocol) return;
     if (!selectedProtocol) return;
 
     const nextProtocol = {
@@ -276,6 +283,17 @@ export function MeetingProtocols({
       date,
       title: isGeneratedProtocolTitle(selectedProtocol)
         ? protocolTitle(date, selectedProtocol.time)
+        : selectedProtocol.title,
+    });
+  }
+
+  function updateTime(time: string) {
+    if (!selectedProtocol) return;
+
+    updateProtocol({
+      time,
+      title: isGeneratedProtocolTitle(selectedProtocol)
+        ? protocolTitle(selectedProtocol.date, time)
         : selectedProtocol.title,
     });
   }
@@ -318,6 +336,7 @@ export function MeetingProtocols({
   }
 
   function addItem(kind: ProtocolItemKind) {
+    if (!canUseProtocol) return;
     if (!selectedProtocol) return;
 
     setEditingItem({
@@ -328,6 +347,7 @@ export function MeetingProtocols({
   }
 
   function editItem(kind: ProtocolItemKind, item: MeetingProtocolItem) {
+    if (!canUseProtocol) return;
     setEditingItem({ kind, item, isNew: false });
   }
 
@@ -349,6 +369,7 @@ export function MeetingProtocols({
   }
 
   async function deleteItem(kind: ProtocolItemKind, itemId: string) {
+    if (!canUseProtocol) return;
     if (!selectedProtocol) return;
 
     if (
@@ -368,6 +389,7 @@ export function MeetingProtocols({
   }
 
   async function addItemComment(kind: ProtocolItemKind, item: MeetingProtocolItem) {
+    if (!canUseProtocol) return;
     if (!selectedProtocol) return;
 
     const body = await appDialog.prompt({
@@ -388,6 +410,26 @@ export function MeetingProtocols({
 
     updateProtocol({
       [kind]: selectedProtocol[kind].map((entry) => (entry.id === item.id ? nextItem : entry)),
+    });
+  }
+
+  function toggleItemRecurring(kind: ProtocolItemKind, item: MeetingProtocolItem) {
+    if (!canUseProtocol) return;
+    if (!selectedProtocol) return;
+
+    const now = new Date().toISOString();
+    const nextRecurring = !item.recurring;
+    updateProtocol({
+      [kind]: selectedProtocol[kind].map((entry) =>
+        entry.id === item.id
+          ? {
+            ...entry,
+            recurring: nextRecurring,
+            recurringSourceId: entry.recurringSourceId ?? entry.id,
+            updatedAt: now,
+          }
+          : entry,
+      ),
     });
   }
 
@@ -441,6 +483,7 @@ export function MeetingProtocols({
       title: selectedProtocol.title,
       body: protocolConversionBody(withCurrentDuration(selectedProtocol, timerTick)),
       date: selectedProtocol.date,
+      time: selectedProtocol.time,
     });
   }
 
@@ -493,6 +536,7 @@ export function MeetingProtocols({
       title: item.title,
       body: protocolItemConversionBody(selectedProtocol, kind, item),
       date: selectedProtocol.date,
+      time: selectedProtocol.time,
       protocolId: selectedProtocol.id,
       protocolItemId: item.id,
       protocolItemKind: kind,
@@ -521,17 +565,6 @@ export function MeetingProtocols({
       }}
       moveControls={moveControls}
       meta={`${filteredProtocols.length} / ${protocols.length}`}
-      subheader={
-        <button
-          type="button"
-          className="icon-button protocol-add-button"
-          onClick={addProtocol}
-          aria-label="Add protocol"
-          title="Add protocol"
-        >
-          <Plus size={18} aria-hidden="true" />
-        </button>
-      }
     >
         <div className={protocolWorkspaceClass}>
           <aside className={protocolListClass} aria-label="Meeting protocols">
@@ -602,7 +635,7 @@ export function MeetingProtocols({
                 >
                   <span className="protocol-list-heading">
                     <b>{protocol.title}</b>
-                    <span className="protocol-list-date">{formatProtocolOverviewDate(protocol.date)}</span>
+                    <span className="protocol-list-date">{formatProtocolDateTime(protocol)}</span>
                   </span>
                   <span className="protocol-list-duration">{formatProtocolDuration(currentProtocolDuration(protocol, timerTick))}</span>
                   <small>{protocol.updates.length} updates · {protocol.topics.length} topics · {protocol.todos.length} to-dos</small>
@@ -615,47 +648,6 @@ export function MeetingProtocols({
           {selectedProtocol ? (
             <div className={protocolDetailClass}>
               <div className={protocolMetaToolbarClass}>
-                <div className={protocolMetaGridClass}>
-                  <TextField
-                    label="Title"
-                    value={selectedProtocol.title}
-                    onValueChange={(title) => updateProtocol({ title })}
-                    placeholder="Tägliches Platz-Plenum"
-                    className="min-w-0"
-                    inputClassName="!text-sm sm:!text-base"
-                  />
-                  <TextField
-                    label="Date"
-                    type="date"
-                    value={selectedProtocol.date}
-                    onValueChange={updateDate}
-                    className="min-w-0"
-                  />
-                  <TextField
-                    label="Moderation"
-                    value={selectedProtocol.moderation}
-                    onValueChange={(moderation) => updateProtocol({ moderation })}
-                    placeholder="Name"
-                    aria-label="Moderation name"
-                    className="min-w-0"
-                  />
-                  <TextField
-                    label="Protokoll"
-                    value={selectedProtocol.protocolWriter}
-                    onValueChange={(protocolWriter) => updateProtocol({ protocolWriter })}
-                    placeholder="Name"
-                    aria-label="Protocol writer name"
-                    className="min-w-0"
-                  />
-                  <TextField
-                    label="Todo-person"
-                    value={selectedProtocol.todoOwner}
-                    onValueChange={(todoOwner) => updateProtocol({ todoOwner })}
-                    placeholder="Name"
-                    aria-label="Todo person name"
-                    className="min-w-0"
-                  />
-                </div>
                 <div className={protocolActionsClass}>
                   <div className={protocolTimerClass} aria-label="Protocol duration">
                     <strong className={protocolTimerReadoutClass}>{formatProtocolDuration(selectedProtocolDuration)}</strong>
@@ -676,12 +668,13 @@ export function MeetingProtocols({
                   </div>
                   <button
                     type="button"
-                    className="icon-button secondary protocol-action-button"
-                    onClick={() => setShowInstruction((visible) => !visible)}
-                    aria-label={showInstruction ? 'Hide instruction' : 'Show instruction'}
-                    title={showInstruction ? 'Hide instruction' : 'Show instruction'}
+                    className="icon-button protocol-action-button"
+                    onClick={addProtocol}
+                    disabled={!canUseProtocol}
+                    aria-label="Add protocol"
+                    title="Add protocol"
                   >
-                    {showInstruction ? <EyeOff size={17} aria-hidden="true" /> : <BookOpen size={17} aria-hidden="true" />}
+                    <Plus size={17} aria-hidden="true" />
                   </button>
                   {canEdit ? (
                     <button
@@ -722,22 +715,68 @@ export function MeetingProtocols({
                     <Trash2 size={17} aria-hidden="true" />
                   </button>
                 </div>
+                <div className={protocolMetaGridClass}>
+                  <TextField
+                    label="Title"
+                    value={selectedProtocol.title}
+                    onValueChange={(title) => updateProtocol({ title })}
+                    placeholder="Tägliches Platz-Plenum"
+                    className="min-w-0"
+                    inputClassName="!text-sm sm:!text-base"
+                  />
+                  <TextField
+                    label="Date"
+                    type="date"
+                    value={selectedProtocol.date}
+                    onValueChange={updateDate}
+                    className="min-w-0"
+                  />
+                  <TextField
+                    label="Time"
+                    type="time"
+                    value={selectedProtocol.time}
+                    onValueChange={updateTime}
+                    className="min-w-0"
+                  />
+                  <TextField
+                    label="Moderation"
+                    value={selectedProtocol.moderation}
+                    onValueChange={(moderation) => updateProtocol({ moderation })}
+                    placeholder="Name"
+                    aria-label="Moderation name"
+                    className="min-w-0"
+                  />
+                  <TextField
+                    label="Protocol"
+                    value={selectedProtocol.protocolWriter}
+                    onValueChange={(protocolWriter) => updateProtocol({ protocolWriter })}
+                    placeholder="Name"
+                    aria-label="Protocol writer name"
+                    className="min-w-0"
+                  />
+                  <TextField
+                    label="Todo-person"
+                    value={selectedProtocol.todoOwner}
+                    onValueChange={(todoOwner) => updateProtocol({ todoOwner })}
+                    placeholder="Name"
+                    aria-label="Todo person name"
+                    className="min-w-0"
+                  />
+                </div>
               </div>
-              {showInstruction ? (
-                <details className="protocol-instruction" open>
-                  <summary>Instruction</summary>
-                  {canEdit && isEditingInstruction ? (
-                    <MarkdownEditor
-                      className="protocol-editor protocol-instruction-editor"
-                      value={instructionTemplate}
-                      onChange={onInstructionTemplateChange}
-                      rows={13}
-                    />
-                  ) : (
-                    <pre>{createMeetingProtocolInstruction(selectedProtocol.date, selectedProtocolDuration, instructionTemplate)}</pre>
-                  )}
-                </details>
-              ) : null}
+              <details className="protocol-instruction" open>
+                <summary>Instruction</summary>
+                {canEdit && isEditingInstruction ? (
+                  <MarkdownEditor
+                    className="protocol-editor protocol-instruction-editor"
+                    value={instructionTemplate}
+                    onChange={onInstructionTemplateChange}
+                    rows={13}
+                  />
+                ) : (
+                  <pre>{createMeetingProtocolInstruction(selectedProtocol.date, selectedProtocolDuration, instructionTemplate)}</pre>
+                )}
+              </details>
               <div className={protocolSectionsClass}>
                 {sectionConfig.map((section) => (
                   <ProtocolStructuredSection
@@ -753,6 +792,7 @@ export function MeetingProtocols({
                     onEdit={(item) => editItem(section.kind, item)}
                     onDelete={(itemId) => void deleteItem(section.kind, itemId)}
                     onAddComment={(item) => void addItemComment(section.kind, item)}
+                    onToggleRecurring={(item) => toggleItemRecurring(section.kind, item)}
                     draggedItem={draggedProtocolItem}
                     isDropTarget={dropTargetKind === section.kind}
                     dropTargetItemId={dropTargetKind === section.kind ? dropTargetItemId : null}
@@ -768,6 +808,7 @@ export function MeetingProtocols({
                     onOpenTodo={onOpenTodo}
                     onOpenEvent={onOpenEvent}
                     onCreateEvent={(item) => createEventFromItem(section.kind, item)}
+                    canUseProtocol={canUseProtocol}
                   />
                 ))}
                 <section
@@ -897,6 +938,7 @@ function ProtocolItemEditorDialog({
 
 function ProtocolStructuredSection({
   protocol,
+  canUseProtocol,
   kind,
   title,
   addLabel,
@@ -907,6 +949,7 @@ function ProtocolStructuredSection({
   onEdit,
   onDelete,
   onAddComment,
+  onToggleRecurring,
   draggedItem,
   isDropTarget,
   dropTargetItemId,
@@ -920,6 +963,7 @@ function ProtocolStructuredSection({
   onCreateEvent,
 }: {
   protocol: MeetingProtocol;
+  canUseProtocol: boolean;
   kind: ProtocolItemKind;
   title: string;
   addLabel: string;
@@ -930,6 +974,7 @@ function ProtocolStructuredSection({
   onEdit: (item: MeetingProtocolItem) => void;
   onDelete: (itemId: string) => void;
   onAddComment: (item: MeetingProtocolItem) => void;
+  onToggleRecurring: (item: MeetingProtocolItem) => void;
   draggedItem: DraggedProtocolItem | null;
   isDropTarget: boolean;
   dropTargetItemId: string | null;
@@ -985,6 +1030,7 @@ function ProtocolStructuredSection({
             type="button"
             className="icon-button secondary h-[var(--icon-button-size)] min-h-[var(--icon-button-size)] w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0"
             onClick={onAdd}
+            disabled={!canUseProtocol}
             aria-label={addLabel}
             title={addLabel}
           >
@@ -1011,7 +1057,7 @@ function ProtocolStructuredSection({
               ) : null}
               <article
                 className={`protocol-entry ${kind} ${item.convertedTodoId || item.convertedEventId ? 'converted' : ''} ${draggedItem?.itemId === item.id ? 'dragging' : ''}`}
-                draggable
+                draggable={canUseProtocol}
                 id={`protocol-${protocol.id}-${kind}-${item.id}`}
                 onDragStart={(event) => {
                   event.dataTransfer.effectAllowed = 'move';
@@ -1052,6 +1098,7 @@ function ProtocolStructuredSection({
                       event.stopPropagation();
                       onEdit(item);
                     }}
+                    disabled={!canUseProtocol}
                     aria-label={`Edit ${item.title}`}
                     title="Edit"
                   >
@@ -1098,6 +1145,7 @@ function ProtocolStructuredSection({
                         event.stopPropagation();
                         onCreateTodo(item);
                       }}
+                      disabled={!canUseProtocol}
                       aria-label="Create todo"
                       title="Create todo"
                     >
@@ -1125,6 +1173,7 @@ function ProtocolStructuredSection({
                         event.stopPropagation();
                         onCreateEvent(item);
                       }}
+                      disabled={!canUseProtocol}
                       aria-label="Create event"
                       title="Create event"
                     >
@@ -1138,10 +1187,28 @@ function ProtocolStructuredSection({
                       event.stopPropagation();
                       onAddComment(item);
                     }}
+                    disabled={!canUseProtocol}
                     aria-label={`Comment on ${item.title}`}
                     title="Comment"
                   >
                     <MessageCircle size={14} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                      'icon-button tertiary protocol-entry-icon-button protocol-recurring-action',
+                      item.recurring && 'active',
+                    )}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onToggleRecurring(item);
+                    }}
+                    disabled={!canUseProtocol}
+                    aria-pressed={Boolean(item.recurring)}
+                    aria-label={item.recurring ? `Stop recurring ${item.title}` : `Repeat ${item.title} in future protocols`}
+                    title={item.recurring ? 'Recurring in future protocols' : 'Repeat in future protocols'}
+                  >
+                    <Repeat2 size={14} aria-hidden="true" />
                   </button>
                   <button
                     type="button"
@@ -1150,6 +1217,7 @@ function ProtocolStructuredSection({
                       event.stopPropagation();
                       onDelete(item.id);
                     }}
+                    disabled={!canUseProtocol}
                     aria-label={`Delete ${item.title}`}
                     title="Delete"
                   >
@@ -1173,7 +1241,7 @@ function ProtocolStructuredSection({
           Drop here or add {title.toLowerCase()}
         </div>
       )}
-      <button type="button" className={protocolAddInlineClass} onClick={onAdd}>
+      <button type="button" className={protocolAddInlineClass} onClick={onAdd} disabled={!canUseProtocol}>
         {addLabel}
       </button>
     </section>
@@ -1194,6 +1262,7 @@ function buildProtocolOverviewItems(protocols: MeetingProtocol[], search: string
         searchable: [
           protocol.title,
           protocol.date,
+          protocol.time,
           formatProtocolOverviewDate(protocol.date),
           formatProtocolDuration(currentProtocolDuration(protocol, now)),
           section.title,
@@ -1214,6 +1283,7 @@ function protocolMatchesQuery(protocol: MeetingProtocol, query: string, now: num
   return [
     protocol.title,
     protocol.date,
+    protocol.time,
     formatProtocolOverviewDate(protocol.date),
     formatProtocolDuration(currentProtocolDuration(protocol, now)),
     protocol.moderation,
@@ -1243,7 +1313,20 @@ function itemMatchesQuery(item: MeetingProtocolItem, query: string) {
 }
 
 function formatProtocolOverviewMeta(protocol: MeetingProtocol, now: number) {
-  return `${formatProtocolOverviewDate(protocol.date)} - ${formatProtocolDuration(currentProtocolDuration(protocol, now))}`;
+  return `${formatProtocolDateTime(protocol)} - ${formatProtocolDuration(currentProtocolDuration(protocol, now))}`;
+}
+
+function formatProtocolDateTime(protocol: MeetingProtocol) {
+  return [formatProtocolOverviewDate(protocol.date), protocol.time].filter(Boolean).join(' · ');
+}
+
+function sortProtocolsByDateTime(protocols: MeetingProtocol[]) {
+  return [...protocols].sort((left, right) =>
+    right.date.localeCompare(left.date) ||
+    (right.time || '00:00').localeCompare(left.time || '00:00') ||
+    right.updatedAt.localeCompare(left.updatedAt) ||
+    right.createdAt.localeCompare(left.createdAt),
+  );
 }
 
 function formatProtocolUpdatedAt(value: string) {

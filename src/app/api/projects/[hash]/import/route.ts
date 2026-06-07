@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getProject, ProjectConflictError, saveProjectToDb } from '@/lib/db';
 import { importProjectWorkbook } from '@/lib/importExcel';
+import { preserveImportedProjectLocks } from '@/lib/importProject';
 import { canAccessProject } from '@/lib/projectAccess';
 
 type RouteContext = {
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (isJsonProjectFile(file)) {
       const importedProject = JSON.parse(await file.text()) as typeof existingProject;
       const project = await saveProjectToDb({
-        ...importedProject,
+        ...preserveImportedProjectLocks(importedProject, existingProject),
         hash: existingProject.hash,
         revision: existingProject.revision,
       });

@@ -9,6 +9,7 @@ import { renderMarkdown } from '@/components/MarkdownBlock';
 import { mergeProjectChanges } from '@/components/TimelineApp';
 import { formatShortGermanDate, formatShortGermanDateRange } from './dateFormat';
 import { eventCategoryOptions, eventTypeOptions } from './eventOptions';
+import { preserveImportedProjectLocks } from './importProject';
 import {
   createMeetingProtocol,
   createMeetingProtocolTemplate,
@@ -18,6 +19,7 @@ import {
   moveProtocolItem,
   normalizeMeetingProtocols,
   protocolConversionBody,
+  seedRecurringProtocolItems,
 } from './meetingProtocols';
 import { buildProjectLocationHash, ensureProjectHash, parseProjectLocationHash } from './storage';
 import {
@@ -64,6 +66,56 @@ describe('project helpers', () => {
     expect(project.settings.completedTodoStatus).toBe('done');
     expect(project.settings.stickyLinks).toEqual([]);
     expect(project.meetingProtocols).toEqual([]);
+  });
+
+  it('preserves existing project and board pins when importing a JSON project', () => {
+    const existingProject = createDefaultProject('locked-project');
+    const importedProject = createDefaultProject('downloaded-project');
+    const existingLockedProject = {
+      ...existingProject,
+      settings: {
+        ...existingProject.settings,
+        viewPinHash: 'existing-view-pin',
+        editPinHash: 'existing-edit-pin',
+      },
+      todoBoards: [
+        {
+          ...existingProject.todoBoards![0],
+          id: 'board-main',
+          pinHash: 'existing-board-pin',
+        },
+      ],
+    };
+    const importedLockedProject = {
+      ...importedProject,
+      settings: {
+        ...importedProject.settings,
+        viewPinHash: 'imported-view-pin',
+        editPinHash: 'imported-edit-pin',
+      },
+      todoBoards: [
+        {
+          ...importedProject.todoBoards![0],
+          id: 'board-main',
+          pinHash: 'imported-board-pin',
+        },
+        {
+          id: 'new-board',
+          name: 'Imported locked board',
+          todos: [],
+          statuses: ['open'],
+          completedTodoStatus: 'open',
+          pinHash: 'unknown-imported-board-pin',
+        },
+      ],
+    };
+
+    const preserved = preserveImportedProjectLocks(importedLockedProject, existingLockedProject);
+
+    expect(preserved.settings.viewPinHash).toBe('existing-view-pin');
+    expect(preserved.settings.editPinHash).toBe('existing-edit-pin');
+    expect(preserved.todoBoards?.find((board) => board.id === 'board-main')?.pinHash).toBe('existing-board-pin');
+    expect(preserved.todoBoards?.find((board) => board.id === 'new-board')?.pinHash).toBeUndefined();
   });
 
   it('creates short random hashes', () => {
@@ -993,6 +1045,84 @@ describe('project helpers', () => {
     expect(protocol.todos[0].convertedEventId).toBe('event-1');
   });
 
+  it('normalizes recurring protocol item metadata', () => {
+    const [protocol] = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        updates: [{ id: 'item-1', title: 'Repeat me', recurring: true, recurringSourceId: 'source-1' }],
+      },
+    ]);
+
+    expect(protocol.updates[0]).toMatchObject({
+      recurring: true,
+      recurringSourceId: 'source-1',
+    });
+  });
+
+  it('seeds later protocols with fresh copies of recurring items', () => {
+    const [sourceProtocol] = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        time: '10:00',
+        updates: [
+          {
+            id: 'update-1',
+            title: 'Recurring update',
+            owner: 'Alex',
+            body: 'Carry forward',
+            convertedEventId: 'event-1',
+            comments: [{ id: 'comment-1', body: 'Do not copy', createdAt: '2026-06-06T10:00:00.000Z' }],
+            recurring: true,
+          },
+        ],
+        topics: [{ id: 'topic-1', title: 'One-off topic', recurring: false }],
+      },
+    ]);
+    const [targetProtocol] = normalizeMeetingProtocols([
+      { id: 'protocol-2', date: '2026-06-07', time: '10:00' },
+    ]);
+
+    const seeded = seedRecurringProtocolItems(targetProtocol, [sourceProtocol]);
+
+    expect(seeded.updates).toHaveLength(1);
+    expect(seeded.updates[0]).toMatchObject({
+      title: 'Recurring update',
+      owner: 'Alex',
+      body: 'Carry forward',
+      recurring: true,
+      recurringSourceId: 'update-1',
+    });
+    expect(seeded.updates[0].id).not.toBe('update-1');
+    expect(seeded.updates[0].convertedEventId).toBeUndefined();
+    expect(seeded.updates[0].comments).toBeUndefined();
+    expect(seeded.topics).toHaveLength(0);
+  });
+
+  it('stops seeding recurring items after a later copy is turned off', () => {
+    const protocols = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        updates: [{ id: 'update-1', title: 'Recurring update', recurring: true }],
+      },
+      {
+        id: 'protocol-2',
+        date: '2026-06-07',
+        updates: [{ id: 'update-2', title: 'Recurring update', recurring: false, recurringSourceId: 'update-1' }],
+      },
+      { id: 'protocol-3', date: '2026-06-08' },
+    ]);
+    const sourceProtocol = protocols.find((protocol) => protocol.id === 'protocol-1')!;
+    const stoppedProtocol = protocols.find((protocol) => protocol.id === 'protocol-2')!;
+    const targetProtocol = protocols.find((protocol) => protocol.id === 'protocol-3')!;
+
+    const seeded = seedRecurringProtocolItems(targetProtocol, [sourceProtocol, stoppedProtocol]);
+
+    expect(seeded.updates).toHaveLength(0);
+  });
+
   it('preserves spaces in protocol titles and entry headlines', () => {
     const protocols = normalizeMeetingProtocols([
       {
@@ -1528,5 +1658,47 @@ describe('project helpers', () => {
     expect(merged.updates[0].comments?.map((comment) => comment.body)).toEqual([
       'Remote protocol comment while editing',
     ]);
+  });
+
+  it('merges recurring toggles on protocol items from another device', () => {
+    const [baseProtocol] = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        updates: [{ id: 'update-1', title: 'Weather', body: 'base update', recurring: false }],
+        updatedAt: '2026-06-06T10:00:00.000Z',
+      },
+    ]);
+    const localProtocol = {
+      ...baseProtocol,
+      updates: [
+        {
+          ...baseProtocol.updates[0],
+          body: 'local edited body',
+          updatedAt: '2026-06-06T10:05:00.000Z',
+        },
+      ],
+      updatedAt: '2026-06-06T10:05:00.000Z',
+    };
+    const remoteProtocol = {
+      ...baseProtocol,
+      updates: [
+        {
+          ...baseProtocol.updates[0],
+          recurring: true,
+          recurringSourceId: 'update-1',
+          updatedAt: '2026-06-06T10:06:00.000Z',
+        },
+      ],
+      updatedAt: '2026-06-06T10:06:00.000Z',
+    };
+
+    const [merged] = mergeMeetingProtocols([baseProtocol], [localProtocol], [remoteProtocol]);
+
+    expect(merged.updates[0]).toMatchObject({
+      body: 'local edited body',
+      recurring: true,
+      recurringSourceId: 'update-1',
+    });
   });
 });
