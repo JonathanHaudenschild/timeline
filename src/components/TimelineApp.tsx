@@ -1846,6 +1846,7 @@ export function TimelineApp() {
             </section>
           ) : (
             <TodoBoard
+              key={activeBoard.id}
               todos={activeBoard.todos}
               statuses={todoStatuses}
               completedTodoStatus={completedTodoStatus}

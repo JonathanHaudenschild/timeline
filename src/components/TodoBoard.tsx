@@ -392,6 +392,7 @@ export function TodoBoard({
       </div>
       {editorDraftTodo ? (
         <TodoEditor
+          key={`${editorDraftTodo.id}:${editorDraftTodo.boardId ?? boardId}`}
           draft={editorDraftTodo}
           statuses={visibleStatuses}
           boards={boards}
@@ -412,7 +413,7 @@ export function TodoBoard({
         />
       ) : null}
       <div className={todoColumnsClass}>
-        {visibleStatuses.map((status, colIndex) => {
+        {visibleStatuses.map((status) => {
           const allColumnTodos = todos.filter((todo) => todo.status === status).sort(compareManualTodos);
           const columnSortKey = columnSortKeys[status] ?? 'manual';
           const columnTodos = filteredTodos

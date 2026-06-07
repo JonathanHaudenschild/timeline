@@ -1,5 +1,5 @@
 {
-  "last_turn_at": "2026-06-07T19:05:26.343Z",
-  "turn_count": 488,
-  "last_agent_output": "Done. The per-column `Add todo` button is now visible in view mode too. Column rename/move/edit cont"
+  "last_turn_at": "2026-06-07T19:18:07.999Z",
+  "turn_count": 489,
+  "last_agent_output": "Root cause: the todo editor/board had local draft state that could survive a board switch. If that s"
 }
