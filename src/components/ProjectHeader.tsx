@@ -86,6 +86,8 @@ export function ProjectHeader({
   onOpenProject,
   onLockProject,
 }: ProjectHeaderProps) {
+  const isSyncing = syncState === "checking" || saveState === "saving" || saveState === "loading";
+
   return (
     <>
       <div className="relative grid min-h-[74px] overflow-hidden py-1">
@@ -93,11 +95,20 @@ export function ProjectHeader({
           aria-hidden="true"
           className="absolute left-1/2 top-[29px] h-0.5 w-[120vw] -translate-x-1/2 overflow-hidden bg-[rgba(36,34,29,0.16)]"
         >
-          <span className="block h-full w-1/3 animate-[yuzza-timeline_3.8s_linear_infinite] bg-[var(--hot)] shadow-[0_0_0_1px_var(--primary)]" />
+          <span
+            className={cn(
+              "block h-full bg-[var(--hot)] shadow-[0_0_0_1px_var(--primary)]",
+              !isSyncing
+                ? "w-1/3 animate-[yuzza-timeline_3.8s_linear_infinite]"
+                : "w-0",
+            )}
+          />
         </span>
         <div className="relative z-[1] grid justify-items-center gap-1">
           <Image
-            className="block h-12 w-12 animate-[yuzza-float_3.6s_ease-in-out_infinite] bg-[var(--bg)] max-sm:h-10 max-sm:w-10"
+            className={cn(
+              "block h-12 w-12 bg-[var(--bg)] max-sm:h-10 max-sm:w-10 animate-[yuzza-float_3.6s_ease-in-out_infinite]",
+            )}
             src="/icon.svg"
             alt=""
             width={48}
@@ -105,7 +116,11 @@ export function ProjectHeader({
             aria-hidden="true"
             priority
           />
-          <span className="animate-[yuzza-wordmark_3.6s_ease-in-out_infinite] bg-[var(--bg)] px-1 text-sm font-black uppercase leading-none text-[var(--text)] max-sm:text-xs">
+          <span
+            className={cn(
+              "bg-[var(--bg)] px-1 text-sm font-black uppercase leading-none text-[var(--text)] max-sm:text-xs animate-[yuzza-wordmark_3.6s_ease-in-out_infinite]",
+            )}
+          >
             YUZZA
           </span>
         </div>

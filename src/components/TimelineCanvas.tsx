@@ -128,6 +128,8 @@ export function TimelineCanvas({
   }, []);
 
   useEffect(() => {
+    if (isMinimized) return;
+
     const canvas = canvasRef.current;
     if (!canvas) return;
     const observedCanvas = canvas;
@@ -167,7 +169,7 @@ export function TimelineCanvas({
         window.cancelAnimationFrame(resizeFrameRef.current);
       }
     };
-  }, []);
+  }, [isMinimized]);
 
   useEffect(() => {
     return () => {
@@ -632,6 +634,8 @@ function drawTimeline(
       });
     }
   }
+
+  drawPastOverlay(ctx, project, rangeWidth, pan, width, height, now);
 
   ctx.strokeStyle = ink;
   ctx.lineWidth = 3;
@@ -1232,6 +1236,45 @@ function drawNowMarker(
   ctx.fillStyle = "#24221d";
   ctx.font = "900 13px system-ui, sans-serif";
   ctx.fillText(label, labelX + 10, labelY + 8);
+}
+
+function drawPastOverlay(
+  ctx: CanvasRenderingContext2D,
+  project: TimelineProject,
+  rangeWidth: number,
+  pan: number,
+  width: number,
+  height: number,
+  now: Date,
+) {
+  const today = localDateString(now);
+  if (today < project.startDate) return;
+
+  const pastRight =
+    today > project.endDate
+      ? width
+      : momentToPixel(today, localTimeString(now), project, rangeWidth, pan);
+  const overlayRight = Math.max(0, Math.min(width, pastRight));
+  if (overlayRight <= 0) return;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, overlayRight, height);
+  ctx.clip();
+
+  ctx.fillStyle = "rgba(36,34,29,0.07)";
+  ctx.fillRect(0, 0, overlayRight, height);
+
+  ctx.strokeStyle = "rgba(36,34,29,0.12)";
+  ctx.lineWidth = 1;
+  for (let x = -height; x < overlayRight + height; x += 12) {
+    ctx.beginPath();
+    ctx.moveTo(x, height);
+    ctx.lineTo(x + height, 0);
+    ctx.stroke();
+  }
+
+  ctx.restore();
 }
 
 function localDateString(date: Date) {

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PointerEvent } from 'react';
 import Image from 'next/image';
-import { ArrowUp, Eye, GripVertical, KeyRound, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowUp, Eye, EyeOff, GripVertical, KeyRound, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useAppDialog } from './AppDialog';
 import { EventEditor } from './EventEditor';
 import { EventList } from './EventList';
@@ -107,6 +107,7 @@ export function TimelineApp() {
   const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
   const [lockedHash, setLockedHash] = useState<string | null>(null);
   const [unlockPin, setUnlockPin] = useState('');
+  const [showUnlockPin, setShowUnlockPin] = useState(false);
   const [lockError, setLockError] = useState('');
   const [pinDialog, setPinDialog] = useState<(PinDialogConfig & { error?: string }) | null>(null);
   const [revisionDialogRevisions, setRevisionDialogRevisions] = useState<ProjectRevisionSummary[] | null>(null);
@@ -1406,6 +1407,7 @@ export function TimelineApp() {
                   setProject(projectToDisplay);
                   setLockedHash(null);
                   setUnlockPin('');
+                  setShowUnlockPin(false);
                   setLockError('');
                   setSaveState('saved');
                 })
@@ -1419,11 +1421,19 @@ export function TimelineApp() {
           >
             <TextField
               label="Project PIN"
-              type="password"
+              type={showUnlockPin ? 'text' : 'password'}
               value={unlockPin}
               onValueChange={setUnlockPin}
               autoFocus
             />
+            <button
+              type="button"
+              className="tertiary inline-flex min-h-[var(--icon-button-size)] items-center justify-center gap-2 rounded-[2px] px-3 text-[11px] font-black uppercase"
+              onClick={() => setShowUnlockPin((visible) => !visible)}
+            >
+              {showUnlockPin ? <EyeOff size={15} aria-hidden="true" /> : <Eye size={15} aria-hidden="true" />}
+              {showUnlockPin ? 'Hide PIN' : 'Show PIN'}
+            </button>
             {lockError ? <div className={formErrorClass}>{lockError}</div> : null}
             <button type="submit">Unlock project</button>
           </form>
@@ -1956,6 +1966,8 @@ function PinDialog({
   onCancel: () => void;
   onSubmit: () => void;
 }) {
+  const [showPins, setShowPins] = useState(false);
+
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={config.title}>
       <form
@@ -1971,7 +1983,7 @@ function PinDialog({
         </div>
         <TextField
           label={config.inputLabel ?? 'PIN'}
-          type="password"
+          type={showPins ? 'text' : 'password'}
           value={pin}
           onValueChange={onPinChange}
           autoFocus
@@ -1979,11 +1991,19 @@ function PinDialog({
         {config.requireRepeat ? (
           <TextField
             label={config.repeatLabel ?? 'Repeat PIN'}
-            type="password"
+            type={showPins ? 'text' : 'password'}
             value={repeatedPin}
             onValueChange={onRepeatedPinChange}
           />
         ) : null}
+        <button
+          type="button"
+          className="tertiary inline-flex min-h-[var(--icon-button-size)] items-center justify-center gap-2 rounded-[2px] px-3 text-[11px] font-black uppercase"
+          onClick={() => setShowPins((visible) => !visible)}
+        >
+          {showPins ? <EyeOff size={15} aria-hidden="true" /> : <Eye size={15} aria-hidden="true" />}
+          {showPins ? 'Hide PIN' : 'Show PIN'}
+        </button>
         {config.error ? <div className={formErrorClass}>{config.error}</div> : null}
         <div className="action-row">
           <button type="submit">{config.confirmLabel}</button>

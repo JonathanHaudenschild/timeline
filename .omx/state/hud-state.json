@@ -1,5 +1,5 @@
 {
-  "last_turn_at": "2026-06-07T01:12:51.979Z",
-  "turn_count": 426,
-  "last_agent_output": "Fixed the stale test.\n\nChanges:\n- Removed the assertion that the default protocol template must cont"
+  "last_turn_at": "2026-06-07T08:17:31.179Z",
+  "turn_count": 428,
+  "last_agent_output": "Agreed. I left board locking as client-side privacy only and did not touch the sync/persistence mode"
 }
