@@ -774,18 +774,16 @@ export function TodoBoard({
               ) : (
                 <div className="grid min-h-[58px] place-items-center rounded-[2px] border border-dashed border-[#8f897a] text-[12px] font-black uppercase text-[var(--muted)] mb-2">Drop here</div>
               )}
-                {canEdit ? (
-                  <button
-                    type="button"
-                    className={columnAddCardClass}
-                    onClick={() => addTodo(status)}
-                    aria-label={`Add todo to ${formatTodoStatus(status)}`}
-                    title="Add todo"
-                  >
-                    <Plus size={15} aria-hidden="true" />
-                    <span>Add todo</span>
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  className={columnAddCardClass}
+                  onClick={() => addTodo(status)}
+                  aria-label={`Add todo to ${formatTodoStatus(status)}`}
+                  title="Add todo"
+                >
+                  <Plus size={15} aria-hidden="true" />
+                  <span>Add todo</span>
+                </button>
             </div>
           );
         })}
