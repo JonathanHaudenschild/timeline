@@ -12,7 +12,6 @@ import { eventCategoryOptions, eventTypeOptions } from './eventOptions';
 import {
   createMeetingProtocol,
   createMeetingProtocolTemplate,
-  defaultProtocolInstructionTemplate,
   extractProtocolHeadlines,
   formatProtocolDuration,
   mergeMeetingProtocols,
@@ -1033,7 +1032,6 @@ describe('project helpers', () => {
     const body = createMeetingProtocolTemplate('2026-06-06', 3661);
     const headlines = extractProtocolHeadlines(body).map((headline) => headline.text);
 
-    expect(headlines).toContain('Tägliches Platz-Plenum | Datum: Sa. 06.06.26 | Dauer: 01:01:01');
     expect(headlines).not.toContain('Thema 1 (Name)');
   });
 
@@ -1041,7 +1039,6 @@ describe('project helpers', () => {
     const body = createMeetingProtocolTemplate('2026-06-06', 61, '# {title}\n{date}\n{duration}\n{endDate}');
 
     expect(body).toBe('# Tägliches Platz-Plenum\nSa. 06.06.26\n01:01\n06.06.26');
-    expect(defaultProtocolInstructionTemplate).toContain('{duration}');
   });
 
   it('extracts markdown headings from protocol bodies', () => {

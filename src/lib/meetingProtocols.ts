@@ -5,8 +5,7 @@ const weekdayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag',
 const shortWeekdayNames = ['So.', 'Mo.', 'Di.', 'Mi.', 'Do.', 'Fr.', 'Sa.'];
 const defaultProtocolTitle = 'Tägliches Platz-Plenum';
 
-export const defaultProtocolInstructionTemplate = `{title}
----------------------------------------------------------------------------------------------------------------------
+export const defaultProtocolInstructionTemplate = `
 Begrüßung & Rahmen
 Guten Morgen, ich moderiere heute das Plenum möglichst zügig & strukturiert.
 Wer schreibt heute Protokoll? Wer ist heute Todo-person?
