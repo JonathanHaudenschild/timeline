@@ -1,5 +1,5 @@
 {
-  "last_turn_at": "2026-06-07T19:18:07.999Z",
-  "turn_count": 489,
-  "last_agent_output": "Root cause: the todo editor/board had local draft state that could survive a board switch. If that s"
+  "last_turn_at": "2026-06-07T21:18:40.189Z",
+  "turn_count": 496,
+  "last_agent_output": "Changed the manual link icons:\n\n- Link existing todo: `ListPlus`\n- Link existing event: `CalendarSea"
 }

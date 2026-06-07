@@ -31,6 +31,7 @@ import {
 } from '@/lib/api';
 import { mergeTimelineComments } from '@/lib/comments';
 import { formatShortGermanDateRange } from '@/lib/dateFormat';
+import type { DuplicateCandidate } from '@/lib/duplicateHints';
 import { createDefaultProject, normalizeHash } from '@/lib/project';
 import { mergeMeetingProtocols, normalizeMeetingProtocols } from '@/lib/meetingProtocols';
 import { buildProjectLocationHash, ensureProjectHash, parseProjectLocationHash, type ProjectUrlTarget } from '@/lib/storage';
@@ -424,6 +425,7 @@ export function TimelineApp() {
     ? normalizeTodoStatuses(externalTodoBoard.statuses, externalTodoBoard.todos)
     : todoStatuses;
   const meetingProtocols = normalizeMeetingProtocols(project.meetingProtocols);
+  const duplicateCandidates = buildDuplicateCandidates(todoBoards, meetingProtocols, project.events);
   const timelineProject = {
     ...project,
     todos: isActiveBoardLocked ? [] : activeBoard.todos,
@@ -710,6 +712,52 @@ export function TimelineApp() {
     updateProject(syncProjectTodoBoard(
       { ...project, meetingProtocols: nextProtocols },
       todoBoards.map((board) => (board.id === activeBoard.id ? nextBoard : board)),
+      activeBoard.id,
+    ));
+  }
+
+  function linkProtocolItemTodo(link: {
+    protocols: MeetingProtocol[];
+    protocolId: string;
+    protocolItemId: string;
+    protocolItemKind: 'updates' | 'topics' | 'todos';
+    previousTodoId?: string;
+    todoId?: string;
+  }) {
+    const now = new Date().toISOString();
+    const nextBoards = todoBoards.map((board) => ({
+      ...board,
+      todos: board.todos.map((todo) => {
+        const shouldClearPrevious =
+          todo.id === link.previousTodoId ||
+          (
+            todo.id !== link.todoId &&
+            todo.protocolId === link.protocolId &&
+            todo.protocolItemId === link.protocolItemId
+          );
+        if (shouldClearPrevious) {
+          return touchTodo({
+            ...todo,
+            protocolId: undefined,
+            protocolItemId: undefined,
+          }, now);
+        }
+
+        if (todo.id === link.todoId) {
+          return touchTodo({
+            ...todo,
+            protocolId: link.protocolId,
+            protocolItemId: link.protocolItemId,
+          }, now);
+        }
+
+        return todo;
+      }),
+    }));
+
+    updateProject(syncProjectTodoBoard(
+      { ...project, meetingProtocols: link.protocols },
+      nextBoards,
       activeBoard.id,
     ));
   }
@@ -1598,6 +1646,18 @@ export function TimelineApp() {
           onCreateTodo={createTodoFromProtocol}
           onOpenTodo={openTodoFromProtocol}
           onOpenEvent={openEventFromProtocol}
+          duplicateCandidates={duplicateCandidates}
+          todoLinkOptions={todoBoards.flatMap((board) =>
+            board.todos.map((todo) => ({
+              id: todo.id,
+              label: `${todo.title || 'Untitled todo'} · ${board.name} · ${todo.status}`,
+            })),
+          )}
+          eventLinkOptions={project.events.map((event) => ({
+            id: event.id,
+            label: `${event.what || 'Untitled event'} · ${event.date}${event.time ? ` ${event.time}` : ''}`,
+          }))}
+          onLinkProtocolItemTodo={linkProtocolItemTodo}
           onCopyLink={() => copySectionLink({ section: 'protocol' })}
           linkCopied={copiedSectionLink === 'protocol'}
           moveControls={sectionMoveControls('protocol')}
@@ -1636,6 +1696,7 @@ export function TimelineApp() {
           draft={draftEvent}
           events={project.events}
           typeColors={project.settings.typeColors}
+          duplicateCandidates={duplicateCandidates}
           onChange={setDraftEvent}
           onCancel={() => setDraftEvent(null)}
           onSave={saveEvent}
@@ -1654,6 +1715,7 @@ export function TimelineApp() {
             locked: Boolean(board.pinHash && !unlockedTodoBoardIds.includes(board.id)),
           }))}
           availableTags={normalizeTodoTags(externalTodoBoard.todos.flatMap((todo) => todo.tags ?? []))}
+          duplicateCandidates={duplicateCandidates}
           onChange={setExternalTodoDraft}
           onCancel={() => {
             setExternalTodoDraft(null);
@@ -1895,6 +1957,7 @@ export function TimelineApp() {
               }}
               canEdit={canEdit}
               renderBoardActions={canEdit ? renderTodoBoardActions : undefined}
+              duplicateCandidates={duplicateCandidates}
             />
           )}
         </SectionShell>
@@ -2461,6 +2524,45 @@ function isLocalTodoNewer(localTodo: TimelineTodo, remoteTodo: TimelineTodo) {
 
 function todoUpdatedAt(todo: TimelineTodo) {
   return todo.updatedAt ?? todo.createdAt ?? '';
+}
+
+function buildDuplicateCandidates(
+  boards: TimelineTodoBoardData[],
+  protocols: MeetingProtocol[],
+  events: TimelineEvent[],
+): DuplicateCandidate[] {
+  const todoCandidates = boards.flatMap((board) =>
+    board.todos.map((todo) => ({
+      id: `todo:${todo.id}`,
+      title: todo.title,
+      body: todo.body,
+      meta: `Todo · ${board.name} · ${todo.status}`,
+    })),
+  );
+  const protocolCandidates = protocols.flatMap((protocol) =>
+    (['updates', 'topics', 'todos'] as const).flatMap((kind) =>
+      protocol[kind].map((item) => ({
+        id: `protocol:${protocol.id}:${kind}:${item.id}`,
+        title: item.title,
+        body: item.body,
+        meta: `${protocolItemSectionLabel(kind)} · ${protocol.title || protocol.date}`,
+      })),
+    ),
+  );
+  const eventCandidates = events.map((event) => ({
+    id: `event:${event.id}`,
+    title: event.what,
+    body: event.note,
+    meta: `Event · ${event.date}${event.time ? ` ${event.time}` : ''}`,
+  }));
+
+  return [...todoCandidates, ...protocolCandidates, ...eventCandidates];
+}
+
+function protocolItemSectionLabel(kind: 'updates' | 'topics' | 'todos') {
+  if (kind === 'updates') return 'Update';
+  if (kind === 'topics') return 'Topic';
+  return 'To-do';
 }
 
 function mergeStringList(baseItems: readonly string[], localItems: readonly string[], remoteItems: readonly string[]) {

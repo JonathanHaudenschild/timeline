@@ -2,10 +2,11 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
-import { CalendarPlus, Download, Eye, EyeOff, ListTodo, MessageCircle, Pause, Pencil, Play, Plus, Repeat2, Save, Square, Trash2, X } from 'lucide-react';
+import { CalendarPlus, CalendarSearch, Download, Eye, EyeOff, ListPlus, ListTodo, MessageCircle, Pause, Pencil, Play, Plus, Repeat2, Save, Square, Trash2, X } from 'lucide-react';
 import { useAppDialog } from './AppDialog';
+import { DuplicateHints } from './DuplicateHints';
 import { FilterBadge } from './FilterBadge';
-import { SearchInput, TextField } from './FormControls';
+import { SearchInput, SelectField, TextField } from './FormControls';
 import { MarkdownEditor } from './MarkdownEditor';
 import { MarkdownBlock, renderMarkdown } from './MarkdownBlock';
 import { SectionShell } from './SectionShell';
@@ -26,6 +27,7 @@ import {
   type ProtocolItemKind,
 } from '@/lib/meetingProtocols';
 import type { MeetingProtocol, MeetingProtocolItem } from '@/lib/types';
+import type { DuplicateCandidate } from '@/lib/duplicateHints';
 import { usePersistentState } from '@/lib/usePersistentState';
 
 type MeetingProtocolsProps = {
@@ -58,6 +60,17 @@ type MeetingProtocolsProps = {
   }) => void;
   onOpenTodo: (todoId: string) => void;
   onOpenEvent: (eventId: string) => void;
+  todoLinkOptions?: Array<{ id: string; label: string }>;
+  eventLinkOptions?: Array<{ id: string; label: string }>;
+  duplicateCandidates?: DuplicateCandidate[];
+  onLinkProtocolItemTodo?: (link: {
+    protocols: MeetingProtocol[];
+    protocolId: string;
+    protocolItemId: string;
+    protocolItemKind: ProtocolItemKind;
+    previousTodoId?: string;
+    todoId?: string;
+  }) => void;
   onCreateEvent: (source: {
     title: string;
     body: string;
@@ -136,6 +149,10 @@ export function MeetingProtocols({
   onCreateTodo,
   onOpenTodo,
   onOpenEvent,
+  todoLinkOptions = [],
+  eventLinkOptions = [],
+  duplicateCandidates = [],
+  onLinkProtocolItemTodo,
   onCreateEvent,
 }: MeetingProtocolsProps) {
   const appDialog = useAppDialog();
@@ -152,6 +169,11 @@ export function MeetingProtocols({
     kind: ProtocolItemKind;
     item: MeetingProtocolItem;
     isNew: boolean;
+  } | null>(null);
+  const [linkingItem, setLinkingItem] = useState<{
+    kind: ProtocolItemKind;
+    item: MeetingProtocolItem;
+    target: 'todo' | 'event';
   } | null>(null);
   const [draggedProtocolItem, setDraggedProtocolItem] = useState<DraggedProtocolItem | null>(null);
   const [dropTargetKind, setDropTargetKind] = useState<ProtocolItemKind | null>(null);
@@ -355,17 +377,68 @@ export function MeetingProtocols({
     if (!selectedProtocol || !editingItem) return;
     if (!itemToSave) return;
 
+    const now = new Date().toISOString();
     const nextItem = {
       ...itemToSave,
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
     };
+    const nextItems = editingItem.isNew
+      ? [...selectedProtocol[editingItem.kind], nextItem]
+      : selectedProtocol[editingItem.kind].map((item) => (item.id === nextItem.id ? nextItem : item));
+    const nextProtocols = protocols.map((protocol) =>
+      protocol.id === selectedProtocol.id
+        ? {
+          ...selectedProtocol,
+          [editingItem.kind]: nextItems,
+          updatedAt: now,
+        }
+        : protocol,
+    );
 
-    updateProtocol({
-      [editingItem.kind]: editingItem.isNew
-        ? [...selectedProtocol[editingItem.kind], nextItem]
-        : selectedProtocol[editingItem.kind].map((item) => (item.id === nextItem.id ? nextItem : item)),
-    });
+    if (onLinkProtocolItemTodo && editingItem.item.convertedTodoId !== nextItem.convertedTodoId) {
+      onLinkProtocolItemTodo({
+        protocols: nextProtocols,
+        protocolId: selectedProtocol.id,
+        protocolItemId: nextItem.id,
+        protocolItemKind: editingItem.kind,
+        previousTodoId: editingItem.item.convertedTodoId,
+        todoId: nextItem.convertedTodoId,
+      });
+    } else {
+      onChange(nextProtocols);
+    }
     setEditingItem(null);
+  }
+
+  function saveProtocolItemLink(itemToSave: MeetingProtocolItem) {
+    if (!selectedProtocol || !linkingItem) return;
+    const now = new Date().toISOString();
+    const nextItem = { ...itemToSave, updatedAt: now };
+    const nextProtocols = protocols.map((protocol) =>
+      protocol.id === selectedProtocol.id
+        ? {
+          ...selectedProtocol,
+          [linkingItem.kind]: selectedProtocol[linkingItem.kind].map((item) =>
+            item.id === nextItem.id ? nextItem : item,
+          ),
+          updatedAt: now,
+        }
+        : protocol,
+    );
+
+    if (linkingItem.target === 'todo' && onLinkProtocolItemTodo && linkingItem.item.convertedTodoId !== nextItem.convertedTodoId) {
+      onLinkProtocolItemTodo({
+        protocols: nextProtocols,
+        protocolId: selectedProtocol.id,
+        protocolItemId: nextItem.id,
+        protocolItemKind: linkingItem.kind,
+        previousTodoId: linkingItem.item.convertedTodoId,
+        todoId: nextItem.convertedTodoId,
+      });
+    } else {
+      onChange(nextProtocols);
+    }
+    setLinkingItem(null);
   }
 
   async function deleteItem(kind: ProtocolItemKind, itemId: string) {
@@ -807,9 +880,11 @@ export function MeetingProtocols({
                     }}
                     onDrop={(targetItemId) => dropProtocolItem(section.kind, targetItemId)}
                     onCreateTodo={(item) => createTodoFromItem(section.kind, item)}
+                    onLinkTodo={(item) => setLinkingItem({ kind: section.kind, item, target: 'todo' })}
                     onOpenTodo={onOpenTodo}
                     onOpenEvent={onOpenEvent}
                     onCreateEvent={(item) => createEventFromItem(section.kind, item)}
+                    onLinkEvent={(item) => setLinkingItem({ kind: section.kind, item, target: 'event' })}
                     canUseProtocol={canUseProtocol}
                   />
                 ))}
@@ -840,9 +915,22 @@ export function MeetingProtocols({
       {editingItem ? (
         <ProtocolItemEditorDialog
           editingItem={editingItem}
+          protocolId={selectedProtocol?.id ?? ''}
+          todoLinkOptions={todoLinkOptions}
+          eventLinkOptions={eventLinkOptions}
+          duplicateCandidates={duplicateCandidates}
           onCancel={() => setEditingItem(null)}
           onDelete={() => void deleteEditingItem()}
           onSave={(item) => saveEditingItem(item)}
+        />
+      ) : null}
+      {linkingItem ? (
+        <ProtocolItemLinkDialog
+          linkingItem={linkingItem}
+          todoLinkOptions={todoLinkOptions}
+          eventLinkOptions={eventLinkOptions}
+          onCancel={() => setLinkingItem(null)}
+          onSave={saveProtocolItemLink}
         />
       ) : null}
       {appDialog.dialog}
@@ -887,18 +975,26 @@ function ProtocolEmptyAdd({
 
 function ProtocolItemEditorDialog({
   editingItem,
+  protocolId,
   onCancel,
   onDelete,
   onSave,
+  todoLinkOptions,
+  eventLinkOptions,
+  duplicateCandidates,
 }: {
   editingItem: {
     kind: ProtocolItemKind;
     item: MeetingProtocolItem;
     isNew: boolean;
   };
+  protocolId: string;
   onCancel: () => void;
   onDelete: () => void;
   onSave: (item: MeetingProtocolItem) => void;
+  todoLinkOptions: Array<{ id: string; label: string }>;
+  eventLinkOptions: Array<{ id: string; label: string }>;
+  duplicateCandidates: DuplicateCandidate[];
 }) {
   const [localItem, setLocalItem] = useState(editingItem.item);
   const label = protocolItemLabel(editingItem.kind);
@@ -926,11 +1022,49 @@ function ProtocolItemEditorDialog({
             required
             autoFocus
           />
+          <div className="col-span-full">
+            <DuplicateHints
+              draftId={`protocol:${protocolId}:${editingItem.kind}:${localItem.id}`}
+              title={localItem.title}
+              body={localItem.body}
+              candidates={duplicateCandidates}
+            />
+          </div>
           <TextField
             label="Name"
             value={localItem.owner}
             onValueChange={(owner) => updateItem({ owner })}
           />
+          {todoLinkOptions.length ? (
+            <SelectField
+              label="Linked todo"
+              value={localItem.convertedTodoId ?? ''}
+              onValueChange={(convertedTodoId) => updateItem({ convertedTodoId: convertedTodoId || undefined })}
+              className="max-w-none"
+            >
+              <option value="">No linked todo</option>
+              {todoLinkOptions.map((todo) => (
+                <option key={todo.id} value={todo.id}>
+                  {todo.label}
+                </option>
+              ))}
+            </SelectField>
+          ) : null}
+          {eventLinkOptions.length ? (
+            <SelectField
+              label="Linked event"
+              value={localItem.convertedEventId ?? ''}
+              onValueChange={(convertedEventId) => updateItem({ convertedEventId: convertedEventId || undefined })}
+              className="max-w-none"
+            >
+              <option value="">No linked event</option>
+              {eventLinkOptions.map((event) => (
+                <option key={event.id} value={event.id}>
+                  {event.label}
+                </option>
+              ))}
+            </SelectField>
+          ) : null}
         </div>
         <label>
           <span>Markdown details</span>
@@ -973,6 +1107,80 @@ function ProtocolItemEditorDialog({
   );
 }
 
+function ProtocolItemLinkDialog({
+  linkingItem,
+  todoLinkOptions,
+  eventLinkOptions,
+  onCancel,
+  onSave,
+}: {
+  linkingItem: {
+    kind: ProtocolItemKind;
+    item: MeetingProtocolItem;
+    target: 'todo' | 'event';
+  };
+  todoLinkOptions: Array<{ id: string; label: string }>;
+  eventLinkOptions: Array<{ id: string; label: string }>;
+  onCancel: () => void;
+  onSave: (item: MeetingProtocolItem) => void;
+}) {
+  const [localItem, setLocalItem] = useState(linkingItem.item);
+  const isTodoLink = linkingItem.target === 'todo';
+  const options = isTodoLink ? todoLinkOptions : eventLinkOptions;
+
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={isTodoLink ? 'Link todo' : 'Link event'}>
+      <form
+        className="editor-panel modal-panel protocol-item-dialog"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSave(localItem);
+        }}
+      >
+        <div className="panel-title">{isTodoLink ? 'Link todo' : 'Link event'}</div>
+        <SelectField
+          label={isTodoLink ? 'Todo' : 'Event'}
+          value={isTodoLink ? localItem.convertedTodoId ?? '' : localItem.convertedEventId ?? ''}
+          onValueChange={(id) =>
+            setLocalItem((item) =>
+              isTodoLink
+                ? { ...item, convertedTodoId: id || undefined }
+                : { ...item, convertedEventId: id || undefined },
+            )
+          }
+          className="max-w-none"
+        >
+          <option value="">{isTodoLink ? 'No linked todo' : 'No linked event'}</option>
+          {options.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </SelectField>
+        <div className="action-row">
+          <button
+            type="submit"
+            className="icon-button modal-action-icon"
+            aria-label={isTodoLink ? 'Save linked todo' : 'Save linked event'}
+            title="Save"
+          >
+            <Save size={18} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="icon-button tertiary modal-action-icon"
+            onClick={onCancel}
+            aria-label="Cancel"
+            title="Cancel"
+          >
+            <X size={18} aria-hidden="true" />
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 function ProtocolStructuredSection({
   protocol,
   canUseProtocol,
@@ -995,9 +1203,11 @@ function ProtocolStructuredSection({
   onDragEnd,
   onDrop,
   onCreateTodo,
+  onLinkTodo,
   onOpenTodo,
   onOpenEvent,
   onCreateEvent,
+  onLinkEvent,
 }: {
   protocol: MeetingProtocol;
   canUseProtocol: boolean;
@@ -1020,9 +1230,11 @@ function ProtocolStructuredSection({
   onDragEnd: () => void;
   onDrop: (targetItemId?: string) => void;
   onCreateTodo: (item: MeetingProtocolItem) => void;
+  onLinkTodo: (item: MeetingProtocolItem) => void;
   onOpenTodo: (todoId: string) => void;
   onOpenEvent: (eventId: string) => void;
   onCreateEvent: (item: MeetingProtocolItem) => void;
+  onLinkEvent: (item: MeetingProtocolItem) => void;
 }) {
   const query = search.trim().toLowerCase();
   const items = query
@@ -1189,6 +1401,19 @@ function ProtocolStructuredSection({
                       <ListTodo size={16} aria-hidden="true" />
                     </button>
                   )}
+                  <button
+                    type="button"
+                    className="icon-button tertiary protocol-entry-icon-button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onLinkTodo(item);
+                    }}
+                    disabled={!canUseProtocol}
+                    aria-label={item.convertedTodoId ? `Change linked todo for ${item.title}` : `Link existing todo to ${item.title}`}
+                    title={item.convertedTodoId ? 'Change linked todo' : 'Link todo'}
+                  >
+                    <ListPlus size={14} aria-hidden="true" />
+                  </button>
                   {item.convertedEventId ? (
                     <button
                       type="button"
@@ -1217,6 +1442,19 @@ function ProtocolStructuredSection({
                       <CalendarPlus size={16} aria-hidden="true" />
                     </button>
                   )}
+                  <button
+                    type="button"
+                    className="icon-button tertiary protocol-entry-icon-button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onLinkEvent(item);
+                    }}
+                    disabled={!canUseProtocol}
+                    aria-label={item.convertedEventId ? `Change linked event for ${item.title}` : `Link existing event to ${item.title}`}
+                    title={item.convertedEventId ? 'Change linked event' : 'Link event'}
+                  >
+                    <CalendarSearch size={14} aria-hidden="true" />
+                  </button>
                   <button
                     type="button"
                     className="icon-button tertiary protocol-entry-icon-button"

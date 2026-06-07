@@ -3,8 +3,10 @@
 import { CalendarPlus, Plus, Save, Trash2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { SelectField, TextField } from './FormControls';
+import { DuplicateHints } from './DuplicateHints';
 import { MarkdownEditor } from './MarkdownEditor';
 import type { TimelineTodo, TodoStatus } from '@/lib/types';
+import type { DuplicateCandidate } from '@/lib/duplicateHints';
 import { formatTodoStatus, normalizeTodoTag, normalizeTodoTags, todoWithPendingTag } from '@/lib/todos';
 
 type TodoEditorProps = {
@@ -13,6 +15,7 @@ type TodoEditorProps = {
   boards?: Array<{ id: string; name: string; locked?: boolean }>;
   protocolOptions?: Array<{ id: string; title: string }>;
   availableTags?: string[];
+  duplicateCandidates?: DuplicateCandidate[];
   title?: string;
   saveLabel?: string;
   forceBoardSelect?: boolean;
@@ -29,6 +32,7 @@ export function TodoEditor({
   boards = [],
   protocolOptions = [],
   availableTags = [],
+  duplicateCandidates = [],
   title = 'Todo',
   saveLabel = 'Save todo',
   forceBoardSelect = false,
@@ -85,72 +89,82 @@ export function TodoEditor({
         }}
       >
         <div className="panel-title">{title}</div>
-        <div className="form-grid">
-          <TextField
-            label="Title"
-            value={localDraft.title}
-            onValueChange={(title) => updateDraft({ title })}
-            required
-          />
-          <TextField
-            label="Who"
-            value={localDraft.who}
-            onValueChange={(who) => updateDraft({ who })}
-          />
-          <SelectField
-            label="Status"
-            value={localDraft.status}
-            onValueChange={(status) => updateDraft({ status: status as TodoStatus })}
-            className="max-w-none"
-          >
-              {statuses.map((status) => (
-                <option key={status} value={status}>
-                  {formatTodoStatus(status)}
-                </option>
-              ))}
-          </SelectField>
-          {boards.length > 1 || forceBoardSelect ? (
+        <div className="grid gap-3">
+          <div className="grid gap-2">
+            <TextField
+              label="Title"
+              value={localDraft.title}
+              onValueChange={(title) => updateDraft({ title })}
+              required
+            />
+            <DuplicateHints
+              draftId={`todo:${localDraft.id}`}
+              title={localDraft.title}
+              body={localDraft.body}
+              candidates={duplicateCandidates}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2.5 max-sm:grid-cols-1">
+            <TextField
+              label="Who"
+              value={localDraft.who}
+              onValueChange={(who) => updateDraft({ who })}
+            />
             <SelectField
-              label="Board"
-              value={localDraft.boardId ?? boards[0]?.id ?? ''}
-              onValueChange={(boardId) => updateDraft({ boardId })}
+              label="Status"
+              value={localDraft.status}
+              onValueChange={(status) => updateDraft({ status: status as TodoStatus })}
               className="max-w-none"
             >
-                {boards.map((board) => (
-                  <option key={board.id} value={board.id}>
-                    {board.locked ? 'PIN ' : ''}{board.name}
+                {statuses.map((status) => (
+                  <option key={status} value={status}>
+                    {formatTodoStatus(status)}
                   </option>
                 ))}
             </SelectField>
-          ) : null}
-          {protocolOptions.length ? (
-            <SelectField
-              label="Protocol"
-              value={localDraft.protocolId ?? ''}
-              onValueChange={(protocolId) => updateDraft({ protocolId: protocolId || undefined })}
-              className="max-w-none"
-            >
-                <option value="">No protocol</option>
-                {protocolOptions.map((protocol) => (
-                  <option key={protocol.id} value={protocol.id}>
-                    {protocol.title}
-                  </option>
-                ))}
-            </SelectField>
-          ) : null}
-          <TextField
-            label="Due"
-            type="date"
-            value={localDraft.dueDate ?? ''}
-            onValueChange={(dueDate) => updateDraft({ dueDate })}
-          />
-          <TextField
-            label="Created"
-            value={formatTodoCreatedAt(localDraft.createdAt)}
-            onValueChange={() => undefined}
-            readOnly
-            inputClassName="readonly-input"
-          />
+            {boards.length > 1 || forceBoardSelect ? (
+              <SelectField
+                label="Board"
+                value={localDraft.boardId ?? boards[0]?.id ?? ''}
+                onValueChange={(boardId) => updateDraft({ boardId })}
+                className="max-w-none"
+              >
+                  {boards.map((board) => (
+                    <option key={board.id} value={board.id}>
+                      {board.locked ? 'PIN ' : ''}{board.name}
+                    </option>
+                  ))}
+              </SelectField>
+            ) : null}
+            {protocolOptions.length ? (
+              <SelectField
+                label="Protocol"
+                value={localDraft.protocolId ?? ''}
+                onValueChange={(protocolId) => updateDraft({ protocolId: protocolId || undefined })}
+                className="max-w-none"
+              >
+                  <option value="">No protocol</option>
+                  {protocolOptions.map((protocol) => (
+                    <option key={protocol.id} value={protocol.id}>
+                      {protocol.title}
+                    </option>
+                  ))}
+              </SelectField>
+            ) : null}
+            <TextField
+              label="Due"
+              type="date"
+              value={localDraft.dueDate ?? ''}
+              onValueChange={(dueDate) => updateDraft({ dueDate })}
+            />
+            <TextField
+              label="Created"
+              value={formatTodoCreatedAt(localDraft.createdAt)}
+              onValueChange={() => undefined}
+              readOnly
+              inputClassName="readonly-input"
+            />
+          </div>
           <div className="todo-tags-field">
             <span className="field-label">Tags</span>
             <div className="todo-editor-tags">
@@ -209,7 +223,7 @@ export function TodoEditor({
             </div>
           </div>
         </div>
-        <label>
+        <label className="mt-3 block">
           <span>Markdown note</span>
           <MarkdownEditor
             value={localDraft.body}

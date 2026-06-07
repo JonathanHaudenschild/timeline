@@ -9,6 +9,7 @@ import { InlineTextInput, SearchInput, SelectField, TextField } from './FormCont
 import { MarkdownBlock } from './MarkdownBlock';
 import { TodoEditor } from './TodoEditor';
 import type { TimelineTodo, TodoStatus } from '@/lib/types';
+import type { DuplicateCandidate } from '@/lib/duplicateHints';
 import { createTimelineComment } from '@/lib/comments';
 import {
   defaultTodoStatuses,
@@ -70,6 +71,7 @@ type TodoBoardProps = {
   onStatusesChange: (statuses: TodoStatus[]) => void;
   onRenameStatus: (fromStatus: TodoStatus, toStatus: TodoStatus) => void;
   renderBoardActions?: () => ReactNode;
+  duplicateCandidates?: DuplicateCandidate[];
 };
 
 export function TodoBoard({
@@ -89,6 +91,7 @@ export function TodoBoard({
   onStatusesChange,
   onRenameStatus,
   renderBoardActions,
+  duplicateCandidates = [],
 }: TodoBoardProps) {
   const appDialog = useAppDialog();
   const [draftTodo, setDraftTodo] = useState<TimelineTodo | null>(null);
@@ -397,6 +400,7 @@ export function TodoBoard({
           statuses={visibleStatuses}
           boards={boards}
           availableTags={availableTags}
+          duplicateCandidates={duplicateCandidates}
           onChange={setDraftTodo}
           onCancel={() => {
             setDraftTodo(null);

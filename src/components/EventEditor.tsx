@@ -4,7 +4,9 @@ import { Save, Trash2, X } from 'lucide-react';
 import { useState } from 'react';
 import type { TimelineEvent } from '@/lib/types';
 import { colorForType } from '@/lib/colors';
+import type { DuplicateCandidate } from '@/lib/duplicateHints';
 import { eventCategoryOptions, eventTypeOptions } from '@/lib/eventOptions';
+import { DuplicateHints } from './DuplicateHints';
 import { TextField } from './FormControls';
 import { MarkdownEditor } from './MarkdownEditor';
 
@@ -12,6 +14,7 @@ type EventEditorProps = {
   draft: TimelineEvent;
   events: TimelineEvent[];
   typeColors: Record<string, string>;
+  duplicateCandidates?: DuplicateCandidate[];
   onChange: (event: TimelineEvent) => void;
   onCancel: () => void;
   onSave: (event?: TimelineEvent) => void;
@@ -19,7 +22,7 @@ type EventEditorProps = {
   modal?: boolean;
 };
 
-export function EventEditor({ draft, events, typeColors, onChange, onCancel, onSave, onDelete, modal = false }: EventEditorProps) {
+export function EventEditor({ draft, events, typeColors, duplicateCandidates = [], onChange, onCancel, onSave, onDelete, modal = false }: EventEditorProps) {
   const [localDraft, setLocalDraft] = useState(draft);
   const eventTypes = eventTypeOptions(events);
   const eventCategories = eventCategoryOptions(events);
@@ -117,6 +120,14 @@ export function EventEditor({ draft, events, typeColors, onChange, onCancel, onS
           onValueChange={(what) => updateDraft({ what })}
           required
         />
+        <div className="col-span-full">
+          <DuplicateHints
+            draftId={`event:${localDraft.id}`}
+            title={localDraft.what}
+            body={localDraft.note}
+            candidates={duplicateCandidates}
+          />
+        </div>
         <TextField
           label="Who"
           value={localDraft.who}
