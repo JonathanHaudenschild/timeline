@@ -55,13 +55,13 @@ export function EventEditor({ draft, events, typeColors, onChange, onCancel, onS
           label="Time"
           type="time"
           value={draft.time}
-          onValueChange={(time) => onChange({ ...draft, time })}
+          onValueChange={(time) => onChange({ ...draft, time, endTime: time ? draft.endTime : undefined })}
         />
         <TextField
           label="End time"
           type="time"
           value={draft.endTime ?? ''}
-          disabled={!draft.endDate}
+          disabled={!draft.endDate || !draft.time}
           onValueChange={(endTime) => onChange({ ...draft, endTime: endTime || undefined })}
         />
         <TextField

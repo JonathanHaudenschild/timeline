@@ -431,7 +431,7 @@ export function TimelineCanvas({
                   type="button"
                   className="icon-button timeline-tool-button"
                   onClick={() =>
-                    onCreateEvent({ date: project.startDate, time: "09:00" })
+                    onCreateEvent({ date: project.startDate, time: "" })
                   }
                   aria-label="Add event"
                   title="Add event"
@@ -1100,7 +1100,7 @@ function drawBoxText(
   ctx.fillText(
     truncateToWidth(
       ctx,
-      `${formatShortGermanDate(event.date)} / ${event.time} / ${category}`.toUpperCase(),
+      `${formatShortGermanDate(event.date)} / ${event.time || "All day"} / ${category}`.toUpperCase(),
       textWidth,
     ),
     boxX + padding,

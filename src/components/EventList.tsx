@@ -352,41 +352,43 @@ export function EventList({
                         className="event-inline-input"
                         type="time"
                         value={event.time}
-                        onValueChange={(time) => onChange({ ...event, time })}
+                        onValueChange={(time) => onChange({ ...event, time, endTime: time ? event.endTime : undefined })}
                         aria-label={`Time for ${event.what}`}
                       />
-	                      {event.endDate ? (
-	                        event.endTime ? (
-	                          <div className="inline-time-with-action">
-	                            <InlineTextInput
-	                              className="event-inline-input"
-	                              type="time"
-	                              value={event.endTime}
-	                              onValueChange={(endTime) => onChange({ ...event, endTime: endTime || undefined })}
-	                              aria-label={`End time for ${event.what}`}
-	                            />
-	                            <button
-	                              type="button"
-	                              className="inline-date-add"
-	                              onClick={() => onChange({ ...event, endTime: undefined })}
-	                              aria-label={`Remove end time for ${event.what}`}
-	                              title="Remove end time"
-	                            >
-	                              x
-	                            </button>
-	                          </div>
-	                        ) : (
-	                          <button
-	                            type="button"
-	                            className="inline-time-add"
-	                            onClick={() => onChange({ ...event, endTime: event.time })}
-	                            aria-label={`Add end time for ${event.what}`}
-	                            title="Add end time"
-	                          >
-	                            + time
-	                          </button>
-	                        )
-	                      ) : null}
+                      {event.endDate && event.time ? (
+                        event.endTime ? (
+                          <div className="inline-time-with-action">
+                            <InlineTextInput
+                              className="event-inline-input"
+                              type="time"
+                              value={event.endTime}
+                              onValueChange={(endTime) => onChange({ ...event, endTime: endTime || undefined })}
+                              aria-label={`End time for ${event.what}`}
+                            />
+                            <button
+                              type="button"
+                              className="inline-date-add"
+                              onClick={() => onChange({ ...event, endTime: undefined })}
+                              aria-label={`Remove end time for ${event.what}`}
+                              title="Remove end time"
+                            >
+                              x
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            className="inline-time-add"
+                            onClick={() => onChange({ ...event, endTime: event.time })}
+                            aria-label={`Add end time for ${event.what}`}
+                            title="Add end time"
+                          >
+                            + time
+                          </button>
+                        )
+                      ) : (
+                        <span className="text-[10px] font-black uppercase text-[var(--muted)]">All day</span>
+                      )}
                     </div>
                   ) : (
                     formatEventTimeRange(event)
@@ -601,7 +603,7 @@ function eventMatchesSearch(event: TimelineEvent, search: string) {
   return [
     event.date,
     event.endDate ?? "",
-    event.time,
+    event.time || "all day",
     event.endTime ?? "",
     event.what,
     event.who,
@@ -616,6 +618,7 @@ function eventMatchesSearch(event: TimelineEvent, search: string) {
 }
 
 function formatEventTimeRange(event: TimelineEvent) {
+  if (!event.time) return "All day";
   return event.endTime ? `${event.time} - ${event.endTime}` : event.time;
 }
 

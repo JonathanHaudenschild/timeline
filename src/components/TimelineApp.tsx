@@ -627,7 +627,7 @@ export function TimelineApp() {
     const event: TimelineEvent = {
       id: crypto.randomUUID(),
       date: todo.dueDate || project.startDate,
-      time: '09:00',
+      time: '',
       what: todo.title || 'New event',
       who: todo.who,
       type: 'todo',
@@ -727,7 +727,7 @@ export function TimelineApp() {
     const event: TimelineEvent = {
       id: crypto.randomUUID(),
       date: source.date || project.startDate,
-      time: '09:00',
+      time: '',
       what: source.title || 'Protocol event',
       who: '',
       type: 'protocol',
@@ -935,12 +935,13 @@ export function TimelineApp() {
 
   function saveEvent() {
     if (!draftEvent || !project) return;
-    const existing = project.events.some((event) => event.id === draftEvent.id);
+    const eventToSave = draftEvent.time ? draftEvent : { ...draftEvent, endTime: undefined };
+    const existing = project.events.some((event) => event.id === eventToSave.id);
     const events = existing
-      ? project.events.map((event) => (event.id === draftEvent.id ? draftEvent : event))
-      : [...project.events, draftEvent];
+      ? project.events.map((event) => (event.id === eventToSave.id ? eventToSave : event))
+      : [...project.events, eventToSave];
     updateProject({ ...project, events });
-    selectEvent(draftEvent.id);
+    selectEvent(eventToSave.id);
     setDraftEvent(null);
   }
 
@@ -1708,9 +1709,9 @@ export function TimelineApp() {
             <>
               <dl>
                 <dt>Date</dt>
-                <dd>{formatShortGermanDateRange(selectedEvent.date, selectedEvent.endDate)}</dd>
+              <dd>{formatShortGermanDateRange(selectedEvent.date, selectedEvent.endDate)}</dd>
               <dt>Time</dt>
-              <dd>{selectedEvent.endTime ? `${selectedEvent.time} - ${selectedEvent.endTime}` : selectedEvent.time}</dd>
+              <dd>{formatEventTimeRange(selectedEvent)}</dd>
                 <dt>Who</dt>
                 <dd>{selectedEvent.who || '-'}</dd>
                 <dt>Type</dt>
@@ -1736,7 +1737,7 @@ export function TimelineApp() {
           canEdit={canEdit}
           isMinimized={isEventListMinimized}
           onToggleMinimized={() => setIsEventListMinimized((v) => !v)}
-          onAdd={() => createEvent({ date: selectedEvent?.date ?? project.startDate, time: selectedEvent?.time ?? '09:00' })}
+          onAdd={() => createEvent({ date: selectedEvent?.date ?? project.startDate, time: selectedEvent?.time ?? '' })}
           onChange={(changedEvent) => {
             updateProject({
               ...project,
@@ -2434,6 +2435,11 @@ function syncStatusLabel(status: 'idle' | 'checking' | 'updated' | 'merged' | 'o
   if (status === 'merged') return `merged ${lastCheckedAt}`;
   if (status === 'offline') return 'sync offline';
   return lastCheckedAt ? `checked ${lastCheckedAt}` : 'sync ready';
+}
+
+function formatEventTimeRange(event: TimelineEvent) {
+  if (!event.time) return 'All day';
+  return event.endTime ? `${event.time} - ${event.endTime}` : event.time;
 }
 
 const projectPinSessionTtlMs = 30 * 60 * 1000;

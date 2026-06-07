@@ -89,7 +89,7 @@ const sectionConfig: Array<{ kind: ProtocolItemKind; title: string; addLabel: st
 const protocolWorkspaceClass =
   'mt-3 grid grid-cols-[260px_minmax(0,1fr)] items-start gap-3 max-sm:grid-cols-1';
 const protocolListClass =
-  'grid max-h-full gap-2 overflow-auto max-sm:max-h-[42dvh] max-[420px]:max-h-[38dvh]';
+  'grid max-h-[min(72dvh,760px)] gap-2 overflow-auto max-sm:max-h-[42dvh] max-[420px]:max-h-[38dvh]';
 const protocolListToggleClass =
   'protocol-list-toggle segmented grid-cols-2';
 const protocolListFilterClass =

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef } from 'react';
+import { useDeferredValue, useRef } from 'react';
 import type { KeyboardEvent } from 'react';
 import { MarkdownBlock } from './MarkdownBlock';
 import { cn } from '@/lib/cn';
@@ -53,6 +53,7 @@ export function MarkdownEditor({
   rows = 7,
 }: MarkdownEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const previewValue = useDeferredValue(value);
 
   function applyAction(action: MarkdownAction) {
     const textarea = textareaRef.current;
@@ -151,7 +152,7 @@ export function MarkdownEditor({
           rows={rows}
         />
         <div className="markdown-editor-preview">
-          <MarkdownBlock markdown={value || '_Nothing written yet._'} />
+          <MarkdownBlock markdown={previewValue || '_Nothing written yet._'} />
         </div>
       </div>
     </div>

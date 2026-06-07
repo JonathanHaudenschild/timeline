@@ -1323,6 +1323,70 @@ describe('project helpers', () => {
     expect(merged.updates.map((item) => item.id)).toEqual(['update-2', 'update-1', 'update-3']);
   });
 
+  it('applies remote protocol item moves between sections when local device is unchanged', () => {
+    const [baseProtocol] = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        updates: [
+          { id: 'update-1', title: 'Stay update' },
+          { id: 'update-2', title: 'Move me' },
+        ],
+        topics: [{ id: 'topic-1', title: 'Topic' }],
+        todos: [{ id: 'todo-1', title: 'Todo' }],
+        updatedAt: '2026-06-06T10:00:00.000Z',
+      },
+    ]);
+    const localProtocol = { ...baseProtocol };
+    const remoteProtocol = {
+      ...baseProtocol,
+      updates: [baseProtocol.updates[0]],
+      topics: [baseProtocol.topics[0], { ...baseProtocol.updates[1], updatedAt: '2026-06-06T10:06:00.000Z' }],
+      updatedAt: '2026-06-06T10:06:00.000Z',
+    };
+
+    const [merged] = mergeMeetingProtocols([baseProtocol], [localProtocol], [remoteProtocol]);
+
+    expect(merged.updates.map((item) => item.id)).toEqual(['update-1']);
+    expect(merged.topics.map((item) => item.id)).toEqual(['topic-1', 'update-2']);
+    expect(merged.todos.map((item) => item.id)).toEqual(['todo-1']);
+  });
+
+  it('keeps local protocol item edits when another device moves that item between sections', () => {
+    const [baseProtocol] = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        updates: [
+          { id: 'update-1', title: 'Stay update' },
+          { id: 'update-2', title: 'Move me', body: 'base body' },
+        ],
+        topics: [{ id: 'topic-1', title: 'Topic' }],
+        updatedAt: '2026-06-06T10:00:00.000Z',
+      },
+    ]);
+    const localProtocol = {
+      ...baseProtocol,
+      updates: [
+        baseProtocol.updates[0],
+        { ...baseProtocol.updates[1], body: 'local edited body', updatedAt: '2026-06-06T10:05:00.000Z' },
+      ],
+      updatedAt: '2026-06-06T10:05:00.000Z',
+    };
+    const remoteProtocol = {
+      ...baseProtocol,
+      updates: [baseProtocol.updates[0]],
+      topics: [baseProtocol.topics[0], { ...baseProtocol.updates[1], updatedAt: '2026-06-06T10:06:00.000Z' }],
+      updatedAt: '2026-06-06T10:06:00.000Z',
+    };
+
+    const [merged] = mergeMeetingProtocols([baseProtocol], [localProtocol], [remoteProtocol]);
+
+    expect(merged.updates.map((item) => item.id)).toEqual(['update-1']);
+    expect(merged.topics.map((item) => item.id)).toEqual(['topic-1', 'update-2']);
+    expect(merged.topics[1].body).toBe('local edited body');
+  });
+
   it('keeps both versions when protocol notes change on two devices', () => {
     const [baseProtocol] = normalizeMeetingProtocols([
       {

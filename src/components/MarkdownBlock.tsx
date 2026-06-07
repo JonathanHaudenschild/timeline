@@ -1,5 +1,7 @@
 'use client';
 
+import { memo, useMemo } from 'react';
+
 type MarkdownBlockProps = {
   markdown: string;
 };
@@ -189,6 +191,8 @@ export function renderMarkdown(markdown: string) {
   return html.join('');
 }
 
-export function MarkdownBlock({ markdown }: MarkdownBlockProps) {
-  return <div className="markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(markdown) }} />;
-}
+export const MarkdownBlock = memo(function MarkdownBlock({ markdown }: MarkdownBlockProps) {
+  const html = useMemo(() => renderMarkdown(markdown), [markdown]);
+
+  return <div className="markdown" dangerouslySetInnerHTML={{ __html: html }} />;
+});

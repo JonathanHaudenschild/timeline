@@ -35,6 +35,8 @@ export type ProtocolHeadline = {
 
 export type ProtocolItemKind = 'updates' | 'topics' | 'todos';
 
+const protocolItemKinds = ['updates', 'topics', 'todos'] as const;
+
 type MeetingProtocolInput = Partial<Omit<MeetingProtocol, ProtocolItemKind>> & {
   updates?: readonly Partial<MeetingProtocolItem>[];
   topics?: readonly Partial<MeetingProtocolItem>[];
@@ -278,9 +280,7 @@ export function mergeMeetingProtocols(
         ? localProtocol.todoOwner
         : remoteProtocol.todoOwner,
       body: mergeProtocolBody(baseProtocol.body, localProtocol.body, remoteProtocol.body),
-      updates: mergeProtocolItems(baseProtocol.updates, localProtocol.updates, remoteProtocol.updates),
-      topics: mergeProtocolItems(baseProtocol.topics, localProtocol.topics, remoteProtocol.topics),
-      todos: mergeProtocolItems(baseProtocol.todos, localProtocol.todos, remoteProtocol.todos),
+      ...mergeProtocolSections(baseProtocol, localProtocol, remoteProtocol),
       updatedAt: latestString(localProtocol.updatedAt, remoteProtocol.updatedAt),
     };
   });
@@ -450,52 +450,121 @@ function mergeById<T extends { id: string }>(
   return ordered;
 }
 
-function mergeProtocolItems(
-  baseItems: readonly MeetingProtocolItem[],
-  localItems: readonly MeetingProtocolItem[],
-  remoteItems: readonly MeetingProtocolItem[],
-) {
-  const result = new Map(remoteItems.map((item) => [item.id, item]));
-  const baseById = new Map(baseItems.map((item) => [item.id, item]));
-  const localById = new Map(localItems.map((item) => [item.id, item]));
-  const localOrderChanged = idsChanged(baseItems, localItems);
+function mergeProtocolSections(
+  baseProtocol: MeetingProtocol,
+  localProtocol: MeetingProtocol,
+  remoteProtocol: MeetingProtocol,
+): Record<ProtocolItemKind, MeetingProtocolItem[]> {
+  const baseById = protocolItemPositions(baseProtocol);
+  const localById = protocolItemPositions(localProtocol);
+  const remoteById = protocolItemPositions(remoteProtocol);
+  const mergedById = new Map<string, { kind: ProtocolItemKind; item: MeetingProtocolItem }>();
+  const ids = new Set([...baseById.keys(), ...localById.keys(), ...remoteById.keys()]);
 
-  for (const [id, localItem] of localById) {
-    const baseItem = baseById.get(id);
-    const remoteItem = result.get(id);
-    if (
-      baseItem &&
-      remoteItem &&
-      changed(baseItem, localItem) &&
-      changed(baseItem, remoteItem) &&
-      changed(localItem, remoteItem)
-    ) {
-      result.set(id, mergeProtocolItem(baseItem, localItem, remoteItem));
-    } else if (!baseItem || changed(baseItem, localItem)) {
-      result.set(id, localItem);
+  for (const id of ids) {
+    const basePosition = baseById.get(id);
+    const localPosition = localById.get(id);
+    const remotePosition = remoteById.get(id);
+
+    if (!basePosition) {
+      const addedPosition = localPosition ?? remotePosition;
+      if (addedPosition) mergedById.set(id, { kind: addedPosition.kind, item: addedPosition.item });
+      continue;
+    }
+
+    const baseItem = basePosition.item;
+    if (!localPosition && !remotePosition) continue;
+
+    if (!localPosition) {
+      if (
+        remotePosition &&
+        (remotePosition.kind !== basePosition.kind || changed(baseItem, remotePosition.item))
+      ) {
+        mergedById.set(id, { kind: remotePosition.kind, item: remotePosition.item });
+      }
+      continue;
+    }
+
+    if (!remotePosition) {
+      if (localPosition.kind !== basePosition.kind || changed(baseItem, localPosition.item)) {
+        mergedById.set(id, { kind: localPosition.kind, item: localPosition.item });
+      }
+      continue;
+    }
+
+    const localChanged = changed(baseItem, localPosition.item);
+    const remoteChanged = changed(baseItem, remotePosition.item);
+    const item =
+      localChanged && remoteChanged && changed(localPosition.item, remotePosition.item)
+        ? mergeProtocolItem(baseItem, localPosition.item, remotePosition.item)
+        : localChanged
+          ? localPosition.item
+          : remotePosition.item;
+    const kind = mergeProtocolItemKind(basePosition, localPosition, remotePosition);
+    mergedById.set(id, { kind, item });
+  }
+
+  return {
+    updates: orderMergedProtocolItems('updates', baseProtocol, localProtocol, remoteProtocol, mergedById),
+    topics: orderMergedProtocolItems('topics', baseProtocol, localProtocol, remoteProtocol, mergedById),
+    todos: orderMergedProtocolItems('todos', baseProtocol, localProtocol, remoteProtocol, mergedById),
+  };
+}
+
+function protocolItemPositions(protocol: MeetingProtocol) {
+  const positions = new Map<string, { kind: ProtocolItemKind; item: MeetingProtocolItem }>();
+
+  for (const kind of protocolItemKinds) {
+    for (const item of protocol[kind]) {
+      positions.set(item.id, { kind, item });
     }
   }
 
-  for (const [id, baseItem] of baseById) {
-    if (localById.has(id)) continue;
-    const remoteItem = result.get(id);
-    if (!remoteItem || !changed(baseItem, remoteItem)) result.delete(id);
+  return positions;
+}
+
+function mergeProtocolItemKind(
+  basePosition: { kind: ProtocolItemKind; item: MeetingProtocolItem },
+  localPosition: { kind: ProtocolItemKind; item: MeetingProtocolItem },
+  remotePosition: { kind: ProtocolItemKind; item: MeetingProtocolItem },
+) {
+  const localMoved = localPosition.kind !== basePosition.kind;
+  const remoteMoved = remotePosition.kind !== basePosition.kind;
+
+  if (localMoved && remoteMoved && localPosition.kind !== remotePosition.kind) {
+    return localPosition.item.updatedAt >= remotePosition.item.updatedAt ? localPosition.kind : remotePosition.kind;
   }
+  if (localMoved) return localPosition.kind;
+  if (remoteMoved) return remotePosition.kind;
+  return remotePosition.kind;
+}
 
-  if (!localOrderChanged) return [...result.values()];
-
+function orderMergedProtocolItems(
+  kind: ProtocolItemKind,
+  baseProtocol: MeetingProtocol,
+  localProtocol: MeetingProtocol,
+  remoteProtocol: MeetingProtocol,
+  mergedById: Map<string, { kind: ProtocolItemKind; item: MeetingProtocolItem }>,
+) {
+  const orderSource = idsChanged(baseProtocol[kind], localProtocol[kind])
+    ? localProtocol[kind]
+    : remoteProtocol[kind];
   const ordered: MeetingProtocolItem[] = [];
   const seen = new Set<string>();
-  for (const item of localItems) {
-    const resultItem = result.get(item.id);
-    if (!resultItem) continue;
 
-    ordered.push(resultItem);
-    seen.add(item.id);
+  for (const sourceItem of orderSource) {
+    const merged = mergedById.get(sourceItem.id);
+    if (!merged || merged.kind !== kind || seen.has(sourceItem.id)) continue;
+
+    ordered.push(merged.item);
+    seen.add(sourceItem.id);
   }
 
-  for (const item of result.values()) {
-    if (!seen.has(item.id)) ordered.push(item);
+  for (const [id, merged] of mergedById) {
+    if (merged.kind !== kind || seen.has(id)) continue;
+
+    ordered.push(merged.item);
+    seen.add(id);
   }
 
   return ordered;
