@@ -181,6 +181,27 @@ describe('project helpers', () => {
     expect(synced.settings.completedTodoStatus).toBe('finished');
   });
 
+  it('keeps newly added empty todo columns when syncing a board', () => {
+    const project = createDefaultProject('new-empty-column');
+    const board = project.todoBoards?.[0];
+    if (!board) throw new Error('Expected default todo board');
+
+    const synced = syncProjectTodoBoard(
+      project,
+      [
+        {
+          ...board,
+          statuses: [...(board.statuses ?? []), 'waiting'],
+        },
+      ],
+      board.id,
+    );
+    const [syncedBoard] = normalizeTodoBoards(synced);
+
+    expect(syncedBoard.statuses).toContain('waiting');
+    expect(synced.settings.todoStatuses).toContain('waiting');
+  });
+
   it('keeps the local active todo board when another device saves from a different board', () => {
     const baseProject = createDefaultProject('merge-active-board');
     const baseBoard = baseProject.todoBoards?.[0];

@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Columns3, Link2, MessageCircle, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useAppDialog } from './AppDialog';
 import { FilterBadge } from './FilterBadge';
-import { InlineTextInput, SearchInput, SelectField, TextField } from './FormControls';
+import { InlineTextInput, SearchInput, SelectField } from './FormControls';
 import { MarkdownBlock } from './MarkdownBlock';
 import { TodoEditor } from './TodoEditor';
 import type { TimelineTodo, TodoStatus } from '@/lib/types';
@@ -99,7 +99,6 @@ export function TodoBoard({
   const [draggedTodoId, setDraggedTodoId] = useState<string | null>(null);
   const [dropStatus, setDropStatus] = useState<TodoStatus | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
-  const [newStatus, setNewStatus] = useState('');
   const [editingStatus, setEditingStatus] = useState<TodoStatus | null>(null);
   const [editingStatusName, setEditingStatusName] = useState('');
   const [columnSortKeys, setColumnSortKeys] = usePersistentState<Record<TodoStatus, TodoSortKey>>(
@@ -249,11 +248,18 @@ export function TodoBoard({
   );
   const hasActiveFilter = Boolean(search.trim()) || Boolean(tagFilter.trim()) || Boolean(whoFilter.trim());
 
-  function addStatus() {
-    const status = normalizeTodoStatus(newStatus);
+  async function addStatus() {
+    const name = await appDialog.prompt({
+      title: 'Add column',
+      label: 'Column name',
+      placeholder: 'New status',
+      confirmLabel: 'Add column',
+      confirmIcon: <Columns3 size={18} aria-hidden="true" />,
+      cancelIcon: <X size={18} aria-hidden="true" />,
+    });
+    const status = normalizeTodoStatus(name ?? '');
     if (!status || visibleStatuses.includes(status)) return;
     onStatusesChange([...visibleStatuses, status]);
-    setNewStatus('');
   }
 
   function removeStatus(status: TodoStatus) {
@@ -359,11 +365,7 @@ export function TodoBoard({
                 <div className={todoActionIconsClass}>{renderBoardActions()}</div>
               ) : null}
               {canEdit ? (
-                <StatusForm
-                  newStatus={newStatus}
-                  onNewStatusChange={setNewStatus}
-                  onAddStatus={addStatus}
-                />
+                <AddColumnButton onAddStatus={addStatus} />
               ) : null}
               <button type="button" onClick={() => addTodo()} aria-label="Add todo" title="Add todo">
                 <Plus size={16} aria-hidden="true" />
@@ -373,11 +375,7 @@ export function TodoBoard({
           </details>
           <div className={`desktop-control-group ${todoActionGroupClass}`}>
             {canEdit ? (
-              <StatusForm
-                newStatus={newStatus}
-                onNewStatusChange={setNewStatus}
-                onAddStatus={addStatus}
-              />
+              <AddColumnButton onAddStatus={addStatus} />
             ) : null}
             <button
               type="button"
@@ -799,41 +797,18 @@ export function TodoBoard({
   );
 }
 
-function StatusForm({
-  newStatus,
-  onNewStatusChange,
-  onAddStatus,
-}: {
-  newStatus: string;
-  onNewStatusChange: (status: string) => void;
-  onAddStatus: () => void;
-}) {
+function AddColumnButton({ onAddStatus }: { onAddStatus: () => void | Promise<void> }) {
   return (
-    <form
-      className="flex w-auto min-w-0 items-center gap-1.5 max-sm:w-full"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onAddStatus();
-      }}
+    <button
+      type="button"
+      className="icon-button secondary h-[var(--icon-button-size)] min-h-[var(--icon-button-size)] w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0 max-sm:w-full"
+      onClick={() => void onAddStatus()}
+      aria-label="Add column"
+      title="Add column"
     >
-      <TextField
-        label="New status"
-        hideLabel
-        value={newStatus}
-        onValueChange={onNewStatusChange}
-        placeholder="New status"
-        aria-label="New todo status"
-        className="w-[150px] max-sm:min-w-0 max-sm:flex-1"
-      />
-      <button
-        type="submit"
-        className="icon-button secondary h-[var(--icon-button-size)] min-h-[var(--icon-button-size)] w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0"
-        aria-label="Add column"
-        title="Add column"
-      >
-        <Columns3 size={16} aria-hidden="true" />
-      </button>
-    </form>
+      <Columns3 size={16} aria-hidden="true" />
+      <span className="sr-only">Add column</span>
+    </button>
   );
 }
 
