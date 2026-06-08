@@ -21,6 +21,7 @@ import {
   normalizeTodoTags,
   touchTodo,
 } from '@/lib/todos';
+import { extractTodoOwners, namesEqual, todoMatchesWho, uniquePeople } from '@/lib/todoFilters';
 import { cn } from '@/lib/cn';
 import { uiCard, uiSurface } from '@/lib/ui';
 import { usePersistentState } from '@/lib/usePersistentState';
@@ -119,7 +120,7 @@ export function TodoBoard({
   );
   const availableOwners = useMemo(
     () =>
-      uniqueStrings(todos.map((todo) => todo.who))
+      uniquePeople(todos.flatMap((todo) => extractTodoOwners(todo.who)))
         .sort((left, right) => left.localeCompare(right, undefined, { sensitivity: 'base' })),
     [todos],
   );
@@ -944,31 +945,6 @@ function todoMatchesTag(todo: TimelineTodo, tagFilter: string) {
   return normalizeTodoTags(todo.tags).some((tag) => tagsEqual(tag, filter));
 }
 
-function todoMatchesWho(todo: TimelineTodo, whoFilter: string) {
-  const filter = whoFilter.trim();
-  if (!filter) return true;
-
-  return namesEqual(todo.who, filter);
-}
-
 function tagsEqual(left: string, right: string) {
   return left.trim().toLocaleLowerCase() === right.trim().toLocaleLowerCase();
-}
-
-function namesEqual(left: string, right: string) {
-  return left.trim().toLocaleLowerCase() === right.trim().toLocaleLowerCase();
-}
-
-function uniqueStrings(values: string[]) {
-  const unique = new Map<string, string>();
-
-  values.forEach((value) => {
-    const normalized = value.trim();
-    if (!normalized) return;
-
-    const key = normalized.toLocaleLowerCase();
-    if (!unique.has(key)) unique.set(key, normalized);
-  });
-
-  return [...unique.values()];
 }

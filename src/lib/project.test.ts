@@ -181,6 +181,62 @@ describe('project helpers', () => {
     expect(synced.settings.completedTodoStatus).toBe('finished');
   });
 
+  it('keeps the local active todo board when another device saves from a different board', () => {
+    const baseProject = createDefaultProject('merge-active-board');
+    const baseBoard = baseProject.todoBoards?.[0];
+    if (!baseBoard) throw new Error('Expected default todo board');
+
+    const secondBoard = {
+      id: 'board-remote',
+      name: 'Remote board',
+      statuses: ['open', 'done'],
+      completedTodoStatus: 'done',
+      todos: [
+        {
+          id: 'remote-todo',
+          title: 'Remote todo',
+          who: '',
+          body: '',
+          status: 'open',
+          dueDate: '',
+          showOnTimeline: true,
+        },
+      ],
+    };
+    const baseWithBoards = {
+      ...baseProject,
+      settings: { ...baseProject.settings, activeTodoBoardId: baseBoard.id },
+      todoBoards: [baseBoard, secondBoard],
+    };
+    const localProject = {
+      ...baseWithBoards,
+      settings: { ...baseWithBoards.settings, activeTodoBoardId: baseBoard.id },
+    };
+    const remoteProject = {
+      ...baseWithBoards,
+      revision: 2,
+      settings: { ...baseWithBoards.settings, activeTodoBoardId: secondBoard.id },
+      todoBoards: [
+        baseBoard,
+        {
+          ...secondBoard,
+          todos: secondBoard.todos.map((todo) => ({
+            ...todo,
+            status: 'done',
+            updatedAt: '2026-06-06T10:00:00.000Z',
+          })),
+        },
+      ],
+    };
+
+    const merged = mergeProjectChanges(baseWithBoards, localProject, remoteProject);
+    const boards = normalizeTodoBoards(merged);
+
+    expect(merged.settings.activeTodoBoardId).toBe(baseBoard.id);
+    expect(merged.todos).toEqual(baseBoard.todos);
+    expect(boards.find((board) => board.id === secondBoard.id)?.todos[0].status).toBe('done');
+  });
+
   it('keeps both versions when cross-device project text changes conflict', () => {
     const baseProject = createDefaultProject('merge-text');
     const localProject = {

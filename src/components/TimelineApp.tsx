@@ -369,9 +369,10 @@ export function TimelineApp() {
 
         const localJson = JSON.stringify(latestProjectRef.current);
         if (localJson === lastSavedJsonRef.current) {
-          setLastSavedProject(remoteProject);
-          setProject(remoteProject);
-          clearUnsavedProjectBackup(remoteProject.hash);
+          const projectToDisplay = preserveLocalActiveTodoBoard(remoteProject, latestProjectRef.current);
+          setLastSavedProject(projectToDisplay);
+          setProject(projectToDisplay);
+          clearUnsavedProjectBackup(projectToDisplay.hash);
           setCollaborationNotice('Updated from another device.');
           setSaveState('saved');
           setSyncState('updated');
@@ -2217,12 +2218,19 @@ export function mergeProjectChanges(baseProject: TimelineProject, localProject: 
     normalizeTodoBoards(localProject),
     normalizeTodoBoards(remoteProject),
   );
-  const activeBoardId =
-    changed(baseProject.settings.activeTodoBoardId, localProject.settings.activeTodoBoardId)
-      ? localProject.settings.activeTodoBoardId
-      : remoteProject.settings.activeTodoBoardId;
+  const activeBoardId = localProject.settings.activeTodoBoardId ?? remoteProject.settings.activeTodoBoardId;
 
   return syncProjectTodoBoard(mergedProject, boards, activeBoardId ?? boards[0]?.id ?? 'board-main');
+}
+
+function preserveLocalActiveTodoBoard(remoteProject: TimelineProject, localProject: TimelineProject) {
+  const boards = normalizeTodoBoards(remoteProject);
+  const localActiveBoardId = localProject.settings.activeTodoBoardId;
+  const activeBoardId = boards.some((board) => board.id === localActiveBoardId)
+    ? localActiveBoardId
+    : remoteProject.settings.activeTodoBoardId;
+
+  return syncProjectTodoBoard(remoteProject, boards, activeBoardId ?? boards[0]?.id ?? 'board-main');
 }
 
 function mergeSettings(baseProject: TimelineProject, localProject: TimelineProject, remoteProject: TimelineProject) {
@@ -2248,9 +2256,7 @@ function mergeSettings(baseProject: TimelineProject, localProject: TimelineProje
     viewPinHash: changed(baseSettings.viewPinHash, localSettings.viewPinHash)
       ? localSettings.viewPinHash
       : remoteSettings.viewPinHash,
-    activeTodoBoardId: changed(baseSettings.activeTodoBoardId, localSettings.activeTodoBoardId)
-      ? localSettings.activeTodoBoardId
-      : remoteSettings.activeTodoBoardId,
+    activeTodoBoardId: localSettings.activeTodoBoardId ?? remoteSettings.activeTodoBoardId,
     stickyLinks: mergeById(
       baseSettings.stickyLinks ?? [],
       localSettings.stickyLinks ?? [],

@@ -1,5 +1,5 @@
 {
-  "last_turn_at": "2026-06-07T21:32:08.346Z",
-  "turn_count": 498,
-  "last_agent_output": "Moved todo metadata into the modal header:\n\n- Header now shows `created …` and `updated …` on the ri"
+  "last_turn_at": "2026-06-08T11:04:25.229Z",
+  "turn_count": 501,
+  "last_agent_output": "Done. The owner filter already ignored capitalization; I added explicit regression coverage for it i"
 }
