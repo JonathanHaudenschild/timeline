@@ -1016,11 +1016,16 @@ function ProtocolItemEditorDialog({
         <div className="panel-title">{label}</div>
         <div className="form-grid">
           <TextField
-            label="Headline"
+            label="Title"
             value={localItem.title}
             onValueChange={(title) => updateItem({ title })}
             required
             autoFocus
+          />
+          <TextField
+            label="Name"
+            value={localItem.owner}
+            onValueChange={(owner) => updateItem({ owner })}
           />
           <div className="col-span-full">
             <DuplicateHints
@@ -1030,11 +1035,6 @@ function ProtocolItemEditorDialog({
               candidates={duplicateCandidates}
             />
           </div>
-          <TextField
-            label="Name"
-            value={localItem.owner}
-            onValueChange={(owner) => updateItem({ owner })}
-          />
           {todoLinkOptions.length ? (
             <SelectField
               label="Linked todo"
