@@ -6,7 +6,7 @@ import {
   projectStorageKey,
 } from './project';
 import { renderMarkdown } from '@/components/MarkdownBlock';
-import { mergeProjectChanges, projectPersistenceJson } from '@/components/TimelineApp';
+import { mergeProjectChanges, projectPersistenceJson, shouldStartSyncPolling } from '@/components/TimelineApp';
 import { formatShortGermanDate, formatShortGermanDateRange } from './dateFormat';
 import { eventCategoryOptions, eventTypeOptions } from './eventOptions';
 import { preserveImportedProjectLocks } from './importProject';
@@ -68,6 +68,7 @@ describe('project helpers', () => {
     expect(project.settings.todoStatuses).toEqual(['open', 'doing', 'done']);
     expect(project.settings.completedTodoStatus).toBe('done');
     expect(project.settings.stickyLinks).toEqual([]);
+    expect(project.settings.backgroundColor).toBe('#fffff4');
     expect(project.meetingProtocols).toEqual([]);
   });
 
@@ -222,6 +223,12 @@ describe('project helpers', () => {
     expect(projectPersistenceJson(boardAProject)).not.toBe(projectPersistenceJson(editedProject));
   });
 
+  it('enables sync polling after the initial project load finishes', () => {
+    expect(shouldStartSyncPolling({ canSave: false, lockedHash: null, saveState: 'loading' })).toBe(false);
+    expect(shouldStartSyncPolling({ canSave: true, lockedHash: null, saveState: 'saved' })).toBe(true);
+    expect(shouldStartSyncPolling({ canSave: true, lockedHash: 'locked-project', saveState: 'saved' })).toBe(false);
+  });
+
   it('keeps newly added empty todo columns when syncing a board', () => {
     const project = createDefaultProject('new-empty-column');
     const board = project.todoBoards?.[0];
@@ -320,6 +327,27 @@ describe('project helpers', () => {
     expect(merged.infoMarkdown).toContain('Version from another device');
     expect(merged.protocolInstructionTemplate).toContain('local instruction');
     expect(merged.protocolInstructionTemplate).toContain('remote instruction');
+  });
+
+  it('keeps a locally changed project background color during sync', () => {
+    const baseProject = createDefaultProject('merge-background-color');
+    const localProject = {
+      ...baseProject,
+      settings: {
+        ...baseProject.settings,
+        backgroundColor: '#e8f6ff',
+      },
+    };
+    const remoteProject = {
+      ...baseProject,
+      revision: 2,
+      name: 'Remote name',
+    };
+
+    const merged = mergeProjectChanges(baseProject, localProject, remoteProject);
+
+    expect(merged.name).toBe('Remote name');
+    expect(merged.settings.backgroundColor).toBe('#e8f6ff');
   });
 
   it('merges todo board status columns without dropping columns from another device', () => {

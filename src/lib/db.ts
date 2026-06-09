@@ -1,5 +1,5 @@
 import { Pool, type PoolClient } from 'pg';
-import { createDefaultProject, normalizeHash } from './project';
+import { createDefaultProject, normalizeHash, normalizeProjectBackgroundColor } from './project';
 import { buildTypeColors } from './colors';
 import { defaultProtocolInstructionTemplate, normalizeMeetingProtocols } from './meetingProtocols';
 import { activeTodoBoard, normalizeTodoBoards, syncProjectTodoBoard } from './todoBoards';
@@ -381,6 +381,7 @@ function normalizeProject(project: TimelineProject): TimelineProject {
         ...buildTypeColors(project.events.map((event) => event.type), project.settings.typeColors),
         ...project.settings.typeColors,
       },
+      backgroundColor: normalizeProjectBackgroundColor(project.settings.backgroundColor),
       todoStatuses: normalizeTodoStatuses(activeBoard.statuses, activeBoard.todos),
       completedTodoStatus: normalizeCompletedTodoStatus(
         activeBoard.statuses,

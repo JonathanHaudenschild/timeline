@@ -109,6 +109,7 @@ export type TimelineProject = {
     typeColors: Record<string, string>;
     editPinHash?: string;
     viewPinHash?: string;
+    backgroundColor?: string;
     todoStatuses?: TodoStatus[];
     completedTodoStatus?: TodoStatus;
     activeTodoBoardId?: string;

@@ -32,7 +32,7 @@ import {
 import { mergeTimelineComments } from '@/lib/comments';
 import { formatShortGermanDateRange } from '@/lib/dateFormat';
 import type { DuplicateCandidate } from '@/lib/duplicateHints';
-import { createDefaultProject, normalizeHash } from '@/lib/project';
+import { createDefaultProject, defaultProjectBackgroundColor, normalizeHash, normalizeProjectBackgroundColor } from '@/lib/project';
 import { mergeMeetingProtocols, normalizeMeetingProtocols } from '@/lib/meetingProtocols';
 import { buildProjectLocationHash, ensureProjectHash, parseProjectLocationHash, type ProjectUrlTarget } from '@/lib/storage';
 import {
@@ -61,6 +61,8 @@ type PinDialogResult = {
   pin: string;
   repeatedPin?: string;
 };
+
+type SaveState = 'loading' | 'saved' | 'saving' | 'error' | 'conflict';
 
 type MovableSection = 'info' | 'protocol' | 'timeline' | 'events' | 'todos';
 
@@ -93,6 +95,18 @@ const formErrorClass =
 const appVersion = packageJson.version;
 const appVersionDate = '2026-06-07';
 
+export function shouldStartSyncPolling({
+  canSave,
+  lockedHash,
+  saveState,
+}: {
+  canSave: boolean;
+  lockedHash: string | null;
+  saveState: SaveState;
+}) {
+  return canSave && !lockedHash && saveState !== 'loading';
+}
+
 export function TimelineApp() {
   const { dialog: appDialogElement, alert: showAlert, confirm: showConfirm, prompt: showPrompt } = useAppDialog();
   const [project, setProject] = useState<TimelineProject>(() => createDefaultProject('timeline'));
@@ -101,7 +115,7 @@ export function TimelineApp() {
   const [externalTodoDraft, setExternalTodoDraft] = useState<TimelineTodo | null>(null);
   const [draftEvent, setDraftEvent] = useState<TimelineEvent | null>(null);
   const [editingInfo, setEditingInfo] = useState(false);
-  const [saveState, setSaveState] = useState<'loading' | 'saved' | 'saving' | 'error' | 'conflict'>('loading');
+  const [saveState, setSaveState] = useState<SaveState>('loading');
   const [collaborationNotice, setCollaborationNotice] = useState('');
   const [syncState, setSyncState] = useState<'idle' | 'checking' | 'updated' | 'merged' | 'offline'>('idle');
   const [lastSyncCheckAt, setLastSyncCheckAt] = useState('');
@@ -179,6 +193,15 @@ export function TimelineApp() {
   useEffect(() => {
     saveStateRef.current = saveState;
   }, [saveState]);
+
+  useEffect(() => {
+    const backgroundColor = normalizeProjectBackgroundColor(project.settings.backgroundColor);
+    document.documentElement.style.setProperty('--bg', backgroundColor);
+
+    return () => {
+      document.documentElement.style.setProperty('--bg', defaultProjectBackgroundColor);
+    };
+  }, [project.settings.backgroundColor]);
 
   useEffect(() => {
     function warnBeforeUnload(event: BeforeUnloadEvent) {
@@ -338,7 +361,7 @@ export function TimelineApp() {
   }, [project, saveState, lockedHash, rebaseUnsavedChanges, setLastSavedProject]);
 
   useEffect(() => {
-    if (!canSaveRef.current || lockedHash) return;
+    if (!shouldStartSyncPolling({ canSave: canSaveRef.current, lockedHash, saveState })) return;
 
     let cancelled = false;
 
@@ -413,7 +436,7 @@ export function TimelineApp() {
       window.removeEventListener('focus', checkWhenVisible);
       document.removeEventListener('visibilitychange', checkWhenVisible);
     };
-  }, [lockedHash, setLastSavedProject]);
+  }, [lockedHash, saveState, setLastSavedProject]);
 
   const selectedEvent = project.events.find((event) => event.id === selectedEventId);
   const canEdit = project.settings.mode === 'edit' && saveState !== 'loading';
@@ -2275,6 +2298,9 @@ function mergeSettings(baseProject: TimelineProject, localProject: TimelineProje
       ? localSettings.showTodosOnTimeline
       : remoteSettings.showTodosOnTimeline,
     typeColors,
+    backgroundColor: changed(baseSettings.backgroundColor, localSettings.backgroundColor)
+      ? normalizeProjectBackgroundColor(localSettings.backgroundColor)
+      : normalizeProjectBackgroundColor(remoteSettings.backgroundColor),
     editPinHash: changed(baseSettings.editPinHash, localSettings.editPinHash)
       ? localSettings.editPinHash
       : remoteSettings.editPinHash,

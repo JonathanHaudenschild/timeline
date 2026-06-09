@@ -3,6 +3,8 @@ import { defaultTypeColors } from './colors';
 import { defaultProtocolInstructionTemplate, normalizeMeetingProtocols } from './meetingProtocols';
 import { defaultTodoStatuses } from './todos';
 
+export const defaultProjectBackgroundColor = '#fffff4';
+
 export function createHash() {
   return `tl-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -28,6 +30,10 @@ export function titleFromHash(hash: string) {
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
+}
+
+export function normalizeProjectBackgroundColor(color: string | undefined) {
+  return /^#[0-9a-f]{6}$/i.test(color ?? '') ? color! : defaultProjectBackgroundColor;
 }
 
 export function createDefaultProject(hash: string): TimelineProject {
@@ -109,6 +115,7 @@ export function createDefaultProject(hash: string): TimelineProject {
       mode: 'view',
       showTodosOnTimeline: true,
       typeColors: defaultTypeColors,
+      backgroundColor: defaultProjectBackgroundColor,
       todoStatuses: defaultTodoStatuses,
       completedTodoStatus: 'done',
       activeTodoBoardId: 'board-main',
