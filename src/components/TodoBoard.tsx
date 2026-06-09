@@ -8,7 +8,7 @@ import { FilterBadge } from './FilterBadge';
 import { InlineTextInput, SearchInput, SelectField } from './FormControls';
 import { MarkdownBlock } from './MarkdownBlock';
 import { TodoEditor } from './TodoEditor';
-import type { TimelineTodo, TodoStatus } from '@/lib/types';
+import type { TimelineComment, TimelineTodo, TodoStatus } from '@/lib/types';
 import type { DuplicateCandidate } from '@/lib/duplicateHints';
 import { createTimelineComment } from '@/lib/comments';
 import {
@@ -234,6 +234,29 @@ export function TodoBoard({
     const nextTodo = touchTodo({
       ...todo,
       comments: [...(todo.comments ?? []), createTimelineComment(body, now)],
+    }, now);
+
+    onChange(todos.map((item) => (item.id === todo.id ? nextTodo : item)));
+  }
+
+  async function deleteTodoComment(todo: TimelineTodo, comment: TimelineComment) {
+    if (
+      !(await appDialog.confirm({
+        title: 'Delete comment?',
+        message: 'Delete this comment?',
+        confirmLabel: 'Delete comment',
+        tone: 'danger',
+        cancelIcon: <X size={18} aria-hidden="true" />,
+        confirmIcon: <Trash2 size={18} aria-hidden="true" />,
+      }))
+    ) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const nextTodo = touchTodo({
+      ...todo,
+      comments: todo.comments?.filter((item) => item.id !== comment.id),
     }, now);
 
     onChange(todos.map((item) => (item.id === todo.id ? nextTodo : item)));
@@ -688,6 +711,18 @@ export function TodoBoard({
                           <div className="card-comment" key={comment.id}>
                             <time dateTime={comment.createdAt}>{formatTodoUpdatedAt(comment.createdAt)}</time>
                             <span>{comment.body}</span>
+                            <button
+                              type="button"
+                              className="card-comment-delete icon-button danger"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void deleteTodoComment(todo, comment);
+                              }}
+                              aria-label="Delete comment"
+                              title="Delete comment"
+                            >
+                              <Trash2 size={11} aria-hidden="true" />
+                            </button>
                           </div>
                         ))}
                       </div>

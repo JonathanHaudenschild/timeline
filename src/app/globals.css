@@ -1148,9 +1148,9 @@ label {
 
 .card-comment {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 6px;
-  align-items: start;
+  align-items: center;
   border: 1px solid rgba(36, 34, 29, 0.16);
   border-radius: 2px;
   background: #fffef8;
@@ -1171,6 +1171,17 @@ label {
 .card-comment span {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.card-comment-delete {
+  width: 16px;
+  min-width: 16px;
+  height: 16px;
+  min-height: 16px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
 }
 
 .protocol-updated-meta {
@@ -3102,9 +3113,13 @@ tr.selected td {
   }
 
   .card-comment {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 2px;
     font-size: 10px;
+  }
+
+  .card-comment time {
+    grid-column: 1 / -1;
   }
 
   .protocol-entry-action-buttons {

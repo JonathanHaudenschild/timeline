@@ -26,7 +26,7 @@ import {
   seedRecurringProtocolItems,
   type ProtocolItemKind,
 } from '@/lib/meetingProtocols';
-import type { MeetingProtocol, MeetingProtocolItem } from '@/lib/types';
+import type { MeetingProtocol, MeetingProtocolItem, TimelineComment } from '@/lib/types';
 import type { DuplicateCandidate } from '@/lib/duplicateHints';
 import { usePersistentState } from '@/lib/usePersistentState';
 
@@ -486,6 +486,34 @@ export function MeetingProtocols({
     });
   }
 
+  async function deleteItemComment(kind: ProtocolItemKind, item: MeetingProtocolItem, comment: TimelineComment) {
+    if (!canUseProtocol) return;
+    if (!selectedProtocol) return;
+    if (
+      !(await appDialog.confirm({
+        title: 'Delete comment?',
+        message: 'Delete this comment?',
+        confirmLabel: 'Delete comment',
+        tone: 'danger',
+        cancelIcon: <X size={18} aria-hidden="true" />,
+        confirmIcon: <Trash2 size={18} aria-hidden="true" />,
+      }))
+    ) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const nextItem = {
+      ...item,
+      comments: item.comments?.filter((entry) => entry.id !== comment.id),
+      updatedAt: now,
+    };
+
+    updateProtocol({
+      [kind]: selectedProtocol[kind].map((entry) => (entry.id === item.id ? nextItem : entry)),
+    });
+  }
+
   function toggleItemRecurring(kind: ProtocolItemKind, item: MeetingProtocolItem) {
     if (!canUseProtocol) return;
     if (!selectedProtocol) return;
@@ -867,6 +895,7 @@ export function MeetingProtocols({
                     onEdit={(item) => editItem(section.kind, item)}
                     onDelete={(itemId) => void deleteItem(section.kind, itemId)}
                     onAddComment={(item) => void addItemComment(section.kind, item)}
+                    onDeleteComment={(item, comment) => void deleteItemComment(section.kind, item, comment)}
                     onToggleRecurring={(item) => toggleItemRecurring(section.kind, item)}
                     draggedItem={draggedProtocolItem}
                     isDropTarget={dropTargetKind === section.kind}
@@ -1194,6 +1223,7 @@ function ProtocolStructuredSection({
   onEdit,
   onDelete,
   onAddComment,
+  onDeleteComment,
   onToggleRecurring,
   draggedItem,
   isDropTarget,
@@ -1221,6 +1251,7 @@ function ProtocolStructuredSection({
   onEdit: (item: MeetingProtocolItem) => void;
   onDelete: (itemId: string) => void;
   onAddComment: (item: MeetingProtocolItem) => void;
+  onDeleteComment: (item: MeetingProtocolItem, comment: TimelineComment) => void;
   onToggleRecurring: (item: MeetingProtocolItem) => void;
   draggedItem: DraggedProtocolItem | null;
   isDropTarget: boolean;
@@ -1364,6 +1395,19 @@ function ProtocolStructuredSection({
                     <div className="card-comment" key={comment.id}>
                       <time dateTime={comment.createdAt}>{formatProtocolUpdatedAt(comment.createdAt)}</time>
                       <span>{comment.body}</span>
+                      <button
+                        type="button"
+                        className="card-comment-delete icon-button danger"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDeleteComment(item, comment);
+                        }}
+                        disabled={!canUseProtocol}
+                        aria-label="Delete comment"
+                        title="Delete comment"
+                      >
+                        <Trash2 size={11} aria-hidden="true" />
+                      </button>
                     </div>
                   ))}
                 </div>

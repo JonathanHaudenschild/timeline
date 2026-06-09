@@ -14,7 +14,7 @@ export function normalizeTimelineComments(comments: readonly Partial<TimelineCom
 
   const normalized = comments
     .filter((comment) => comment && typeof comment === 'object')
-    .map((comment, index) => {
+    .map((comment) => {
       const createdAt = comment.createdAt || comment.updatedAt || new Date().toISOString();
 
       return {
