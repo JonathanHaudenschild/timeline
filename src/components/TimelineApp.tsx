@@ -165,8 +165,8 @@ export function TimelineApp() {
     if (!canSaveRef.current) return;
 
     unsavedBackupTimeoutRef.current = window.setTimeout(() => {
-      const projectJson = JSON.stringify(latestProjectRef.current);
-      if (projectJson !== lastSavedJsonRef.current) {
+      const projectJson = projectPersistenceJson(latestProjectRef.current);
+      if (projectJson !== lastSavedPersistenceJson(lastSavedJsonRef.current)) {
         saveUnsavedProjectBackup(latestProjectRef.current, parseProjectJson(lastSavedJsonRef.current));
       }
     }, 1200);
@@ -183,7 +183,7 @@ export function TimelineApp() {
   useEffect(() => {
     function warnBeforeUnload(event: BeforeUnloadEvent) {
       if (!canSaveRef.current) return;
-      if (JSON.stringify(latestProjectRef.current) === lastSavedJsonRef.current) return;
+      if (projectPersistenceJson(latestProjectRef.current) === lastSavedPersistenceJson(lastSavedJsonRef.current)) return;
 
       event.preventDefault();
       event.returnValue = '';
@@ -304,7 +304,8 @@ export function TimelineApp() {
     if (!canSaveRef.current || saveState === 'loading' || saveState === 'saving' || lockedHash) return;
 
     const projectJson = JSON.stringify(project);
-    if (projectJson === lastSavedJsonRef.current) return;
+    const persistentProjectJson = projectPersistenceJson(project);
+    if (persistentProjectJson === lastSavedPersistenceJson(lastSavedJsonRef.current)) return;
 
     const timeout = window.setTimeout(() => {
       setSaveState('saving');
@@ -342,7 +343,7 @@ export function TimelineApp() {
     let cancelled = false;
 
     async function checkRemoteProject() {
-      if (document.hidden || !canSaveRef.current || lockedHash) return;
+      if (!canSaveRef.current || lockedHash) return;
       if (saveStateRef.current === 'loading' || saveStateRef.current === 'saving') return;
       if (syncPollInFlightRef.current) return;
 
@@ -367,10 +368,10 @@ export function TimelineApp() {
           return;
         }
 
-        const localJson = JSON.stringify(latestProjectRef.current);
-        if (localJson === lastSavedJsonRef.current) {
+        const localJson = projectPersistenceJson(latestProjectRef.current);
+        if (localJson === lastSavedPersistenceJson(lastSavedJsonRef.current)) {
           const projectToDisplay = preserveLocalActiveTodoBoard(remoteProject, latestProjectRef.current);
-          setLastSavedProject(projectToDisplay);
+          setLastSavedProject(remoteProject);
           setProject(projectToDisplay);
           clearUnsavedProjectBackup(projectToDisplay.hash);
           setCollaborationNotice('Updated from another device.');
@@ -2231,6 +2232,30 @@ function preserveLocalActiveTodoBoard(remoteProject: TimelineProject, localProje
     : remoteProject.settings.activeTodoBoardId;
 
   return syncProjectTodoBoard(remoteProject, boards, activeBoardId ?? boards[0]?.id ?? 'board-main');
+}
+
+function lastSavedPersistenceJson(lastSavedJson: string) {
+  const lastSavedProject = parseProjectJson(lastSavedJson);
+  return lastSavedProject ? projectPersistenceJson(lastSavedProject) : lastSavedJson;
+}
+
+export function projectPersistenceJson(project: TimelineProject) {
+  return JSON.stringify(projectPersistenceSnapshot(project));
+}
+
+function projectPersistenceSnapshot(project: TimelineProject) {
+  if (!project.todoBoards?.length) return project;
+
+  const snapshot: Partial<TimelineProject> & { settings: Partial<TimelineProject['settings']> } = {
+    ...project,
+    settings: { ...project.settings },
+  };
+  delete snapshot.todos;
+  delete snapshot.settings.activeTodoBoardId;
+  delete snapshot.settings.todoStatuses;
+  delete snapshot.settings.completedTodoStatus;
+
+  return snapshot;
 }
 
 function mergeSettings(baseProject: TimelineProject, localProject: TimelineProject, remoteProject: TimelineProject) {

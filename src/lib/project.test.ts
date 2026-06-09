@@ -6,7 +6,7 @@ import {
   projectStorageKey,
 } from './project';
 import { renderMarkdown } from '@/components/MarkdownBlock';
-import { mergeProjectChanges } from '@/components/TimelineApp';
+import { mergeProjectChanges, projectPersistenceJson } from '@/components/TimelineApp';
 import { formatShortGermanDate, formatShortGermanDateRange } from './dateFormat';
 import { eventCategoryOptions, eventTypeOptions } from './eventOptions';
 import { preserveImportedProjectLocks } from './importProject';
@@ -20,6 +20,7 @@ import {
   normalizeMeetingProtocols,
   protocolConversionBody,
   seedRecurringProtocolItems,
+  toggleRecurringProtocolItem,
 } from './meetingProtocols';
 import { buildProjectLocationHash, ensureProjectHash, parseProjectLocationHash } from './storage';
 import {
@@ -181,6 +182,44 @@ describe('project helpers', () => {
     expect(synced.todoBoards?.[0].todos).toEqual(boards[0].todos);
     expect(synced.settings.todoStatuses).toEqual(['todo', 'finished']);
     expect(synced.settings.completedTodoStatus).toBe('finished');
+  });
+
+  it('ignores active todo board mirror fields when checking persistent project changes', () => {
+    const project = createDefaultProject('active-board-persistence');
+    const boards = [
+      {
+        id: 'board-a',
+        name: 'Ops',
+        statuses: ['open', 'done'],
+        completedTodoStatus: 'done',
+        todos: [
+          { id: 'todo-a', title: 'A', who: '', body: '', status: 'open', dueDate: '', showOnTimeline: true },
+        ],
+      },
+      {
+        id: 'board-b',
+        name: 'Crew',
+        statuses: ['todo', 'finished'],
+        completedTodoStatus: 'finished',
+        todos: [
+          { id: 'todo-b', title: 'B', who: '', body: '', status: 'todo', dueDate: '', showOnTimeline: true },
+        ],
+      },
+    ];
+    const boardAProject = syncProjectTodoBoard(project, boards, 'board-a');
+    const boardBProject = syncProjectTodoBoard(project, boards, 'board-b');
+    const editedProject = syncProjectTodoBoard(
+      project,
+      boards.map((board) =>
+        board.id === 'board-b'
+          ? { ...board, todos: board.todos.map((todo) => ({ ...todo, title: 'Edited B' })) }
+          : board,
+      ),
+      'board-b',
+    );
+
+    expect(projectPersistenceJson(boardAProject)).toBe(projectPersistenceJson(boardBProject));
+    expect(projectPersistenceJson(boardAProject)).not.toBe(projectPersistenceJson(editedProject));
   });
 
   it('keeps newly added empty todo columns when syncing a board', () => {
@@ -1428,6 +1467,115 @@ describe('project helpers', () => {
     expect(seeded.updates).toHaveLength(0);
   });
 
+  it('populates existing future protocols when a protocol item is toggled recurring', () => {
+    const protocols = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        time: '10:00',
+        updates: [{ id: 'update-1', title: 'Recurring update', owner: 'Alex', body: 'Carry forward' }],
+      },
+      {
+        id: 'protocol-2',
+        date: '2026-06-07',
+        time: '10:00',
+        updates: [],
+      },
+    ]);
+
+    const updated = toggleRecurringProtocolItem(
+      protocols,
+      'protocol-1',
+      'updates',
+      'update-1',
+      '2026-06-06T10:05:00.000Z',
+    );
+    const source = updated.find((protocol) => protocol.id === 'protocol-1')!;
+    const future = updated.find((protocol) => protocol.id === 'protocol-2')!;
+
+    expect(source.updates[0]).toMatchObject({
+      recurring: true,
+      recurringSourceId: 'update-1',
+    });
+    expect(future.updates).toHaveLength(1);
+    expect(future.updates[0]).toMatchObject({
+      title: 'Recurring update',
+      owner: 'Alex',
+      body: 'Carry forward',
+      recurring: true,
+      recurringSourceId: 'update-1',
+    });
+    expect(future.updates[0].id).not.toBe('update-1');
+  });
+
+  it('does not duplicate existing future recurring protocol copies', () => {
+    const protocols = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        time: '10:00',
+        updates: [{ id: 'update-1', title: 'Recurring update', recurring: false }],
+      },
+      {
+        id: 'protocol-2',
+        date: '2026-06-07',
+        time: '10:00',
+        updates: [{ id: 'update-2', title: 'Existing copy', recurring: true, recurringSourceId: 'update-1' }],
+      },
+    ]);
+
+    const updated = toggleRecurringProtocolItem(
+      protocols,
+      'protocol-1',
+      'updates',
+      'update-1',
+      '2026-06-06T10:05:00.000Z',
+    );
+    const future = updated.find((protocol) => protocol.id === 'protocol-2')!;
+
+    expect(future.updates).toHaveLength(1);
+    expect(future.updates[0].id).toBe('update-2');
+  });
+
+  it('stops existing future recurring copies when an earlier copy is toggled off', () => {
+    const protocols = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        time: '10:00',
+        updates: [{ id: 'update-1', title: 'Recurring update', recurring: true }],
+      },
+      {
+        id: 'protocol-2',
+        date: '2026-06-07',
+        time: '10:00',
+        updates: [{ id: 'update-2', title: 'Existing copy', recurring: true, recurringSourceId: 'update-1' }],
+      },
+      {
+        id: 'protocol-3',
+        date: '2026-06-08',
+        time: '10:00',
+        updates: [{ id: 'update-3', title: 'Later copy', recurring: true, recurringSourceId: 'update-1' }],
+      },
+    ]);
+
+    const updated = toggleRecurringProtocolItem(
+      protocols,
+      'protocol-2',
+      'updates',
+      'update-2',
+      '2026-06-07T10:05:00.000Z',
+    );
+    const source = updated.find((protocol) => protocol.id === 'protocol-1')!;
+    const stopped = updated.find((protocol) => protocol.id === 'protocol-2')!;
+    const later = updated.find((protocol) => protocol.id === 'protocol-3')!;
+
+    expect(source.updates[0].recurring).toBe(true);
+    expect(stopped.updates[0].recurring).toBe(false);
+    expect(later.updates[0].recurring).toBe(false);
+    expect(later.updates[0].title).toBe('Later copy');
+  });
+
   it('preserves spaces in protocol titles and entry headlines', () => {
     const protocols = normalizeMeetingProtocols([
       {
@@ -2113,6 +2261,55 @@ describe('project helpers', () => {
     expect(merged.updates[0]).toMatchObject({
       body: 'local edited body',
       recurring: true,
+      recurringSourceId: 'update-1',
+    });
+  });
+
+  it('merges recurring toggle-off on protocol items from another device', () => {
+    const [baseProtocol] = normalizeMeetingProtocols([
+      {
+        id: 'protocol-1',
+        date: '2026-06-06',
+        updates: [
+          {
+            id: 'update-1',
+            title: 'Weather',
+            body: 'base update',
+            recurring: true,
+            recurringSourceId: 'update-1',
+          },
+        ],
+        updatedAt: '2026-06-06T10:00:00.000Z',
+      },
+    ]);
+    const localProtocol = {
+      ...baseProtocol,
+      updates: [
+        {
+          ...baseProtocol.updates[0],
+          body: 'local edited body',
+          updatedAt: '2026-06-06T10:05:00.000Z',
+        },
+      ],
+      updatedAt: '2026-06-06T10:05:00.000Z',
+    };
+    const remoteProtocol = {
+      ...baseProtocol,
+      updates: [
+        {
+          ...baseProtocol.updates[0],
+          recurring: false,
+          updatedAt: '2026-06-06T10:06:00.000Z',
+        },
+      ],
+      updatedAt: '2026-06-06T10:06:00.000Z',
+    };
+
+    const [merged] = mergeMeetingProtocols([baseProtocol], [localProtocol], [remoteProtocol]);
+
+    expect(merged.updates[0]).toMatchObject({
+      body: 'local edited body',
+      recurring: false,
       recurringSourceId: 'update-1',
     });
   });

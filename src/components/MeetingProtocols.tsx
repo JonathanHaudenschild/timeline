@@ -24,6 +24,7 @@ import {
   protocolItemLabel,
   protocolTitle,
   seedRecurringProtocolItems,
+  toggleRecurringProtocolItem,
   type ProtocolItemKind,
 } from '@/lib/meetingProtocols';
 import type { MeetingProtocol, MeetingProtocolItem, TimelineComment } from '@/lib/types';
@@ -518,20 +519,7 @@ export function MeetingProtocols({
     if (!canUseProtocol) return;
     if (!selectedProtocol) return;
 
-    const now = new Date().toISOString();
-    const nextRecurring = !item.recurring;
-    updateProtocol({
-      [kind]: selectedProtocol[kind].map((entry) =>
-        entry.id === item.id
-          ? {
-            ...entry,
-            recurring: nextRecurring,
-            recurringSourceId: entry.recurringSourceId ?? entry.id,
-            updatedAt: now,
-          }
-          : entry,
-      ),
-    });
+    onChange(toggleRecurringProtocolItem(protocols, selectedProtocol.id, kind, item.id));
   }
 
   async function deleteEditingItem() {

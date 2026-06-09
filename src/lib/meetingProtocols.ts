@@ -147,6 +147,135 @@ export function seedRecurringProtocolItems(
   return nextProtocol;
 }
 
+export function toggleRecurringProtocolItem(
+  protocols: readonly MeetingProtocol[],
+  protocolId: string,
+  kind: ProtocolItemKind,
+  itemId: string,
+  updatedAt = new Date().toISOString(),
+) {
+  const sourceProtocol = protocols.find((protocol) => protocol.id === protocolId);
+  const sourceItem = sourceProtocol?.[kind].find((item) => item.id === itemId);
+  if (!sourceProtocol || !sourceItem) return [...protocols];
+
+  const nextRecurring = !sourceItem.recurring;
+  const sourceId = sourceItem.recurringSourceId ?? sourceItem.id;
+  const updatedItem = {
+    ...sourceItem,
+    recurring: nextRecurring,
+    recurringSourceId: sourceId,
+    updatedAt,
+  };
+  const nextProtocols = protocols.map((protocol) =>
+    protocol.id === protocolId
+      ? {
+          ...protocol,
+          [kind]: protocol[kind].map((item) => (item.id === itemId ? updatedItem : item)),
+          updatedAt,
+        }
+      : protocol,
+  );
+
+  if (!nextRecurring) return stopFutureRecurringProtocolItems(nextProtocols, protocolId, sourceId, updatedAt);
+
+  return populateFutureRecurringProtocolItems(nextProtocols, protocolId, kind, updatedItem, updatedAt);
+}
+
+export function populateFutureRecurringProtocolItems(
+  protocols: readonly MeetingProtocol[],
+  sourceProtocolId: string,
+  kind: ProtocolItemKind,
+  sourceItem: MeetingProtocolItem,
+  updatedAt = new Date().toISOString(),
+) {
+  const sourceProtocol = protocols.find((protocol) => protocol.id === sourceProtocolId);
+  const sourceId = sourceItem.recurringSourceId ?? sourceItem.id;
+  if (!sourceProtocol || !sourceId || !sourceItem.recurring) return [...protocols];
+
+  const nextById = new Map(protocols.map((protocol) => [protocol.id, protocol]));
+  let templateKind = kind;
+  let templateItem = sourceItem;
+  const sourceKey = protocolScheduleKey(sourceProtocol);
+  const futureProtocols = [...protocols]
+    .filter((protocol) => protocol.id !== sourceProtocolId && protocolScheduleKey(protocol) > sourceKey)
+    .sort((left, right) => protocolScheduleKey(left).localeCompare(protocolScheduleKey(right)));
+
+  for (const protocol of futureProtocols) {
+    const currentProtocol = nextById.get(protocol.id) ?? protocol;
+    const existing = findRecurringProtocolItem(currentProtocol, sourceId);
+    if (existing) {
+      templateKind = existing.kind;
+      templateItem = existing.item;
+      if (!existing.item.recurring) break;
+      continue;
+    }
+
+    const copy = {
+      id: crypto.randomUUID(),
+      title: templateItem.title,
+      owner: templateItem.owner,
+      body: templateItem.body,
+      recurring: true,
+      recurringSourceId: sourceId,
+      createdAt: updatedAt,
+      updatedAt,
+    };
+
+    nextById.set(protocol.id, {
+      ...currentProtocol,
+      [templateKind]: [...currentProtocol[templateKind], copy],
+      updatedAt,
+    });
+    templateItem = copy;
+  }
+
+  return protocols.map((protocol) => nextById.get(protocol.id) ?? protocol);
+}
+
+function findRecurringProtocolItem(protocol: MeetingProtocol, sourceId: string) {
+  for (const kind of protocolItemKinds) {
+    const item = protocol[kind].find((entry) => (entry.recurringSourceId ?? (entry.recurring ? entry.id : '')) === sourceId);
+    if (item) return { kind, item };
+  }
+
+  return undefined;
+}
+
+function stopFutureRecurringProtocolItems(
+  protocols: readonly MeetingProtocol[],
+  sourceProtocolId: string,
+  sourceId: string,
+  updatedAt: string,
+) {
+  const sourceProtocol = protocols.find((protocol) => protocol.id === sourceProtocolId);
+  if (!sourceProtocol) return [...protocols];
+
+  const sourceKey = protocolScheduleKey(sourceProtocol);
+
+  return protocols.map((protocol) => {
+    if (protocol.id === sourceProtocolId || protocolScheduleKey(protocol) <= sourceKey) return protocol;
+
+    let changed = false;
+    const nextProtocol = { ...protocol };
+
+    for (const kind of protocolItemKinds) {
+      nextProtocol[kind] = nextProtocol[kind].map((item) => {
+        const itemSourceId = item.recurringSourceId ?? (item.recurring ? item.id : '');
+        if (itemSourceId !== sourceId || !item.recurring) return item;
+
+        changed = true;
+        return {
+          ...item,
+          recurring: false,
+          updatedAt,
+        };
+      });
+    }
+
+    return changed ? { ...nextProtocol, updatedAt } : protocol;
+  });
+}
+
 export function createProtocolItem(kind: ProtocolItemKind, index: number): MeetingProtocolItem {
   const now = new Date().toISOString();
 
