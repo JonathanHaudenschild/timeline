@@ -30,9 +30,11 @@ import {
   syncProjectTodoBoard,
 } from './todoBoards';
 import {
+  formatTodoStatus,
   isTodoCompleted,
   moveTodoWithinBoard,
   normalizeCompletedTodoStatus,
+  normalizeTodoStatus,
   normalizeTodoTags,
   normalizeTodoStatuses,
   renameTodoStatus,
@@ -1113,6 +1115,15 @@ describe('project helpers', () => {
 
   it('does not re-add renamed default todo statuses', () => {
     expect(normalizeTodoStatuses(['backlog', 'doing', 'done'])).toEqual(['backlog', 'doing', 'done']);
+  });
+
+  it('preserves printable symbols in todo column names', () => {
+    expect(normalizeTodoStatus('Needs review / Max & Mitch!')).toBe('needs review / max & mitch!');
+    expect(normalizeTodoStatus('  Bühne ✅\nCheck  ')).toBe('bühne ✅ check');
+    expect(normalizeTodoStatuses(['Needs review / Max & Mitch!', 'needs review / max & mitch!'])).toEqual([
+      'needs review / max & mitch!',
+    ]);
+    expect(formatTodoStatus('needs review / max & mitch!')).toBe('Needs Review / Max & Mitch!');
   });
 
   it('renames default todo statuses without keeping the old default key', () => {

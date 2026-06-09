@@ -7,8 +7,8 @@ export function normalizeTodoStatus(input: string) {
   return input
     .trim()
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+    .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+    .replace(/\s+/g, ' ');
 }
 
 export function normalizeTodoTag(input: string) {
@@ -158,7 +158,7 @@ export function moveTodoWithinBoard(
 
 export function formatTodoStatus(status: string) {
   return normalizeTodoStatus(status)
-    .split('-')
+    .split(' ')
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
