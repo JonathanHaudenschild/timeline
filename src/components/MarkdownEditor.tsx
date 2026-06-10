@@ -177,11 +177,11 @@ export function MarkdownEditor({
 
   function renderToolbarGroup(items: Array<{ action: MarkdownAction; label: string; title: string }>) {
     return (
-      <div className="markdown-toolbar-group">
+      <div className="flex flex-wrap gap-[4px] items-center">
         {items.map((item) => (
           <button
             type="button"
-            className="mini-button tertiary"
+            className="tertiary min-h-[28px] border-[color-mix(in_srgb,var(--line)_20%,transparent)] bg-[var(--input-bg)] shadow-none px-[9px] py-[4px] text-[11px] hover:bg-[var(--primary)]"
             key={item.action}
             title={item.title}
             onMouseDown={(event) => {
@@ -197,9 +197,9 @@ export function MarkdownEditor({
   }
 
   return (
-    <div className="markdown-editor">
+    <div className="grid overflow-hidden border border-[color-mix(in_srgb,var(--line)_24%,transparent)] rounded-[3px] bg-[var(--input-bg)] shadow-[0_1px_0_color-mix(in_srgb,var(--line)_12%,transparent)] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[rgba(221,248,90,0.55)]">
       <div
-        className="markdown-toolbar"
+        className="flex flex-wrap gap-[6px] items-center border-b border-b-[var(--soft-line)] bg-[var(--surface)] p-[7px]"
         aria-label="Markdown formatting"
         onMouseDown={(event: MouseEvent<HTMLDivElement>) => {
           if (event.target instanceof HTMLInputElement) return;
@@ -208,11 +208,11 @@ export function MarkdownEditor({
       >
         {renderToolbarGroup(textActions)}
         {renderToolbarGroup(blockActions)}
-        <div className="markdown-color-tools" aria-label="Text color">
+        <div className="flex flex-wrap gap-[4px] items-center" aria-label="Text color">
           {colorSwatches.map((color) => (
             <button
               type="button"
-              className="markdown-color-swatch"
+              className="w-[28px] min-w-[28px] min-h-[28px] border border-[color-mix(in_srgb,var(--line)_32%,transparent)] rounded-[2px] shadow-none p-0 text-transparent overflow-hidden hover:border-[color-mix(in_srgb,var(--line)_50%,transparent)] hover:shadow-[0_2px_6px_color-mix(in_srgb,var(--line)_16%,transparent)]"
               key={color}
               style={{ backgroundColor: color }}
               title={`Text color ${color}`}
@@ -222,7 +222,7 @@ export function MarkdownEditor({
               }}
             />
           ))}
-          <label className="markdown-color-picker" title="Custom text color" aria-label="Custom text color">
+          <label className="w-[48px] min-w-[28px] min-h-[36px] inline-grid items-center justify-items-center border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-[2px] bg-[var(--input-bg)] shadow-none p-[2px] cursor-pointer" title="Custom text color" aria-label="Custom text color">
             <span className="sr-only">Custom color</span>
             <input
               type="color"
@@ -233,10 +233,10 @@ export function MarkdownEditor({
           </label>
         </div>
       </div>
-      <div className="markdown-live-layout">
+      <div className="grid grid-cols-1 min-h-[170px]">
         <textarea
           ref={textareaRef}
-          className={cn('markdown-compose-field', className)}
+          className={cn('min-h-[170px] max-h-none border-0 rounded-none bg-[var(--input-bg)] shadow-none p-[12px] font-[inherit] text-[14px] font-normal leading-[1.55] whitespace-pre-wrap focus:outline-none resize-none', className)}
           value={localValue}
           onChange={(event) => updateValue(event.target.value)}
           onBlur={flushValue}
@@ -244,7 +244,7 @@ export function MarkdownEditor({
           placeholder={placeholder}
           rows={rows}
         />
-        <div className="markdown-editor-preview">
+        <div className="min-h-[96px] max-h-[300px] overflow-auto border-t border-t-[var(--soft-line)] bg-[var(--surface)] p-[12px]">
           <MarkdownBlock markdown={previewValue || '_Nothing written yet._'} />
         </div>
       </div>

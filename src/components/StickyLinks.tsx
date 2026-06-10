@@ -106,7 +106,7 @@ export function StickyLinks({ links, canEdit, onChange }: StickyLinksProps) {
             {links.map((link) => (
               <div className="grid grid-cols-[auto_auto] items-stretch gap-1" key={link.id}>
                 <a
-                  className="grid min-w-[52px] max-w-[132px] justify-items-center gap-[3px] rounded-[2px] border border-[rgba(36,34,29,0.28)] bg-[var(--primary)] px-[7px] py-1.5 text-[var(--text)] no-underline uppercase max-sm:min-w-[38px] max-sm:p-1.5"
+                  className="grid min-w-[52px] max-w-[132px] justify-items-center gap-[3px] rounded-[2px] border border-[color-mix(in_srgb,var(--line)_28%,transparent)] bg-[var(--primary)] px-[7px] py-1.5 text-[var(--on-primary)] no-underline uppercase max-sm:min-w-[38px] max-sm:p-1.5"
                   href={link.url}
                   target="_blank"
                   rel="noreferrer"
@@ -118,7 +118,7 @@ export function StickyLinks({ links, canEdit, onChange }: StickyLinksProps) {
                 {canEdit ? (
                   <button
                     type="button"
-                    className="min-h-full min-w-[26px] rounded-[2px] border border-[rgba(36,34,29,0.22)] bg-[#fffef8] px-[4px] text-[9px] text-[var(--muted)] [writing-mode:vertical-rl] max-sm:hidden"
+                    className="min-h-full min-w-[26px] rounded-[2px] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] bg-[var(--input-bg)] px-[4px] text-[9px] text-[var(--muted)] [writing-mode:vertical-rl] max-sm:hidden"
                     onClick={() => setDraftLink(link)}
                     aria-label={`Edit ${link.label}`}
                   >
@@ -130,7 +130,7 @@ export function StickyLinks({ links, canEdit, onChange }: StickyLinksProps) {
             {canEdit ? (
               <button
                 type="button"
-                className="grid w-full min-w-[52px] max-w-[132px] justify-items-center gap-[3px] rounded-[2px] border border-[rgba(36,34,29,0.28)] bg-[var(--primary)] px-[7px] py-1.5 text-[var(--text)] uppercase max-sm:min-w-[38px] max-sm:p-1.5"
+                className="grid w-full min-w-[52px] max-w-[132px] justify-items-center gap-[3px] rounded-[2px] border border-[color-mix(in_srgb,var(--line)_28%,transparent)] bg-[var(--primary)] px-[7px] py-1.5 text-[var(--on-primary)] uppercase max-sm:min-w-[38px] max-sm:p-1.5"
                 onClick={() => setDraftLink(emptyLink())}
               >
                 <span className="text-lg font-black leading-none" aria-hidden="true">+</span>
@@ -159,8 +159,8 @@ export function StickyLinks({ links, canEdit, onChange }: StickyLinksProps) {
               saveLink();
             }}
           >
-            <div className="panel-title">Sticky link</div>
-            <div className="form-grid">
+            <div className="text-[18px] [font-weight:950] mb-[10px] uppercase">Sticky link</div>
+            <div className="grid grid-cols-2 gap-[10px] mb-[10px]">
               <SelectField
                 label="Icon"
                 value={draftLink.icon}
@@ -188,7 +188,7 @@ export function StickyLinks({ links, canEdit, onChange }: StickyLinksProps) {
               onValueChange={(url) => setDraftLink({ ...draftLink, url })}
               required
             />
-            <div className="action-row">
+            <div className="flex gap-2 items-center flex-wrap mt-[10px]">
               <button type="submit">Save link</button>
               <button type="button" className="tertiary" onClick={() => setDraftLink(null)}>
                 Cancel

@@ -28,7 +28,7 @@ export function DuplicateHints({
   if (!hints.length) return null;
 
   return (
-    <div className="rounded-[2px] border border-[rgba(36,34,29,0.16)] bg-[#fff8d8] px-2 py-1.5 text-[11px] font-black text-[var(--muted)] uppercase">
+    <div className="rounded-[2px] border border-[color-mix(in_srgb,var(--line)_16%,transparent)] bg-[var(--date-bg)] px-2 py-1.5 text-[11px] font-black text-[var(--muted)] uppercase">
       <div className="mb-0.5 text-[10px]">Possible duplicate</div>
       <div className="grid gap-0.5 normal-case">
         {hints.map((hint) => {
@@ -38,7 +38,7 @@ export function DuplicateHints({
             <div className="min-w-0" key={hint.id}>
               <button
                 type="button"
-                className="min-h-0 w-full border-0 bg-transparent p-0 text-left shadow-none hover:bg-transparent focus-visible:outline-2 focus-visible:outline-[rgba(36,34,29,0.22)]"
+                className="min-h-0 w-full border-0 bg-transparent p-0 text-left shadow-none hover:bg-transparent focus-visible:outline-2 focus-visible:outline-[color-mix(in_srgb,var(--line)_22%,transparent)]"
                 onClick={() => setExpandedId(expanded ? '' : hint.id)}
                 aria-expanded={expanded}
                 title={`${hint.title} · ${hint.meta}`}
@@ -49,7 +49,7 @@ export function DuplicateHints({
                 </span>
               </button>
               {expanded ? (
-                <div className="mt-1 rounded-[2px] border border-[rgba(36,34,29,0.14)] bg-[#fffef8] p-1.5 text-[11px] font-bold text-[var(--muted)]">
+                <div className="mt-1 rounded-[2px] border border-[color-mix(in_srgb,var(--line)_14%,transparent)] bg-[var(--input-bg)] p-1.5 text-[11px] font-bold text-[var(--muted)]">
                   <div className="mb-1 text-[var(--text)]">{hint.title || 'Untitled'}</div>
                   <div className="mb-1 text-[10px] font-black uppercase">{hint.meta}</div>
                   {hint.body?.trim() ? (

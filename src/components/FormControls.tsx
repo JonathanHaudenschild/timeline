@@ -196,8 +196,8 @@ export function SelectField({
 
   return (
     <label className={cn(fieldShellClass, "w-full max-w-[220px] items-end", className)}>
-      <span className="flex h-[var(--icon-button-size)] min-w-0 overflow-hidden rounded-[2px] border border-[rgba(36,34,29,0.22)] bg-[#fffef8] shadow-none focus-within:border-[var(--text)] focus-within:outline-2 focus-within:outline-[rgba(221,248,90,0.48)]">
-        <span className="inline-flex w-[72px] max-w-[36%] flex-none items-center border-r border-[rgba(36,34,29,0.16)] bg-[#fffaf0] px-2 text-[10px] leading-none font-black text-[var(--muted)] uppercase max-sm:w-[58px] max-sm:max-w-[32%] max-sm:px-1.5 max-sm:text-[9px]">
+      <span className="flex h-[var(--icon-button-size)] min-w-0 overflow-hidden rounded-[2px] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] bg-[var(--input-bg)] shadow-none focus-within:border-[var(--text)] focus-within:outline-2 focus-within:outline-[color-mix(in_srgb,var(--primary)_48%,transparent)]">
+        <span className="inline-flex w-[72px] max-w-[36%] flex-none items-center border-r border-[color-mix(in_srgb,var(--line)_16%,transparent)] bg-[var(--surface)] px-2 text-[10px] leading-none font-black text-[var(--muted)] uppercase max-sm:w-[58px] max-sm:max-w-[32%] max-sm:px-1.5 max-sm:text-[9px]">
           <span className="min-w-0 truncate">{label}</span>
         </span>
         <span className="relative min-w-0 flex-1">

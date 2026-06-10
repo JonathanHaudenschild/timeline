@@ -75,23 +75,23 @@ const sectionNavigationLabels: Record<MovableSection, string> = {
   todos: 'Todos',
 };
 const todoBoardTabsClass =
-  'mt-3 mb-2 flex min-w-0 flex-wrap items-center gap-1 rounded-[2px] border border-[rgba(36,34,29,0.18)] bg-[var(--bg)] p-1 shadow-none max-sm:hidden';
+  'mt-3 mb-2 flex min-w-0 flex-wrap items-center gap-1 rounded-[2px] border border-[color-mix(in_srgb,var(--line)_18%,transparent)] bg-[var(--bg)] p-1 shadow-none max-sm:hidden';
 const todoBoardTabButtonClass =
   'min-h-8 min-w-0 max-w-[190px] flex-none truncate rounded-[2px] border px-2.5 text-xs font-black shadow-none';
 const todoBoardTabButtonInactiveClass =
-  'border-transparent bg-transparent text-[var(--muted)] hover:border-[rgba(36,34,29,0.18)] hover:bg-[#fffdf8] hover:text-[var(--text)]';
+  'border-transparent bg-transparent text-[var(--muted)] hover:border-[color-mix(in_srgb,var(--line)_18%,transparent)] hover:bg-[var(--panel)] hover:text-[var(--text)]';
 const todoBoardTabButtonActiveClass =
-  'border-[rgba(36,34,29,0.28)] bg-[var(--primary)] text-[var(--text)] shadow-[inset_0_-3px_0_var(--hot)]';
+  'border-[color-mix(in_srgb,var(--line)_28%,transparent)] bg-[var(--primary)] text-[var(--on-primary)] shadow-[inset_0_-3px_0_var(--hot)]';
 const todoBoardTabAddButtonClass =
-  'icon-button tertiary ml-auto h-8 min-h-8 w-8 min-w-8 border-[rgba(36,34,29,0.22)] bg-[#fffdf8] p-0 max-xl:ml-0';
-const lockShellClass = 'app-shell !grid min-h-screen !w-full place-items-center !p-4';
+  'icon-button tertiary ml-auto h-8 min-h-8 w-8 min-w-8 border-[color-mix(in_srgb,var(--line)_22%,transparent)] bg-[var(--panel)] p-0 max-xl:ml-0';
+const lockShellClass = 'mx-auto flex flex-col gap-3.5 py-4 pb-7 w-[min(1480px,calc(100vw-24px))] !grid min-h-screen !w-full place-items-center !p-4';
 const lockPanelClass =
-  'grid w-full max-w-[520px] gap-[18px] rounded-[3px] border border-[rgba(36,34,29,0.22)] bg-[var(--panel)] p-[18px] shadow-[var(--shadow)]';
+  'grid w-full max-w-[520px] gap-[18px] rounded-[3px] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] bg-[var(--panel)] p-[18px] shadow-[var(--shadow)]';
 const lockTitleClass = 'm-0 mb-2 text-[28px] leading-none font-black uppercase';
 const mutedDescriptionClass = 'm-0 text-[var(--muted)] font-extrabold';
 const pinFormClass = 'grid gap-3';
 const formErrorClass =
-  'rounded-[2px] border border-[rgba(207,45,36,0.42)] bg-[#fff6f5] px-2.5 py-2 text-xs font-black text-[var(--danger)] uppercase';
+  'rounded-[2px] border border-[color-mix(in_srgb,var(--danger)_42%,transparent)] bg-[var(--status-error-bg)] px-2.5 py-2 text-xs font-black text-[var(--danger)] uppercase';
 const appVersion = packageJson.version;
 const appVersionDate = '2026-06-07';
 
@@ -196,10 +196,21 @@ export function TimelineApp() {
 
   useEffect(() => {
     const backgroundColor = normalizeProjectBackgroundColor(project.settings.backgroundColor);
-    document.documentElement.style.setProperty('--bg', backgroundColor);
+    // Parse hex to rgb for mixing a dark-mode variant
+    const r = parseInt(backgroundColor.slice(1, 3), 16);
+    const g = parseInt(backgroundColor.slice(3, 5), 16);
+    const b = parseInt(backgroundColor.slice(5, 7), 16);
+    // Dark mode bg: mix 12% of project color into a dark base (#181812)
+    const dr = Math.round(0.12 * r + 0.88 * 24);
+    const dg = Math.round(0.12 * g + 0.88 * 24);
+    const db = Math.round(0.12 * b + 0.88 * 18);
+    const darkBg = `#${dr.toString(16).padStart(2, '0')}${dg.toString(16).padStart(2, '0')}${db.toString(16).padStart(2, '0')}`;
+    document.documentElement.style.setProperty('--bg-project', backgroundColor);
+    document.documentElement.style.setProperty('--bg-project-dark', darkBg);
 
     return () => {
-      document.documentElement.style.setProperty('--bg', defaultProjectBackgroundColor);
+      document.documentElement.style.setProperty('--bg-project', defaultProjectBackgroundColor);
+      document.documentElement.style.removeProperty('--bg-project-dark');
     };
   }, [project.settings.backgroundColor]);
 
@@ -1519,11 +1530,11 @@ export function TimelineApp() {
   }
 
   return (
-    <main className="app-shell" ref={topRef}>
-      <nav className="quick-jump" aria-label="Quick navigation">
+    <main className="mx-auto flex flex-col gap-3.5 py-4 pb-7 w-[min(1480px,calc(100vw-24px))]" ref={topRef}>
+      <nav className="fixed right-3.5 bottom-3.5 z-[35] flex flex-wrap justify-end gap-2 p-2 border border-[color-mix(in_srgb,var(--line)_26%,transparent)] rounded-[3px] bg-[var(--panel)] shadow-[var(--shadow-xl)]" aria-label="Quick navigation">
         <button
           type="button"
-          className="icon-button secondary"
+          className="icon-button secondary [min-height:30px] [padding:0_9px] text-[11px]"
           onClick={() => navigateToTarget({ section: 'top' })}
           aria-label="Back to top"
           title="Back to top"
@@ -1533,7 +1544,7 @@ export function TimelineApp() {
         {sectionOrder.map((section) => (
           <button
             type="button"
-            className="secondary"
+            className="secondary [min-height:30px] [padding:0_9px] text-[11px]"
             key={section}
             onClick={() => navigateToTarget({ section })}
           >
@@ -1654,7 +1665,7 @@ export function TimelineApp() {
 	        </SectionShell>
 	      </div>
 
-      <div className="ordered-section ordered-section-protocols" ref={protocolsRef} style={sectionOrderStyle('protocol')}>
+      <div className="ordered-section min-w-0 max-w-full overflow-x-clip" ref={protocolsRef} style={sectionOrderStyle('protocol')}>
           <MeetingProtocols
           projectHash={project.hash}
           canEdit={canEdit}
@@ -1767,7 +1778,7 @@ export function TimelineApp() {
               <div className="popover-title-line">
               <button
                 type="button"
-                className="drag-handle"
+                className="w-[var(--icon-button-compact-size)] min-w-[var(--icon-button-compact-size)] min-h-[var(--icon-button-compact-size)] h-[var(--icon-button-compact-size)] p-0 border-[color-mix(in_srgb,var(--line)_26%,transparent)] bg-[var(--card-bg)] text-[var(--text)] cursor-grab shadow-[0_1px_0_color-mix(in_srgb,var(--line)_12%,transparent)]"
                 aria-label="Move selected event popover"
                 title="Move"
               >
@@ -1778,7 +1789,7 @@ export function TimelineApp() {
             <div className="popover-tools">
               <button
                 type="button"
-                className="icon-button tertiary popover-close"
+                className="icon-button tertiary w-[30px] min-w-[30px] min-h-[30px] p-0 leading-none"
                 aria-label={selectedPopoverMinimized ? 'Expand selected event' : 'Minimize selected event'}
                 onClick={() => setSelectedPopoverMinimized((minimized) => !minimized)}
               >
@@ -1786,7 +1797,7 @@ export function TimelineApp() {
               </button>
               <button
                 type="button"
-                className="icon-button tertiary popover-close"
+                className="icon-button tertiary w-[30px] min-w-[30px] min-h-[30px] p-0 leading-none"
                 aria-label="Close selected event"
                 onClick={() => selectEvent(undefined)}
               >
@@ -1820,7 +1831,7 @@ export function TimelineApp() {
         </aside>
       ) : null}
 
-      <section className="events-area ordered-section ordered-section-events" ref={eventsRef} style={sectionOrderStyle('events')}>
+      <section className="ordered-section grid grid-cols-[minmax(0,1fr)] items-start" ref={eventsRef} style={sectionOrderStyle('events')}>
         <EventList
           events={project.events}
           canEdit={canEdit}
@@ -1858,7 +1869,7 @@ export function TimelineApp() {
         />
       </section>
 
-      <div className="ordered-section ordered-section-todos" ref={todoRef} style={sectionOrderStyle('todos')}>
+      <div className="ordered-section min-w-0 max-w-full" ref={todoRef} style={sectionOrderStyle('todos')}>
         <SectionShell
           title="Todos"
           className="overflow-visible"
@@ -1988,7 +1999,7 @@ export function TimelineApp() {
         </SectionShell>
       </div>
 
-      <footer className="footer-line rounded-[2px] border border-[rgba(36,34,29,0.16)] bg-[#fffef8] px-3 py-2 shadow-none max-sm:gap-2">
+      <footer className="[order:80] flex items-center justify-between gap-3 mt-4 font-bold text-[12px] text-[var(--muted)] rounded-[2px] border border-[color-mix(in_srgb,var(--line)_16%,transparent)] bg-[var(--input-bg)] px-3 py-2 shadow-none max-sm:gap-2 max-sm:flex-col max-sm:items-start">
         <div className="flex min-w-0 items-center gap-2">
           <Image
             className="h-6 w-6 flex-none"
@@ -2070,7 +2081,7 @@ function PinDialog({
         }}
       >
         <div>
-          <div className="panel-title">{config.title}</div>
+          <div className="text-sm font-black uppercase mb-2.5">{config.title}</div>
           <p className={mutedDescriptionClass}>{config.description}</p>
         </div>
         <TextField
@@ -2097,7 +2108,7 @@ function PinDialog({
           {showPins ? 'Hide PIN' : 'Show PIN'}
         </button>
         {config.error ? <div className={formErrorClass}>{config.error}</div> : null}
-        <div className="action-row">
+        <div className="flex items-center justify-end gap-2.5">
           <button type="submit">{config.confirmLabel}</button>
           <button type="button" className="tertiary" onClick={onCancel}>
             Cancel

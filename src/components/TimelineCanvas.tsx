@@ -231,6 +231,25 @@ export function TimelineCanvas({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    const rootStyle = getComputedStyle(document.documentElement);
+    const cssVar = (name: string) => rootStyle.getPropertyValue(name).trim();
+    const lineHex = cssVar('--line') || '#24221d';
+    const lr = parseInt(lineHex.slice(1, 3), 16);
+    const lg = parseInt(lineHex.slice(3, 5), 16);
+    const lb = parseInt(lineHex.slice(5, 7), 16);
+    const lineRgba = (opacity: number) => `rgba(${lr},${lg},${lb},${opacity})`;
+    const themeColors = {
+      bg: cssVar('--panel') || '#fffdf7',
+      ink: cssVar('--text') || '#24221d',
+      panel: cssVar('--input-bg') || '#fffef8',
+      panelAlt: cssVar('--alt-bg') || '#f2f0e8',
+      primary: cssVar('--primary') || '#ddf85a',
+      hot: cssVar('--hot') || '#f46aa8',
+      mutedLine: lineRgba(0.22),
+      softLine: lineRgba(0.12),
+      lineRgba,
+    };
+
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     drawTimeline(
       ctx,
@@ -245,6 +264,7 @@ export function TimelineCanvas({
       hiddenCategories,
       now,
       hitBoxesRef,
+      themeColors,
     );
   }, [
     project,
@@ -270,18 +290,18 @@ export function TimelineCanvas({
 
   const filterRowClass = 'flex min-w-0 max-w-full flex-wrap items-center gap-[5px] py-[3px] max-sm:hidden';
   const filterLabelClass = 'flex-none min-w-[68px] text-[10px] font-black uppercase tracking-[0.04em] text-[var(--muted)]';
-  const filterMiniButtonClass = 'flex-none min-h-[22px] rounded-[2px] border border-[rgba(36,34,29,0.2)] bg-transparent text-[var(--muted)] shadow-none px-[6px] py-0 text-[10px] font-black uppercase';
+  const filterMiniButtonClass = 'flex-none min-h-[22px] rounded-[2px] border border-[color-mix(in_srgb,var(--line)_20%,transparent)] bg-transparent text-[var(--muted)] shadow-none px-[6px] py-0 text-[10px] font-black uppercase';
   const filterChipBase = 'flex-none min-h-[24px] overflow-hidden rounded-[2px] border text-[10px] font-black uppercase px-[7px] py-0 shadow-none';
-  const filterChipOn = 'max-w-[min(190px,42vw)] text-ellipsis whitespace-nowrap border-[rgba(36,34,29,0.36)] bg-[var(--primary)] text-[var(--text)] shadow-[inset_0_-3px_0_var(--hot)]';
-  const filterChipOff = 'max-w-[min(190px,42vw)] text-ellipsis whitespace-nowrap border-[rgba(36,34,29,0.14)] bg-transparent text-[var(--muted)] opacity-65';
-  const filterChipMobileOn = 'max-w-full text-left [overflow-wrap:anywhere] whitespace-normal border-[rgba(36,34,29,0.36)] bg-[var(--primary)] text-[var(--text)] shadow-[inset_0_-3px_0_var(--hot)]';
-  const filterChipMobileOff = 'max-w-full text-left [overflow-wrap:anywhere] whitespace-normal border-[rgba(36,34,29,0.14)] bg-transparent text-[var(--muted)] opacity-65';
+  const filterChipOn = 'max-w-[min(190px,42vw)] text-ellipsis whitespace-nowrap border-[color-mix(in_srgb,var(--line)_36%,transparent)] bg-[var(--primary)] text-[var(--on-primary)] shadow-[inset_0_-3px_0_var(--hot)]';
+  const filterChipOff = 'max-w-[min(190px,42vw)] text-ellipsis whitespace-nowrap border-[color-mix(in_srgb,var(--line)_14%,transparent)] bg-transparent text-[var(--muted)] opacity-65';
+  const filterChipMobileOn = 'max-w-full text-left [overflow-wrap:anywhere] whitespace-normal border-[color-mix(in_srgb,var(--line)_36%,transparent)] bg-[var(--primary)] text-[var(--on-primary)] shadow-[inset_0_-3px_0_var(--hot)]';
+  const filterChipMobileOff = 'max-w-full text-left [overflow-wrap:anywhere] whitespace-normal border-[color-mix(in_srgb,var(--line)_14%,transparent)] bg-transparent text-[var(--muted)] opacity-65';
 
   return (
     <SectionShell
       as="div"
       title="Timeline"
-      className="timeline-shell"
+      className="bg-[var(--panel)] border-[color-mix(in_srgb,var(--line)_22%,transparent)] max-sm:shadow-[0_6px_18px_color-mix(in_srgb,var(--line)_8%,transparent)]"
       isCollapsed={isMinimized}
       onToggle={() => setIsMinimized((minimized) => !minimized)}
       copyLink={{
@@ -291,7 +311,7 @@ export function TimelineCanvas({
       }}
       moveControls={moveControls}
       meta={`${project.startDate} / ${project.endDate}`}
-      metaClassName="timeline-range-chip font-mono max-sm:overflow-hidden max-sm:text-ellipsis"
+      metaClassName="font-mono max-w-full max-sm:w-full max-sm:justify-start max-sm:min-w-0 max-sm:overflow-hidden max-sm:text-ellipsis"
       subheaderClassName="mt-3 mb-2"
       subheader={
         <div className="flex w-full min-w-0 items-start justify-between gap-3 max-sm:grid max-sm:grid-cols-1 max-sm:items-stretch max-sm:gap-2">
@@ -345,7 +365,7 @@ export function TimelineCanvas({
               <label className="relative inline-flex min-w-0 cursor-pointer items-center gap-[7px] pl-[38px] text-[11px] font-black uppercase text-[var(--muted)]">
                 <input
                   type="checkbox"
-                  className="peer absolute left-0 top-1/2 h-[15px] w-[25px] -translate-y-1/2 appearance-none rounded-full border border-[rgba(36,34,29,0.34)] bg-[#fffef8] cursor-pointer transition-colors checked:border-[var(--hot)] checked:bg-[var(--primary)]"
+                  className="peer absolute left-0 top-1/2 h-[15px] w-[25px] -translate-y-1/2 appearance-none rounded-full border border-[color-mix(in_srgb,var(--line)_34%,transparent)] bg-[var(--input-bg)] cursor-pointer transition-colors checked:border-[var(--hot)] checked:bg-[var(--primary)]"
                   checked={project.settings.showTodosOnTimeline}
                   onChange={(event) => onToggleTodoOverlay(event.target.checked)}
                 />
@@ -369,29 +389,29 @@ export function TimelineCanvas({
               clearLabel="Clear timeline filters"
               className="max-sm:w-full"
             />
-            <div className="zoom-control-group max-sm:grid max-sm:w-full max-sm:grid-cols-3 max-sm:gap-1.5 max-sm:[&>button]:w-full max-sm:[&>button]:min-w-0">
+            <div className="flex items-center gap-2 max-sm:grid max-sm:w-full max-sm:grid-cols-3 max-sm:gap-1.5 max-sm:[&>button]:w-full max-sm:[&>button]:min-w-0">
               <button
                 type="button"
-                className="tertiary"
+                className="tertiary w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] px-0 max-sm:w-full max-sm:min-w-0 max-sm:px-0"
                 onClick={() => setZoom((current) => Math.max(0.8, current - 0.3))}
               >
                 -
               </button>
-              <span className="zoom-readout">{Math.round(zoom * 100)}%</span>
+              <span className="inline-grid items-center min-w-[54px] min-h-[var(--icon-button-size)] border border-[color-mix(in_srgb,var(--line)_24%,transparent)] rounded-[2px] bg-[var(--input-bg)] px-2 text-center text-xs font-[950] leading-none shadow-none max-sm:min-w-0 max-sm:px-[5px]">{Math.round(zoom * 100)}%</span>
               <button
                 type="button"
-                className="tertiary"
+                className="tertiary w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] px-0 max-sm:w-full max-sm:min-w-0 max-sm:px-0"
                 onClick={() => setZoom((current) => Math.min(8, current + 0.3))}
               >
                 +
               </button>
             </div>
-            <details className="mobile-control-menu timeline-mobile-menu max-sm:min-w-0 max-sm:w-full">
+            <details className="mobile-control-menu max-sm:min-w-0 max-sm:w-full [&_summary]:max-sm:min-h-[var(--icon-button-size)] [&_summary]:max-sm:px-2">
               <summary>Tools</summary>
               <div className="mobile-control-panel">
                 <button
                   type="button"
-                  className="secondary today-button"
+                  className="secondary"
                   onClick={panToNow}
                   aria-label="Jump to now"
                   title="Jump to now"
@@ -400,7 +420,7 @@ export function TimelineCanvas({
                 </button>
                 <button
                   type="button"
-                  className="secondary today-button"
+                  className="secondary"
                   onClick={fitTimeline}
                 >
                   Fit timeline
@@ -410,7 +430,7 @@ export function TimelineCanvas({
             <div className="desktop-control-group">
               <button
                 type="button"
-                className="secondary today-button"
+                className="secondary"
                 onClick={panToNow}
                 aria-label="Jump to now"
                 title="Jump to now"
@@ -419,7 +439,7 @@ export function TimelineCanvas({
               </button>
               <button
                 type="button"
-                className="icon-button secondary timeline-tool-button"
+                className="icon-button secondary w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0"
                 onClick={fitTimeline}
                 aria-label="Fit timeline"
                 title="Fit timeline"
@@ -429,7 +449,7 @@ export function TimelineCanvas({
               {canEdit ? (
                 <button
                   type="button"
-                  className="icon-button timeline-tool-button"
+                  className="icon-button w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0"
                   onClick={() =>
                     onCreateEvent({ date: project.startDate, time: "" })
                   }
@@ -446,11 +466,11 @@ export function TimelineCanvas({
     >
       <div className="mb-2 flex min-w-0 max-w-full flex-col gap-1">
         {eventTypes.length > 1 ? (
-          <details className="mobile-control-menu timeline-filter-menu">
+          <details className="mobile-control-menu hidden max-sm:block max-sm:min-w-0 max-sm:w-full">
             <summary>
               Types {eventTypes.length - hiddenTypes.length}/{eventTypes.length}
             </summary>
-            <div className="mobile-control-panel filter-menu-panel">
+            <div className="mobile-control-panel max-h-[min(340px,calc(100vh-160px))] overflow-auto max-sm:left-0 max-sm:right-auto max-sm:w-[min(320px,calc(100vw-24px))]">
               <button
                 type="button"
                 className={filterMiniButtonClass}
@@ -472,11 +492,11 @@ export function TimelineCanvas({
           </details>
         ) : null}
         {eventCategories.length > 1 ? (
-          <details className="mobile-control-menu timeline-filter-menu">
+          <details className="mobile-control-menu hidden max-sm:block max-sm:min-w-0 max-sm:w-full">
             <summary>
               Categories {eventCategories.length - hiddenCategories.length}/{eventCategories.length}
             </summary>
-            <div className="mobile-control-panel filter-menu-panel">
+            <div className="mobile-control-panel max-h-[min(340px,calc(100vh-160px))] overflow-auto max-sm:left-0 max-sm:right-auto max-sm:w-[min(320px,calc(100vw-24px))]">
               <button
                 type="button"
                 className={filterMiniButtonClass}
@@ -544,6 +564,18 @@ export function TimelineCanvas({
   );
 }
 
+type ThemeColors = {
+  bg: string;
+  ink: string;
+  panel: string;
+  panelAlt: string;
+  primary: string;
+  hot: string;
+  mutedLine: string;
+  softLine: string;
+  lineRgba: (opacity: number) => string;
+};
+
 function drawTimeline(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -557,9 +589,10 @@ function drawTimeline(
   hiddenCategories: readonly string[],
   now: Date,
   hitBoxesRef: MutableRefObject<HitBox[]>,
+  themeColors: ThemeColors,
 ) {
   ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = "#fffef8";
+  ctx.fillStyle = themeColors.bg;
   ctx.fillRect(0, 0, width, height);
 
   const timelineY = Math.round(height * 0.48);
@@ -567,13 +600,14 @@ function drawTimeline(
   const days = totalDays(project);
   const tickEvery = Math.max(1, Math.ceil(days / (10 * zoom)));
   const showHours = zoom >= 2;
-  const ink = "#24221d";
-  const mutedLine = "#d6d0c2";
-  const softLine = "#e8e1d2";
-  const panel = "#fffef8";
-  const panelAlt = "#f6f3ea";
-  const primary = "#ddf85a";
-  const hot = "#f46aa8";
+  const ink = themeColors.ink;
+  const mutedLine = themeColors.mutedLine;
+  const softLine = themeColors.softLine;
+  const panel = themeColors.panel;
+  const panelAlt = themeColors.panelAlt;
+  const primary = themeColors.primary;
+  const hot = themeColors.hot;
+  const lineRgba = themeColors.lineRgba;
 
   ctx.font = "12px system-ui, sans-serif";
   ctx.textBaseline = "top";
@@ -606,7 +640,7 @@ function drawTimeline(
     const chipWidth = Math.ceil(ctx.measureText(label).width) + 18;
     const chipHeight = 24;
     ctx.fillStyle = panel;
-    ctx.strokeStyle = "rgba(36,34,29,0.28)";
+    ctx.strokeStyle = lineRgba(0.28);
     ctx.lineWidth = 1;
     roundRect(ctx, chipX, chipY, chipWidth, chipHeight, 2);
     ctx.fill();
@@ -635,7 +669,7 @@ function drawTimeline(
     }
   }
 
-  drawPastOverlay(ctx, project, rangeWidth, pan, width, height, now);
+  drawPastOverlay(ctx, project, rangeWidth, pan, width, height, now, lineRgba);
 
   ctx.strokeStyle = ink;
   ctx.lineWidth = 3;
@@ -651,7 +685,7 @@ function drawTimeline(
   ctx.closePath();
   ctx.fill();
 
-  drawNowMarker(ctx, project, rangeWidth, pan, width, height, now);
+  drawNowMarker(ctx, project, rangeWidth, pan, width, height, now, themeColors);
 
   const visibleEvents = project.events
     .filter((event) =>
@@ -691,7 +725,7 @@ function drawTimeline(
 
   if (denseMode) {
     ctx.fillStyle = panel;
-    ctx.strokeStyle = "rgba(36,34,29,0.28)";
+    ctx.strokeStyle = lineRgba(0.28);
     ctx.lineWidth = 1;
     roundRect(ctx, 18, height - 36, 154, 26, 2);
     ctx.fill();
@@ -1205,6 +1239,7 @@ function drawNowMarker(
   width: number,
   height: number,
   now: Date,
+  themeColors: ThemeColors,
 ) {
   const today = localDateString(now);
   if (today < project.startDate || today > project.endDate) return;
@@ -1213,7 +1248,7 @@ function drawNowMarker(
   const x = momentToPixel(today, time, project, rangeWidth, pan);
   if (x < -40 || x > width + 40) return;
 
-  ctx.strokeStyle = "#f46aa8";
+  ctx.strokeStyle = themeColors.hot;
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(x, 34);
@@ -1225,15 +1260,15 @@ function drawNowMarker(
   const labelWidth = Math.ceil(ctx.measureText(label).width) + 20;
   const labelX = Math.max(12, Math.min(width - labelWidth - 12, x - labelWidth / 2));
   const labelY = 48;
-  ctx.fillStyle = "#fffef8";
-  ctx.strokeStyle = "rgba(36,34,29,0.3)";
+  ctx.fillStyle = themeColors.panel;
+  ctx.strokeStyle = themeColors.lineRgba(0.3);
   ctx.lineWidth = 1;
   roundRect(ctx, labelX, labelY, labelWidth, 30, 2);
   ctx.fill();
   ctx.stroke();
-  ctx.fillStyle = "#ddf85a";
+  ctx.fillStyle = themeColors.primary;
   ctx.fillRect(labelX, labelY + 26, labelWidth, 4);
-  ctx.fillStyle = "#24221d";
+  ctx.fillStyle = themeColors.ink;
   ctx.font = "900 13px system-ui, sans-serif";
   ctx.fillText(label, labelX + 10, labelY + 8);
 }
@@ -1246,6 +1281,7 @@ function drawPastOverlay(
   width: number,
   height: number,
   now: Date,
+  lineRgba: (opacity: number) => string,
 ) {
   const today = localDateString(now);
   if (today < project.startDate) return;
@@ -1262,10 +1298,10 @@ function drawPastOverlay(
   ctx.rect(0, 0, overlayRight, height);
   ctx.clip();
 
-  ctx.fillStyle = "rgba(36,34,29,0.07)";
+  ctx.fillStyle = lineRgba(0.07);
   ctx.fillRect(0, 0, overlayRight, height);
 
-  ctx.strokeStyle = "rgba(36,34,29,0.12)";
+  ctx.strokeStyle = lineRgba(0.12);
   ctx.lineWidth = 1;
   for (let x = -height; x < overlayRight + height; x += 12) {
     ctx.beginPath();

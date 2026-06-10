@@ -41,19 +41,69 @@ const todoActionIconsClass =
 const todoColumnsClass =
   'relative z-[2] mt-[-12px] flex w-full max-w-full min-w-0 gap-2.5 overflow-x-auto overflow-y-visible overscroll-x-contain py-[18px] pr-0 pb-2.5 pl-0 [scroll-snap-type:x_proximity] [scrollbar-gutter:stable] max-sm:z-[1] max-sm:grid max-sm:grid-cols-1 max-sm:gap-2 max-sm:overflow-visible max-sm:px-0 max-sm:[scroll-snap-type:none]';
 const todoColumnClass =
-  `${uiCard} relative min-h-[150px] min-w-[300px] flex-[0_0_300px] overflow-visible border-[rgba(36,34,29,0.22)] bg-[#fbfee9] p-[9px] shadow-[inset_0_3px_0_rgba(36,34,29,0.18),0_6px_14px_rgba(36,34,29,0.05)] [scroll-snap-align:start] hover:z-20 focus-within:z-20 max-sm:w-full max-sm:min-w-0 max-sm:scroll-snap-align-none max-sm:py-[7px] max-sm:pr-[7px] max-sm:pb-[7px] max-sm:pl-3`;
+  `${uiCard} relative min-h-[150px] min-w-[300px] flex-[0_0_300px] overflow-visible border-[color-mix(in_srgb,var(--line)_22%,transparent)] bg-[var(--tag-bg)] p-[9px] shadow-[inset_0_3px_0_color-mix(in_srgb,var(--line)_18%,transparent),0_6px_14px_color-mix(in_srgb,var(--line)_5%,transparent)] [scroll-snap-align:start] hover:z-20 focus-within:z-20 max-sm:w-full max-sm:min-w-0 max-sm:scroll-snap-align-none max-sm:py-[7px] max-sm:pr-[7px] max-sm:pb-[7px] max-sm:pl-3`;
 const columnTitleClass =
   'relative z-[3] mb-[4px] grid items-end gap-2 bg-transparent pt-1 pb-[7px] text-[11px] font-black text-[var(--text)] uppercase shadow-none max-sm:gap-1.5';
 const columnTitleLabelClass =
-  'flex min-w-0 items-center gap-1.5 rounded-[2px] border border-[rgba(36,34,29,0.16)] bg-[#f5fbdc] px-1.5 py-1';
+  'flex min-w-0 items-center gap-1.5 rounded-[2px] border border-[color-mix(in_srgb,var(--line)_16%,transparent)] bg-[var(--tag-bg)] px-1.5 py-1';
 const columnTitleActionsClass =
   'column-title-actions-row inline-flex min-w-0 items-center justify-end gap-1 max-[420px]:justify-start';
 const columnMiniButtonClass =
-  'icon-button relative inline-grid h-5 max-h-5 min-h-5 w-5 min-w-5 place-items-center rounded-[2px] border border-[rgba(36,34,29,0.22)] bg-[#fffdf8] p-0 text-[10px] leading-none shadow-none hover:border-[var(--hot)] hover:bg-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-35 disabled:transform-none';
+  'icon-button relative inline-grid h-5 max-h-5 min-h-5 w-5 min-w-5 place-items-center rounded-[2px] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] bg-[var(--input-bg)] p-0 text-[10px] leading-none shadow-none hover:border-[var(--hot)] hover:bg-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-35 disabled:transform-none';
 const columnCountClass =
-  'inline-grid h-6 max-h-6 min-h-6 w-6 min-w-6 place-items-center rounded-[2px] border border-[rgba(36,34,29,0.18)] bg-[#fbfee9] text-[10px] leading-none font-black text-[var(--muted)] shadow-none';
+  'inline-grid h-6 max-h-6 min-h-6 w-6 min-w-6 place-items-center rounded-[2px] border border-[color-mix(in_srgb,var(--line)_18%,transparent)] bg-[var(--tag-bg)] text-[10px] leading-none font-black text-[var(--muted)] shadow-none';
 const columnAddCardClass =
-  'column-add-card relative mb-2.5 ml-auto mt-[-2px] inline-flex min-h-[var(--icon-button-size)] w-full items-center justify-center gap-1.5 rounded-[2px] border border-dashed border-[rgba(36,34,29,0.34)] bg-white px-2 text-[11px] font-black text-[var(--muted)] uppercase shadow-none hover:border-[var(--hot)] hover:bg-[var(--primary)] hover:text-[var(--text)]';
+  'column-add-card relative mb-2.5 ml-auto mt-[-2px] inline-flex min-h-[var(--icon-button-size)] w-full items-center justify-center gap-1.5 rounded-[2px] border border-dashed border-[color-mix(in_srgb,var(--line)_34%,transparent)] bg-[var(--input-bg)] px-2 text-[11px] font-black text-[var(--muted)] uppercase shadow-none hover:border-[var(--hot)] hover:bg-[var(--primary)] hover:text-[var(--on-primary)]';
+
+// Inlined from .todo-card-topline
+const todoCardToplineClass = 'flex items-start gap-2 max-sm:gap-1.5';
+
+// Inlined from .todo-linked-badge + hover states
+const todoLinkedBadgeClass =
+  'inline-grid h-5 min-h-5 w-5 min-w-5 place-items-center rounded-[2px] border border-[color-mix(in_srgb,var(--line)_24%,transparent)] bg-[var(--primary)] p-0 text-[var(--on-primary)] shadow-none hover:border-[color-mix(in_srgb,var(--line)_38%,transparent)] hover:bg-[var(--primary-strong)]';
+
+// Inlined from .todo-card-title
+const todoCardTitleClass = 'min-w-0 flex-1 text-[14px] font-[950] leading-[1.15] [overflow-wrap:anywhere]';
+
+// Inlined from .todo-card-meta + .todo-card-meta span/.todo-card-meta > span
+const todoCardMetaClass = 'flex min-w-0 flex-wrap items-center justify-start gap-1 text-[9px] font-[900] uppercase text-[var(--muted)]';
+const todoCardMetaSpanClass = 'min-w-0 [overflow-wrap:anywhere] border-0 bg-[var(--meta-bg)] px-[5px] py-px';
+
+// Inlined from .todo-due-date (base) — variant classes applied conditionally
+const todoBaseDueDateClass = 'min-w-0 [overflow-wrap:anywhere] rounded-[2px] border-0 px-[5px] py-px font-[950] leading-none';
+
+// Inlined from .todo-card-tags
+const todoCardTagsClass = '-mt-px flex min-w-0 flex-wrap items-center gap-1';
+
+// Inlined from .todo-tag-chip + active/hover
+const todoTagChipBase =
+  'inline-flex min-h-[19px] min-w-0 max-w-full items-center gap-1 rounded-[2px] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] bg-[var(--tag-bg)] px-1.5 py-px text-[9px] font-[950] leading-[1.1] uppercase text-[var(--on-primary)] shadow-none hover:border-[color-mix(in_srgb,var(--line)_28%,transparent)] hover:bg-[var(--primary)] hover:text-[var(--on-primary)]';
+const todoTagChipActiveClass = 'border-[color-mix(in_srgb,var(--line)_28%,transparent)] bg-[var(--primary)] text-[var(--on-primary)]';
+
+const todoCardNoteClass =
+  'max-h-[72px] overflow-auto bg-transparent pt-[2px]';
+
+// Inlined from .card-comments
+const cardCommentsClass = 'mt-2 grid gap-[5px]';
+
+// Inlined from .card-comment
+const cardCommentClass =
+  'grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1.5 rounded-[2px] border border-[color-mix(in_srgb,var(--line)_16%,transparent)] bg-[var(--input-bg)] px-1.5 py-[5px] text-[11px] leading-[1.35]';
+
+// Inlined from .card-comment time
+const cardCommentTimeClass = 'whitespace-nowrap text-[10px] font-[950] leading-[1.35] uppercase text-[var(--muted)]';
+
+// Inlined from .card-comment span
+const cardCommentBodyClass = 'min-w-0 [overflow-wrap:anywhere]';
+
+// Inlined from .card-comment-delete (size overrides; tone handled by icon-button danger)
+const cardCommentDeleteClass = 'icon-button danger h-4 min-h-4 w-4 min-w-4 border-0 bg-transparent p-0 shadow-none';
+
+// Inlined from .todo-card-footer
+const todoCardFooterClass = 'flex min-h-7 flex-wrap items-end justify-between gap-1.5';
+
+// Inlined from .todo-updated-meta
+const todoUpdatedMetaClass = 'min-w-0 whitespace-nowrap text-[8px] font-[700] normal-case text-[var(--muted)]';
 
 type TodoBoardProps = {
   todos: TimelineTodo[];
@@ -452,7 +502,7 @@ export function TodoBoard({
               className={cn(
                 todoColumnClass,
                 dropStatus === status &&
-                  'bg-[#fff8d8] outline outline-3 outline-[var(--hot)] outline-offset-[-6px]',
+                  'bg-[var(--date-bg)] outline outline-3 outline-[var(--hot)] outline-offset-[-6px]',
               )}
               key={status}
               onDragOver={(event) => {
@@ -550,7 +600,7 @@ export function TodoBoard({
                         </button>
                         <button
                           type="button"
-                          className={`column-add ${columnMiniButtonClass} bg-[var(--primary)] text-[var(--text)]`}
+                          className={`column-add ${columnMiniButtonClass} bg-[var(--primary)] text-[var(--on-primary)]`}
                           onClick={(event) => {
                             event.stopPropagation();
                             addTodo(status);
@@ -647,12 +697,12 @@ export function TodoBoard({
                       }}
                     onClick={() => setDraftTodo({ ...todo, boardId })}
                   >
-                    <div className="todo-card-topline">
-                      <div className="todo-card-title">{todo.title}</div>
+                    <div className={todoCardToplineClass}>
+                      <div className={todoCardTitleClass}>{todo.title}</div>
                       {todo.protocolId ? (
                         <button
                           type="button"
-                          className="todo-linked-badge"
+                          className={todoLinkedBadgeClass}
                           title="Open linked protocol item"
                           aria-label="Open linked protocol item"
                           onClick={(event) => {
@@ -665,19 +715,28 @@ export function TodoBoard({
                       ) : null}
                     </div>
                     {todo.who || todo.dueDate ? (
-                      <div className="todo-card-meta">
-                        {todo.who ? <span>{todo.who}</span> : null}
+                      <div className={todoCardMetaClass}>
+                        {todo.who ? <span className={todoCardMetaSpanClass}>{todo.who}</span> : null}
                         {todo.dueDate ? (
-                          <time className={`todo-due-date ${todoDueClass(todo, completedTodoStatus)}`}>{formatTodoDueDate(todo.dueDate)}</time>
+                          <time
+                            className={cn(
+                              todoBaseDueDateClass,
+                              todoDueClass(todo, completedTodoStatus) === 'scheduled' && 'bg-[var(--scheduled-bg)] text-[var(--text)]',
+                              todoDueClass(todo, completedTodoStatus) === 'due-soon' && 'bg-[var(--danger)] text-white',
+                              todoDueClass(todo, completedTodoStatus) === 'overdue' && 'bg-[var(--danger)] text-white',
+                              todoDueClass(todo, completedTodoStatus) === 'done' && 'bg-[var(--done-badge-bg)] text-[var(--muted)]',
+                              todoDueClass(todo, completedTodoStatus) === 'no-due' && 'bg-[var(--primary)] text-[var(--on-primary)]',
+                            )}
+                          >{formatTodoDueDate(todo.dueDate)}</time>
                         ) : null}
                       </div>
                     ) : null}
                     {todo.tags?.length ? (
-                      <div className="todo-card-tags" aria-label="Todo tags">
+                      <div className={todoCardTagsClass} aria-label="Todo tags">
                         {normalizeTodoTags(todo.tags).map((tag) => (
                           <button
                             type="button"
-                            className={`todo-tag-chip ${tagsEqual(tag, tagFilter) ? 'active' : ''}`}
+                            className={cn(todoTagChipBase, tagsEqual(tag, tagFilter) && todoTagChipActiveClass)}
                             key={tag}
                             onClick={(event) => {
                               event.stopPropagation();
@@ -692,7 +751,7 @@ export function TodoBoard({
                       </div>
                     ) : null}
                     {todo.body.trim() ? (
-                      <div className="todo-card-note">
+                      <div className={todoCardNoteClass}>
                         <MarkdownBlock
                           markdown={todo.body}
                           onTaskToggle={canEdit ? (lineIndex) => {
@@ -706,14 +765,14 @@ export function TodoBoard({
                       </div>
                     ) : null}
                     {todo.comments?.length ? (
-                      <div className="card-comments" aria-label="Todo comments">
+                      <div className={cardCommentsClass} aria-label="Todo comments">
                         {todo.comments.map((comment) => (
-                          <div className="card-comment" key={comment.id}>
-                            <time dateTime={comment.createdAt}>{formatTodoUpdatedAt(comment.createdAt)}</time>
-                            <span>{comment.body}</span>
+                          <div className={cardCommentClass} key={comment.id}>
+                            <time className={cardCommentTimeClass} dateTime={comment.createdAt}>{formatTodoUpdatedAt(comment.createdAt)}</time>
+                            <span className={cardCommentBodyClass}>{comment.body}</span>
                             <button
                               type="button"
-                              className="card-comment-delete icon-button danger"
+                              className={cardCommentDeleteClass}
                               onClick={(event) => {
                                 event.stopPropagation();
                                 void deleteTodoComment(todo, comment);
@@ -727,9 +786,9 @@ export function TodoBoard({
                         ))}
                       </div>
                     ) : null}
-                    <div className="todo-card-footer">
+                    <div className={todoCardFooterClass}>
                       {todo.updatedAt || todo.createdAt ? (
-                        <time className="todo-updated-meta" dateTime={todo.updatedAt ?? todo.createdAt}>
+                        <time className={todoUpdatedMetaClass} dateTime={todo.updatedAt ?? todo.createdAt}>
                           upd {formatTodoUpdatedAt(todo.updatedAt ?? todo.createdAt)}
                         </time>
                       ) : <span />}
@@ -811,7 +870,7 @@ export function TodoBoard({
                   </Fragment>
                 ))
               ) : (
-                <div className="grid min-h-[58px] place-items-center rounded-[2px] border border-dashed border-[#8f897a] text-[12px] font-black uppercase text-[var(--muted)] mb-2">Drop here</div>
+                <div className="grid min-h-[58px] place-items-center rounded-[2px] border border-dashed border-[var(--muted-border)] text-[12px] font-black uppercase text-[var(--muted)] mb-2">Drop here</div>
               )}
                 <button
                   type="button"

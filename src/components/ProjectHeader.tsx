@@ -12,6 +12,7 @@ import {
   RotateCcw,
   Trash2,
 } from "lucide-react";
+import { DarkModeToggle } from "./DarkModeToggle";
 import { TextField } from "./FormControls";
 import { cn } from "@/lib/cn";
 import { defaultProjectBackgroundColor, normalizeProjectBackgroundColor } from "@/lib/project";
@@ -34,7 +35,7 @@ type ProjectHeaderProps = {
 };
 
 const headerClass =
-  "relative grid grid-cols-[minmax(260px,1fr)_auto] items-end gap-4 rounded-[3px] border border-[rgba(36,34,29,0.22)] bg-[var(--panel)] p-4 shadow-[var(--shadow)] before:absolute before:inset-y-0 before:left-0 before:w-[5px] before:bg-[repeating-linear-gradient(180deg,var(--hot)_0_12px,var(--primary)_12px_24px,var(--cyan)_24px_36px)] before:content-[''] max-[980px]:grid-cols-1 max-sm:gap-3 max-sm:p-3";
+  "relative grid grid-cols-[minmax(260px,1fr)_auto] items-end gap-4 rounded-[3px] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] bg-[var(--panel)] p-4 shadow-[var(--shadow)] before:absolute before:inset-y-0 before:left-0 before:w-[5px] before:bg-[repeating-linear-gradient(180deg,var(--hot)_0_12px,var(--primary)_12px_24px,var(--cyan)_24px_36px)] before:content-[''] max-[980px]:grid-cols-1 max-sm:gap-3 max-sm:p-3";
 const titleInputClass =
   "!h-auto !min-h-0 !border-0 !border-b-2 !border-[var(--line)] !bg-transparent !px-0 !pt-0.5 !pb-1.5 !text-[28px] !font-black uppercase max-sm:!text-xl";
 const hashLineClass =
@@ -46,31 +47,31 @@ const statusClusterClass =
 const dateControlClass =
   "grid min-w-[150px] grid-cols-1 items-stretch gap-1 border-0 bg-transparent p-0 shadow-none max-sm:w-full max-sm:min-w-0 [&>span]:block [&>span]:border-0 [&>span]:bg-transparent [&>span]:p-0 [&>span]:text-[10px] [&>span]:font-black [&>span]:leading-none [&>span]:text-[var(--muted)] [&>span]:uppercase";
 const dateInputClass =
-  "!min-h-[var(--icon-button-size)] !border !border-[rgba(36,34,29,0.22)] !bg-[#fffef8] !px-[7px] !py-1 !text-xs !font-black disabled:!bg-[#f0eee6] disabled:!text-[var(--muted)] disabled:!opacity-100";
+  "!min-h-[var(--icon-button-size)] !border !border-[color-mix(in_srgb,var(--line)_22%,transparent)] !bg-[var(--input-bg)] !px-[7px] !py-1 !text-xs !font-black disabled:!bg-[var(--alt-bg)] disabled:!text-[var(--muted)] disabled:!opacity-100";
 const backgroundColorControlClass =
   "grid min-w-[112px] grid-cols-[minmax(0,1fr)_var(--icon-button-size)] items-end gap-1.5 max-sm:w-full max-sm:min-w-0";
 const backgroundColorInputClass =
-  "!min-h-[var(--icon-button-size)] !h-[var(--icon-button-size)] !border !border-[rgba(36,34,29,0.22)] !bg-[#fffef8] !p-1";
+  "!min-h-[var(--icon-button-size)] !h-[var(--icon-button-size)] !border !border-[color-mix(in_srgb,var(--line)_22%,transparent)] !bg-[var(--input-bg)] !p-1";
 const projectToolButtonClass =
   "icon-button h-[var(--icon-button-size)] min-h-[var(--icon-button-size)] w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0";
 const statusChipBaseClass =
-  "inline-flex min-h-7 items-center justify-center overflow-hidden whitespace-nowrap rounded-[3px] border border-[rgba(36,34,29,0.22)] bg-[#fffef8] px-[9px] py-[3px] text-center text-xs leading-none font-black text-[var(--text)] uppercase tabular-nums";
+  "inline-flex min-h-7 items-center justify-center overflow-hidden whitespace-nowrap rounded-[3px] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] bg-[var(--input-bg)] px-[9px] py-[3px] text-center text-xs leading-none font-black text-[var(--text)] uppercase tabular-nums";
 const saveStatusBaseClass = `${statusChipBaseClass} w-[72px]`;
 const syncStatusBaseClass = `${statusChipBaseClass} w-[138px] max-[420px]:w-[min(138px,calc(100vw_-_132px))]`;
 const importingButtonClass =
-  "relative inline-flex min-h-[var(--icon-button-size)] cursor-pointer items-center justify-center gap-2 rounded-[2px] border border-[rgba(36,34,29,0.32)] bg-[var(--primary)] px-3 text-[11px] font-black uppercase text-[var(--text)] shadow-none hover:border-[rgba(36,34,29,0.42)] hover:bg-[var(--primary-strong)] focus-within:border-[var(--primary)]";
+  "relative inline-flex min-h-[var(--icon-button-size)] cursor-pointer items-center justify-center gap-2 rounded-[2px] border border-[color-mix(in_srgb,var(--line)_32%,transparent)] bg-[var(--primary)] px-3 text-[11px] font-black uppercase text-[var(--on-primary)] shadow-none hover:border-[color-mix(in_srgb,var(--line)_42%,transparent)] hover:bg-[var(--primary-strong)] focus-within:border-[var(--primary)]";
 const iconImportButtonClass =
   `icon-button ${importingButtonClass} h-[var(--icon-button-size)] min-h-[var(--icon-button-size)] w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0`;
 
 function statusToneClass(status: string) {
   if (status === "saving" || status === "loading" || status === "checking") {
-    return "border-[#e7d2bc] bg-[#fff8ef] text-[#915930]";
+    return "border-[var(--status-saving-border)] bg-[var(--status-saving-bg)] text-[var(--status-saving-text)]";
   }
   if (status === "saved" || status === "updated" || status === "idle") {
-    return "border-[#c9dfcf] bg-[#f1f8f2] text-[#315c3a]";
+    return "border-[var(--status-saved-border)] bg-[var(--status-saved-bg)] text-[var(--status-saved-text)]";
   }
   if (status === "error" || status === "offline") {
-    return "border-[#f0cbc8] bg-[#fff6f5] text-[var(--danger)]";
+    return "border-[var(--status-error-border)] bg-[var(--status-error-bg)] text-[var(--danger)]";
   }
   if (status === "conflict" || status === "merged") {
     return "border-[var(--line)] bg-[var(--hot)] text-[var(--text)]";
@@ -111,7 +112,7 @@ export function ProjectHeader({
       <div className="relative grid min-h-[74px] overflow-hidden py-1">
         <span
           aria-hidden="true"
-          className="absolute left-1/2 top-[29px] h-0.5 w-[120vw] -translate-x-1/2 overflow-hidden bg-[rgba(36,34,29,0.16)]"
+          className="absolute left-1/2 top-[29px] h-0.5 w-[120vw] -translate-x-1/2 overflow-hidden bg-[color-mix(in_srgb,var(--line)_16%,transparent)]"
         >
           <span
             className={cn(
@@ -187,6 +188,7 @@ export function ProjectHeader({
           <span className={cn(saveStatusBaseClass, statusToneClass(saveState))}>{saveState}</span>
           <span className={cn(syncStatusBaseClass, statusToneClass(syncState))}>{syncLabel}</span>
 
+          <DarkModeToggle className="h-[var(--icon-button-size)] min-h-[var(--icon-button-size)] w-[var(--icon-button-size)] min-w-[var(--icon-button-size)]" />
           <button
             type="button"
             className={projectToolButtonClass}

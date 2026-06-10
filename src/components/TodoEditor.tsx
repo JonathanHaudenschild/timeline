@@ -89,7 +89,7 @@ export function TodoEditor({
         }}
       >
         <div className="mb-2 flex min-w-0 flex-wrap items-start justify-between gap-2">
-          <div className="panel-title mb-0">{title}</div>
+          <div className="text-[18px] font-[950] mb-0 uppercase">{title}</div>
           <div className="flex min-w-0 flex-wrap justify-end gap-x-2 gap-y-0.5 text-[10px] font-black uppercase text-[var(--muted)]">
             <time dateTime={localDraft.createdAt}>created {formatTodoCreatedAt(localDraft.createdAt)}</time>
             <time dateTime={localDraft.updatedAt ?? localDraft.createdAt}>
@@ -167,7 +167,7 @@ export function TodoEditor({
             ) : null}
           </div>
           <div className="todo-tags-field">
-            <span className="field-label">Tags</span>
+            <span className="text-[var(--muted)] text-xs">Tags</span>
             <div className="todo-editor-tags">
               {selectedTags.length ? (
                 <div className="todo-tag-list" aria-label="Todo tags">
@@ -232,7 +232,7 @@ export function TodoEditor({
             rows={7}
           />
         </label>
-        <div className="action-row">
+        <div className="flex gap-2 items-center flex-wrap mt-[10px]">
           <button type="submit" className="icon-button modal-action-icon" aria-label={saveLabel} title={saveLabel}>
             <Save size={18} aria-hidden="true" />
           </button>

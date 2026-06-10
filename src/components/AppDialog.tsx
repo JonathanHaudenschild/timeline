@@ -92,15 +92,15 @@ export function useAppDialog() {
 
   const isDangerDialog = dialog?.kind !== 'alert' && dialog?.tone === 'danger';
   const dialogElement = dialog ? (
-    <div className="modal-backdrop app-dialog-backdrop" role="dialog" aria-modal="true" aria-label={dialog.title}>
+    <div className="modal-backdrop z-[80]" role="dialog" aria-modal="true" aria-label={dialog.title}>
       <form
-        className={`editor-panel modal-panel app-dialog ${isDangerDialog ? 'danger' : ''}`}
+        className={`editor-panel modal-panel w-[min(460px,100%)] grid gap-[14px] p-[16px] ${isDangerDialog ? 'border-[color-mix(in_srgb,var(--danger)_50%,transparent)] shadow-[0_18px_48px_color-mix(in_srgb,var(--danger)_13%,transparent)]' : 'border-[color-mix(in_srgb,var(--line)_34%,transparent)]'}`}
         onSubmit={(event) => {
           event.preventDefault();
           closeDialog(dialog.kind === 'prompt' ? inputValue : true);
         }}
       >
-        <header className="app-dialog-header">
+        <header className="grid gap-2">
           <h2>{dialog.title}</h2>
           {dialog.message ? <p>{dialog.message}</p> : null}
         </header>
@@ -112,15 +112,15 @@ export function useAppDialog() {
             placeholder={dialog.placeholder}
             onValueChange={setInputValue}
             autoFocus
-            className="app-dialog-field"
+            className="grid gap-[6px]"
           />
         ) : null}
 
-        <div className="action-row app-dialog-actions">
+        <div className="flex gap-2 items-center flex-wrap mt-0 justify-end">
           {dialog.kind !== 'alert' ? (
             <button
               type="button"
-              className={dialog.cancelIcon ? 'icon-button tertiary modal-action-icon' : 'tertiary'}
+              className={dialog.cancelIcon ? 'icon-button tertiary w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0' : 'tertiary'}
               onClick={() => closeDialog(null)}
               aria-label={dialog.cancelIcon ? dialog.cancelLabel : undefined}
               title={dialog.cancelIcon ? dialog.cancelLabel : undefined}
@@ -130,7 +130,7 @@ export function useAppDialog() {
           ) : null}
           <button
             type="submit"
-            className={dialog.confirmIcon ? `icon-button modal-action-icon ${isDangerDialog ? 'danger' : ''}` : isDangerDialog ? 'danger' : ''}
+            className={dialog.confirmIcon ? `icon-button w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0 ${isDangerDialog ? 'danger' : ''}` : isDangerDialog ? 'danger' : ''}
             autoFocus={dialog.kind !== 'prompt'}
             aria-label={dialog.confirmIcon ? dialog.confirmLabel : undefined}
             title={dialog.confirmIcon ? dialog.confirmLabel : undefined}

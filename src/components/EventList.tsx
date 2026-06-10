@@ -131,7 +131,7 @@ export function EventList({
   return (
     <SectionShell
       title="Events"
-      className="event-list"
+      className="relative min-w-0 max-w-full overflow-x-clip overflow-y-visible"
       isCollapsed={isMinimized}
       onToggle={onToggleMinimized}
       copyLink={{
@@ -220,7 +220,7 @@ export function EventList({
         </>
       }
     >
-      <div className="table-wrap">
+      <div className="w-full min-w-0 max-w-full overflow-x-auto overflow-y-hidden mt-4 overscroll-x-contain [scrollbar-gutter:stable]">
         <datalist id="event-list-type-suggestions">
           {eventTypes.map((type) => (
             <option key={type} value={type} />
@@ -247,7 +247,7 @@ export function EventList({
                 >
                   <button
                     type="button"
-                    className="table-sort-button"
+                    className="w-full min-h-0 flex justify-between gap-2 border-0 bg-transparent shadow-none p-0 text-left hover:bg-transparent hover:shadow-none hover:[transform:none] [&>span]:text-[var(--muted)] [&>span]:text-[10px]"
                     onClick={() => changeSort(column.key)}
                   >
                     {column.label}
@@ -284,23 +284,23 @@ export function EventList({
                     className={cn(
                       "max-sm:p-2",
                       isAlt &&
-                        "[&>td]:bg-[#eef7ff] [&>.event-date-cell]:bg-[#dff1ff] [&>.event-time-cell]:bg-[#dff1ff]",
+                        "[&>td]:bg-[var(--alt-row-bg)] [&>.event-date-cell]:bg-[color-mix(in_srgb,var(--alt-row-bg)_80%,var(--date-bg))] [&>.event-time-cell]:bg-[color-mix(in_srgb,var(--alt-row-bg)_80%,var(--time-bg))]",
                       isPast &&
-                        "bg-[#f0eee7] bg-[repeating-linear-gradient(135deg,transparent_0_11px,rgba(36,34,29,0.045)_11px_17px)] [&>td]:border-t-[rgba(36,34,29,0.1)] [&>td]:bg-[#f0eee7] [&>td]:bg-[repeating-linear-gradient(135deg,transparent_0_11px,rgba(36,34,29,0.045)_11px_17px)] [&>td]:text-[rgba(36,34,29,0.66)]",
+                        "bg-[var(--past-row-bg)] bg-[repeating-linear-gradient(135deg,transparent_0_11px,color-mix(in_srgb,var(--line)_4.5%,transparent)_11px_17px)] [&>td]:border-t-[color-mix(in_srgb,var(--line)_10%,transparent)] [&>td]:bg-[var(--past-row-bg)] [&>td]:bg-[repeating-linear-gradient(135deg,transparent_0_11px,color-mix(in_srgb,var(--line)_4.5%,transparent)_11px_17px)] [&>td]:text-[color-mix(in_srgb,var(--text)_66%,transparent)]",
                       isAlt &&
                         isPast &&
-                        "bg-[#e6eef0] bg-[repeating-linear-gradient(135deg,transparent_0_11px,rgba(36,34,29,0.05)_11px_17px)] [&>td]:border-t-[rgba(36,34,29,0.12)] [&>td]:bg-[#e6eef0] [&>td]:bg-[repeating-linear-gradient(135deg,transparent_0_11px,rgba(36,34,29,0.05)_11px_17px)]",
+                        "bg-[var(--alt-past-row-bg)] bg-[repeating-linear-gradient(135deg,transparent_0_11px,color-mix(in_srgb,var(--line)_5%,transparent)_11px_17px)] [&>td]:border-t-[color-mix(in_srgb,var(--line)_12%,transparent)] [&>td]:bg-[var(--alt-past-row-bg)] [&>td]:bg-[repeating-linear-gradient(135deg,transparent_0_11px,color-mix(in_srgb,var(--line)_5%,transparent)_11px_17px)]",
                       isHidden &&
                         "bg-[repeating-linear-gradient(135deg,transparent_0_12px,rgba(17,17,17,0.035)_12px_18px)] [&>td]:bg-[repeating-linear-gradient(135deg,transparent_0_12px,rgba(17,17,17,0.035)_12px_18px)] [&>td]:text-[var(--muted)]",
                     )}
                   >
-                <td className="event-date-cell w-[188px] min-w-[188px] bg-[#fff8d8] max-sm:w-auto max-sm:min-w-0" data-label="Date">
+                <td className="event-date-cell w-[188px] min-w-[188px] bg-[var(--date-bg)] text-[var(--text)] [font-weight:950] whitespace-nowrap max-sm:w-auto max-sm:min-w-0" data-label="Date">
                   {canEdit ? (
                     <div
-                      className="inline-date-range"
+                      className="grid gap-1 min-w-[150px]"
                       onClick={(click) => click.stopPropagation()}
                     >
-                      <div className="inline-date-row">
+                      <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-1 items-center">
                         <InlineTextInput
                           type="date"
                           value={event.date}
@@ -322,7 +322,7 @@ export function EventList({
                         ) : null}
                       </div>
                       {event.endDate ? (
-                        <div className="inline-date-row">
+                        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-1 items-center">
                           <InlineTextInput
                             type="date"
                             value={event.endDate}
@@ -353,12 +353,12 @@ export function EventList({
                     formatShortGermanDateRange(event.date, event.endDate)
                   )}
                 </td>
-                <td className="event-time-cell w-[140px] min-w-[140px] bg-[#e8fbff] max-sm:w-auto max-sm:min-w-0" data-label="Time">
+                <td className="event-time-cell w-[140px] min-w-[140px] bg-[var(--time-bg)] text-[var(--text)] [font-weight:950] whitespace-nowrap max-sm:w-auto max-sm:min-w-0" data-label="Time">
                   {canEdit ? (
-                    <div className="inline-time-range" onClick={(click) => click.stopPropagation()}>
-                      <div className={cn("inline-time-with-action", !event.time && "grid-cols-1")}>
+                    <div className="grid gap-1 min-w-[86px]" onClick={(click) => click.stopPropagation()}>
+                      <div className={cn("grid gap-1 items-center", !event.time ? "grid-cols-1" : "grid-cols-[minmax(0,1fr)_auto]")}>
                         <InlineTextInput
-                          className="event-inline-input"
+                          className="w-full min-w-0 min-h-[28px] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-sm bg-[var(--input-bg)] shadow-none px-1.5 py-1 text-xs font-extrabold focus:border-[var(--text)] focus:outline-[2px] focus:outline-[color-mix(in_srgb,var(--cyan)_24%,transparent)]"
                           type="time"
                           value={event.time}
                           onValueChange={(time) => onChange({ ...event, time, endTime: time ? event.endTime : undefined })}
@@ -380,9 +380,9 @@ export function EventList({
                         <span className="text-[10px] font-black uppercase text-[var(--muted)]">All day</span>
                       ) : event.endDate ? (
                         event.endTime ? (
-                          <div className="inline-time-with-action">
+                          <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-1 items-center">
                             <InlineTextInput
-                              className="event-inline-input"
+                              className="w-full min-w-0 min-h-[28px] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-sm bg-[var(--input-bg)] shadow-none px-1.5 py-1 text-xs font-extrabold focus:border-[var(--text)] focus:outline-[2px] focus:outline-[color-mix(in_srgb,var(--cyan)_24%,transparent)]"
                               type="time"
                               value={event.endTime}
                               onValueChange={(endTime) => onChange({ ...event, endTime: endTime || undefined })}
@@ -415,10 +415,10 @@ export function EventList({
                     formatEventTimeRange(event)
                   )}
                 </td>
-                <td className="event-what-cell" data-label="What">
+                <td className="min-w-[240px] font-black" data-label="What">
                   {canEdit ? (
                     <InlineTextInput
-                      className="event-inline-input"
+                      className="w-full min-w-0 min-h-[28px] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-sm bg-[var(--input-bg)] shadow-none px-1.5 py-1 text-xs font-extrabold focus:border-[var(--text)] focus:outline-[2px] focus:outline-[color-mix(in_srgb,var(--cyan)_24%,transparent)]"
                       value={event.what}
                       onClick={(click) => click.stopPropagation()}
                       onValueChange={(what) => onChange({ ...event, what })}
@@ -431,7 +431,7 @@ export function EventList({
                 <td data-label="Who">
                   {canEdit ? (
                     <InlineTextInput
-                      className="event-inline-input"
+                      className="w-full min-w-0 min-h-[28px] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-sm bg-[var(--input-bg)] shadow-none px-1.5 py-1 text-xs font-extrabold focus:border-[var(--text)] focus:outline-[2px] focus:outline-[color-mix(in_srgb,var(--cyan)_24%,transparent)]"
                       value={event.who}
                       onClick={(click) => click.stopPropagation()}
                       onValueChange={(who) => onChange({ ...event, who })}
@@ -445,7 +445,7 @@ export function EventList({
                   {canEdit ? (
                     <InlineTextInput
                       className={cn(
-                        "event-inline-input event-inline-type",
+                        "w-full min-w-0 min-h-[28px] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-sm bg-[var(--input-bg)] shadow-none px-1.5 py-1 text-xs font-extrabold uppercase focus:border-[var(--text)] focus:outline-[2px] focus:outline-[color-mix(in_srgb,var(--cyan)_24%,transparent)]",
                         isAlt && "bg-[var(--cyan)]",
                       )}
                       list="event-list-type-suggestions"
@@ -461,13 +461,16 @@ export function EventList({
                       aria-label={`Type for ${event.what}`}
                     />
                   ) : (
-                    <span className={cn("event-badge type-badge", isAlt && "bg-[var(--cyan)]")}>{event.type}</span>
+                    <span className={cn(
+                      "inline-flex items-center min-h-6 border border-[color-mix(in_srgb,var(--line)_26%,transparent)] rounded-[3px] bg-[var(--primary)] shadow-none px-[7px] py-0.5 text-[11px] [font-weight:950] leading-none uppercase",
+                      isAlt && "bg-[var(--cyan)]",
+                    )}>{event.type}</span>
                   )}
                 </td>
                 <td data-label="Category">
                   {canEdit ? (
                     <InlineTextInput
-                      className="event-inline-input"
+                      className="w-full min-w-0 min-h-[28px] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-sm bg-[var(--input-bg)] shadow-none px-1.5 py-1 text-xs font-extrabold focus:border-[var(--text)] focus:outline-[2px] focus:outline-[color-mix(in_srgb,var(--cyan)_24%,transparent)]"
                       list="event-list-category-suggestions"
                       value={event.category ?? ""}
                       onClick={(click) => click.stopPropagation()}
@@ -480,7 +483,7 @@ export function EventList({
                       aria-label={`Category for ${event.what}`}
                     />
                   ) : (
-                    <span className="event-badge category-badge">
+                    <span className="inline-flex items-center min-h-6 border border-[color-mix(in_srgb,var(--line)_26%,transparent)] rounded-[3px] bg-[var(--category-bg)] shadow-none px-[7px] py-0.5 text-[11px] [font-weight:950] leading-none uppercase">
                       {event.category || event.type || "event"}
                     </span>
                   )}
@@ -488,16 +491,21 @@ export function EventList({
                 {!canEdit ? (
                   <td data-label="Timeline">
                     <span
-                      className={`event-badge timeline-badge ${event.showOnTimeline === false ? "hidden" : "shown"}`}
+                      className={cn(
+                        "inline-flex items-center min-h-6 border border-[color-mix(in_srgb,var(--line)_26%,transparent)] rounded-[3px] shadow-none px-[7px] py-0.5 text-[11px] [font-weight:950] leading-none uppercase",
+                        event.showOnTimeline === false
+                          ? "bg-[var(--alt-bg)] text-[var(--muted)]"
+                          : "bg-[var(--scheduled-bg)]",
+                      )}
                     >
                       {event.showOnTimeline === false ? "hidden" : "shown"}
                     </span>
                   </td>
                 ) : null}
-                <td className="event-note-cell" data-label="Note">
+                <td className="max-w-[360px] text-[var(--text)] [overflow-wrap:anywhere]" data-label="Note">
                   {canEdit ? (
                     <InlineTextarea
-                      className="event-inline-note"
+                      className="w-full min-w-0 min-h-[30px] max-h-[34px] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-sm bg-[var(--input-bg)] shadow-none px-1.5 py-1 text-xs [font-weight:650] leading-[1.25] resize-none overflow-hidden focus:min-h-[92px] focus:max-h-[160px] focus:overflow-auto focus:border-[var(--text)] focus:outline-[2px] focus:outline-[color-mix(in_srgb,var(--cyan)_24%,transparent)]"
                       value={event.note}
                       onClick={(click) => click.stopPropagation()}
                       onValueChange={(note) => onChange({ ...event, note })}
@@ -506,12 +514,14 @@ export function EventList({
                       rows={1}
                     />
                   ) : event.note.trim() ? (
-                    <MarkdownBlock markdown={event.note} />
+                    <div className="max-h-[86px] overflow-auto text-xs leading-[1.25]">
+                      <MarkdownBlock markdown={event.note} />
+                    </div>
                   ) : null}
                 </td>
                 <td data-label="Actions">
                   {canEdit ? (
-                    <div className="event-row-actions">
+                    <div className="flex justify-end gap-1.5 items-center flex-nowrap min-w-max">
                       <IconButton
                         tone="tertiary"
                         size="sm"

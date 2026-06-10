@@ -31,9 +31,9 @@ export function RevisionRestoreDialog({
   const canRestore = Boolean(selected && selected.revision !== currentRevision && restoringRevision === null);
 
   return (
-    <div className="modal-backdrop revision-restore-backdrop" role="dialog" aria-modal="true" aria-label="Restore revision">
-      <section className="editor-panel modal-panel revision-restore-dialog">
-        <header className="revision-restore-header">
+    <div className="modal-backdrop z-[70]" role="dialog" aria-modal="true" aria-label="Restore revision">
+      <section className="editor-panel modal-panel w-[min(980px,100%)] max-w-[calc(100vw-36px)] grid gap-[14px] p-[16px] overflow-x-hidden">
+        <header className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-start">
           <div>
             <h2>Restore revision</h2>
             <p>Choose a saved snapshot. Restoring creates a new current revision and keeps the history.</p>
@@ -47,12 +47,12 @@ export function RevisionRestoreDialog({
           value={search}
           onValueChange={setSearch}
           placeholder="Revision, title, date, counts"
-          className="revision-search-control max-w-none"
+          className="max-w-none"
           autoFocus
         />
 
-        <div className="revision-restore-body">
-          <div className="revision-list" role="listbox" aria-label="Available revisions">
+        <div className="grid grid-cols-[minmax(0,1.35fr)_minmax(260px,0.65fr)] gap-3 min-w-0 min-h-[360px]">
+          <div className="grid content-start gap-2 min-w-0 max-h-[min(52dvh,520px)] overflow-auto pr-1" role="listbox" aria-label="Available revisions">
             {filteredRevisions.length ? (
               filteredRevisions.map((revision) => {
                 const isCurrent = revision.revision === currentRevision;
@@ -60,17 +60,29 @@ export function RevisionRestoreDialog({
                 return (
                   <button
                     type="button"
-                    className={`revision-list-item ${isSelected ? 'active' : ''} ${isCurrent ? 'current' : ''}`}
+                    className={`grid gap-2 w-full min-w-0 max-w-full items-start min-h-[70px] p-[12px] border border-l-[5px] text-[var(--text)] text-left shadow-none text-[14px] leading-[1.2] whitespace-normal normal-case font-normal ${
+                      isSelected || !isCurrent
+                        ? 'hover:border-[color-mix(in_srgb,var(--line)_50%,transparent)] hover:border-l-[var(--accent)] hover:bg-[var(--date-bg)]'
+                        : ''
+                    } ${
+                      isSelected
+                        ? 'border-[color-mix(in_srgb,var(--line)_50%,transparent)] border-l-[var(--accent)] bg-[var(--date-bg)]'
+                        : 'border-[var(--soft-line)] border-l-[color-mix(in_srgb,var(--line)_30%,transparent)] bg-[var(--input-bg)]'
+                    } ${
+                      isCurrent
+                        ? '!border-l-[var(--pink)] !bg-[var(--hot-soft)]'
+                        : ''
+                    }`}
                     key={revision.revision}
                     onClick={() => setSelectedRevision(revision.revision)}
                     role="option"
                     aria-selected={isSelected}
                   >
-                    <span className="revision-list-row">
-                      <b>r{revision.revision}</b>
-                      <time>{formatRevisionTimestamp(revision.createdAt)}</time>
-                      <span className="revision-list-title">{revision.name || 'Untitled project'}</span>
-                      <span className="revision-list-meta">
+                    <span className="grid grid-cols-[auto_auto_minmax(0,1fr)] gap-[7px_10px] w-full min-w-0 items-center leading-none">
+                      <b>{revision.revision}</b>
+                      <time className="min-w-0 text-[var(--muted)] text-[13px] font-[900] overflow-wrap-anywhere leading-[1.1]">{formatRevisionTimestamp(revision.createdAt)}</time>
+                      <span className="min-w-0 max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-[14px] font-[900] leading-[1.15] uppercase">{revision.name || 'Untitled project'}</span>
+                      <span className="col-span-full min-w-0 max-w-full text-[var(--muted)] text-[12px] font-[800] leading-[1.25] overflow-wrap-anywhere normal-case">
                          {revision.eventCount} events · {revision.todoCount} todos ·{' '}
                         {revision.protocolCount} protocols
                       </span>
@@ -79,16 +91,16 @@ export function RevisionRestoreDialog({
                 );
               })
             ) : (
-              <div className="revision-empty">No matching revisions</div>
+              <div className="border border-dashed border-[color-mix(in_srgb,var(--line)_24%,transparent)] text-[var(--muted)] p-3 font-[900] uppercase">No matching revisions</div>
             )}
           </div>
 
-          <aside className="revision-detail">
+          <aside className="grid content-start gap-3 min-w-0 border border-l-4 border-[var(--soft-line)] border-l-[var(--primary)] bg-[var(--input-bg)] p-3">
             {selected ? (
               <>
-                <div className="revision-detail-topline">
-                  <span>Selected</span>
-                  <b>r{selected.revision}</b>
+                <div className="flex min-w-0 justify-between gap-[10px] items-center flex-wrap">
+                  <span className="min-w-0 text-[var(--muted)] text-[11px] font-[900] uppercase">Selected</span>
+                  <b>{selected.revision}</b>
                 </div>
                 <h3>{selected.name || 'Untitled project'}</h3>
                 <dl>
@@ -109,16 +121,16 @@ export function RevisionRestoreDialog({
                   </div>
                 </dl>
                 {selected.revision === currentRevision ? (
-                  <p className="revision-current-note">This is already the current revision.</p>
+                  <p className="m-0 border border-dashed border-[color-mix(in_srgb,var(--line)_24%,transparent)] text-[var(--muted)] p-3 font-[900] uppercase bg-[var(--hot-soft)]">This is already the current revision.</p>
                 ) : null}
               </>
             ) : (
-              <p className="revision-current-note">Select a revision to inspect it.</p>
+              <p className="m-0 border border-dashed border-[color-mix(in_srgb,var(--line)_24%,transparent)] text-[var(--muted)] p-3 font-[900] uppercase bg-[var(--hot-soft)]">Select a revision to inspect it.</p>
             )}
           </aside>
         </div>
 
-        <div className="action-row revision-restore-actions">
+        <div className="grid grid-cols-[auto_auto_auto] justify-end gap-2">
           <button type="button" className="tertiary" onClick={onClose}>
             Cancel
           </button>

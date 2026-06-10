@@ -108,7 +108,7 @@ const protocolWorkspaceClass =
 const protocolListClass =
   'grid max-h-[2480px] gap-2 overflow-auto max-sm:max-h-[42dvh] max-[420px]:max-h-[38dvh]';
 const protocolListToggleClass =
-  'protocol-list-toggle segmented grid-cols-2';
+  'segmented grid-cols-2';
 const protocolListFilterClass =
   'sticky top-0 z-[2] grid gap-1.5 bg-[var(--panel)] pb-1';
 const protocolDetailClass = 'grid min-w-0 gap-2.5';
@@ -117,21 +117,98 @@ const protocolMetaToolbarClass =
 const protocolMetaGridClass =
   'grid min-w-0 grid-cols-[minmax(220px,1.25fr)_minmax(138px,0.58fr)_minmax(104px,0.46fr)_repeat(3,minmax(128px,0.78fr))] items-center gap-1.5 max-xl:grid-cols-[minmax(220px,1.25fr)_minmax(132px,0.6fr)_minmax(104px,0.48fr)_repeat(2,minmax(128px,0.8fr))] max-lg:grid-cols-2 max-sm:w-full max-sm:grid-cols-1 max-[420px]:gap-1';
 const protocolActionsClass =
-  'flex min-w-0 flex-wrap items-center justify-end gap-1.5 overflow-visible border-b border-[rgba(36,34,29,0.12)] pb-1.5 max-sm:flex-nowrap max-sm:justify-start max-sm:overflow-x-auto max-sm:overscroll-x-contain max-sm:border-b-0 max-sm:pb-0 max-sm:[scrollbar-gutter:stable]';
+  'flex min-w-0 flex-wrap items-center justify-end gap-1.5 overflow-visible border-b border-[color-mix(in_srgb,var(--line)_12%,transparent)] pb-1.5 max-sm:flex-nowrap max-sm:justify-start max-sm:overflow-x-auto max-sm:overscroll-x-contain max-sm:border-b-0 max-sm:pb-0 max-sm:[scrollbar-gutter:stable]';
 const protocolTimerClass =
   'mr-auto flex w-auto max-w-[148px] min-w-0 flex-none items-center gap-1 max-sm:mr-0 max-sm:w-auto max-sm:max-w-none';
 const protocolTimerReadoutClass =
-  'w-[62px] min-w-0 max-w-[62px] overflow-hidden truncate rounded-[2px] border border-[rgba(36,34,29,0.28)] bg-[var(--hot)] px-1.5 py-[9px] text-center font-mono text-[13px] leading-none font-black shadow-[inset_0_0_0_1px_rgba(255,255,255,0.35)] max-sm:flex-none max-sm:text-center';
+  'w-[62px] min-w-0 max-w-[62px] overflow-hidden truncate rounded-[2px] border border-[color-mix(in_srgb,var(--line)_28%,transparent)] bg-[var(--hot)] px-1.5 py-[9px] text-center font-mono text-[13px] leading-none font-black shadow-[inset_0_0_0_1px_rgba(255,255,255,0.35)] max-sm:flex-none max-sm:text-center';
 const protocolSectionsClass =
   'grid min-w-0 max-w-full gap-3.5 overflow-x-clip overflow-y-visible';
 const protocolStructuredSectionBaseClass =
-  `${uiCard} protocol-structured-section relative z-0 grid min-w-0 max-w-full gap-2.5 overflow-x-clip overflow-y-visible bg-[#fffdf8] p-[9px] shadow-none hover:z-20 focus-within:z-20`;
+  `${uiCard} relative z-0 grid min-w-0 max-w-full gap-2.5 overflow-x-clip overflow-y-visible bg-[var(--card-bg)] p-[9px] shadow-none hover:z-20 focus-within:z-20`;
 const protocolSectionTitleClass =
-  `${uiCard} protocol-section-title relative z-[1] flex items-center justify-between gap-2 p-[7px_8px]`;
+  `${uiCard} relative z-[1] flex items-center justify-between gap-2 p-[7px_8px]`;
 const protocolSectionTitleActionsClass =
   'flex flex-wrap items-center justify-end gap-1.5';
 const protocolAddInlineClass =
-  'ml-1 inline-flex min-h-[var(--icon-button-size)] w-[calc(100%-4px)] items-center justify-center rounded-[2px] border border-dashed border-[rgba(36,34,29,0.34)] bg-white px-2 text-[11px] font-black text-[var(--muted)] uppercase shadow-none hover:border-[var(--hot)] hover:bg-[var(--primary)] hover:text-[var(--text)]';
+  'ml-1 inline-flex min-h-[var(--icon-button-size)] w-[calc(100%-4px)] items-center justify-center rounded-[2px] border border-dashed border-[color-mix(in_srgb,var(--line)_34%,transparent)] bg-[var(--input-bg)] px-2 text-[11px] font-black text-[var(--muted)] uppercase shadow-none hover:border-[var(--hot)] hover:bg-[var(--primary)] hover:text-[var(--on-primary)]';
+
+// protocol-list-item: grid gap-1 min-h-0 justify-items-start border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-[2px] bg-[var(--input-bg)] shadow-none p-[9px] text-left normal-case
+const protocolListItemClass =
+  'grid gap-1 min-h-0 justify-items-start border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-[2px] bg-[var(--input-bg)] shadow-none p-[9px] text-left normal-case';
+const protocolListItemActiveClass =
+  'grid gap-1 min-h-0 justify-items-start border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-[2px] bg-[var(--primary)] text-[var(--on-primary)] shadow-none p-[9px] text-left normal-case';
+
+// protocol-list-heading: flex w-full items-baseline justify-between gap-2 border-b border-[color-mix(in_srgb,var(--line)_12%,transparent)] pb-[3px]
+const protocolListHeadingClass =
+  'flex w-full items-baseline justify-between gap-2 border-b border-[color-mix(in_srgb,var(--line)_12%,transparent)] pb-[3px]';
+
+// .protocol-list-item b: text-[13px] font-[950] normal-case
+// .protocol-list-item span/small: text-[var(--muted)] text-[11px] font-[900] uppercase [overflow-wrap:anywhere]
+// protocol-list-date: inline-flex min-h-[22px] flex-none items-center border border-[color-mix(in_srgb,var(--line)_28%,transparent)] rounded-[2px] bg-[var(--card-bg)] !text-[var(--text)] px-[6px] font-mono text-[10px] !font-[950] tracking-normal text-right
+// (note: ::before pseudo-element can't be inlined, keep class)
+const protocolListDateClass =
+  'protocol-list-date inline-flex min-h-[22px] flex-none items-center border border-[color-mix(in_srgb,var(--line)_28%,transparent)] rounded-[2px] bg-[var(--card-bg)] !text-[var(--text)] px-[6px] font-mono !text-[10px] !font-[950] tracking-normal text-right';
+
+// protocol-list-duration: !text-[var(--text)] font-mono !text-[11px]
+const protocolListDurationClass =
+  'font-mono !text-[11px]';
+
+// protocol-empty: border border-dashed border-[var(--muted-border)] rounded-[2px] text-[var(--muted)] grid min-h-[58px] place-items-center p-[10px] text-[12px] font-[950] uppercase
+const protocolEmptyClass =
+  'border border-dashed border-[var(--muted-border)] rounded-[2px] text-[var(--muted)] grid min-h-[58px] place-items-center p-[10px] text-[12px] [font-weight:950] uppercase';
+
+// protocol-empty-detail: min-h-[240px]
+const protocolEmptyDetailClass = 'min-h-[240px]';
+
+// protocol-instruction: min-w-0 max-w-full border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-[3px] bg-[var(--input-bg)] shadow-none overflow-hidden max-sm:w-full
+const protocolInstructionClass =
+  'min-w-0 max-w-full border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-[3px] bg-[var(--input-bg)] shadow-none overflow-hidden max-sm:w-full';
+
+// protocol-entry-summary: grid grid-cols-[minmax(0,1fr)_auto] gap-[6px] items-start min-w-0 max-w-full
+const protocolEntrySummaryClass =
+  'grid grid-cols-[minmax(0,1fr)_auto] gap-[6px] items-start min-w-0 max-w-full';
+
+// protocol-entry-preview: min-w-0 max-h-[72px] overflow-auto bg-transparent pt-[2px] max-sm:[&_.markdown]:max-h-[96px] max-sm:[&_.markdown]:overflow-hidden
+const protocolEntryPreviewClass =
+  'min-w-0 max-h-[72px] overflow-auto bg-transparent pt-[2px]';
+
+// protocol-converted-label (inside protocol-entry-summary span): same as span styles but with primary bg
+// The base span styles from .protocol-entry-summary span: inline-block border border-[color-mix(in_srgb,var(--line)_22%,transparent)] bg-[var(--meta-bg)] text-[var(--muted)] px-[5px] py-[1px] text-[9px] font-[900] uppercase
+// protocol-converted-label override: border-[color-mix(in_srgb,var(--line)_34%,transparent)] bg-[var(--primary)] text-[var(--on-primary)]
+const protocolConvertedLabelClass =
+  'inline-block border border-[color-mix(in_srgb,var(--line)_34%,transparent)] rounded-[0px] bg-[var(--primary)] text-[var(--on-primary)] px-[5px] py-[1px] text-[9px] [font-weight:900] uppercase';
+
+// protocol-updated-meta: min-w-0 text-[var(--muted)] text-[8px] font-[700] whitespace-nowrap max-sm:justify-self-start max-sm:px-[2px] max-sm:text-[9px]
+const protocolUpdatedMetaClass =
+  'min-w-0 text-[var(--muted)] text-[8px] font-[700] whitespace-nowrap max-sm:justify-self-start max-sm:px-[2px] max-sm:text-[9px]';
+
+// protocol-entry-action-buttons: flex items-center justify-end gap-1 flex-none ml-auto max-sm:grid max-sm:grid-cols-[repeat(5,minmax(30px,1fr))] max-sm:gap-px max-sm:w-full max-sm:ml-0
+const protocolEntryActionButtonsClass =
+  'flex items-center justify-end gap-1 flex-none ml-auto max-sm:grid max-sm:grid-cols-[repeat(5,minmax(30px,1fr))] max-sm:gap-px max-sm:w-full max-sm:ml-0';
+
+// protocol-entry-actions: flex justify-between gap-[6px] items-center flex-nowrap min-w-0 mt-[2px] mx-[-1px] mb-[-1px] pt-[5px]
+// max-sm: grid grid-cols-1 gap-[5px] border-t-0 mt-1 mx-[-7px] mb-[-7px] ml-[-11px] p-[6px] bg-[color-mix(in_srgb,var(--panel)_78%,transparent)]
+const protocolEntryActionsClass =
+  'flex justify-between gap-[6px] items-center flex-nowrap min-w-0 mt-[2px] mx-[-1px] mb-[-1px] pt-[5px] max-sm:grid max-sm:grid-cols-1 max-sm:gap-[5px] max-sm:border-t-0 max-sm:mt-1 max-sm:mx-[-7px] max-sm:mb-[-7px] max-sm:ml-[-11px] max-sm:p-[6px] max-sm:bg-[color-mix(in_srgb,var(--panel)_78%,transparent)]';
+
+// card-comments: grid gap-[5px] mt-2
+const cardCommentsClass = 'grid gap-[5px] mt-2';
+
+// card-comment: grid grid-cols-[auto_minmax(0,1fr)_auto] gap-[6px] items-center border border-[color-mix(in_srgb,var(--line)_16%,transparent)] rounded-[2px] bg-[var(--input-bg)] p-[5px_6px] text-[11px] leading-[1.35]
+// max-sm: grid-cols-[minmax(0,1fr)_auto] gap-[2px] text-[10px]
+const cardCommentClass =
+  'grid grid-cols-[auto_minmax(0,1fr)_auto] gap-[6px] items-center border border-[color-mix(in_srgb,var(--line)_16%,transparent)] rounded-[2px] bg-[var(--input-bg)] p-[5px_6px] text-[11px] leading-[1.35] max-sm:grid-cols-[minmax(0,1fr)_auto] max-sm:gap-[2px] max-sm:text-[10px]';
+
+// card-comment-delete: w-4 min-w-4 h-4 min-h-4 border-0 bg-transparent shadow-none p-0
+const cardCommentDeleteClass =
+  'w-4 min-w-4 h-4 min-h-4 border-0 bg-transparent shadow-none p-0';
+
+// panel-title: text-[18px] font-[950] mb-[10px] uppercase
+const panelTitleClass = 'text-[18px] [font-weight:950] mb-[10px] uppercase';
+
+// action-row: flex gap-2 items-center flex-wrap mt-[10px]
+const actionRowClass = 'flex gap-2 items-center flex-wrap mt-[10px]';
 
 export function MeetingProtocols({
   projectHash,
@@ -695,19 +772,28 @@ export function MeetingProtocols({
                   overviewItems.map((item) => (
                     <button
                       type="button"
-                      className={`protocol-overview-item ${item.kind} ${item.id === selectedOverviewItemId ? 'active' : ''}`}
+                      className={cn(
+                        'grid gap-1 min-h-0 justify-items-start border rounded-[2px] bg-[var(--input-bg)] shadow-none p-2 text-left normal-case hover:bg-[var(--primary)] hover:text-[var(--on-primary)] hover:shadow-none',
+                        item.kind === 'updates' && 'border-l-[5px] border-l-[var(--cyan)] border-[color-mix(in_srgb,var(--line)_20%,transparent)]',
+                        item.kind === 'topics' && 'border-l-[5px] border-l-[var(--hot)] border-[color-mix(in_srgb,var(--line)_20%,transparent)]',
+                        item.kind === 'todos' && 'border-l-[5px] border-l-[var(--primary-strong)] border-[color-mix(in_srgb,var(--line)_20%,transparent)]',
+                        item.kind !== 'updates' && item.kind !== 'topics' && item.kind !== 'todos' && 'border-[color-mix(in_srgb,var(--line)_20%,transparent)]',
+                        item.id === selectedOverviewItemId
+                          ? 'border-[var(--line)] bg-[var(--date-bg)]'
+                          : '',
+                      )}
                       key={item.id}
                       onClick={() => selectOverviewItem(item)}
                     >
-                      <b>{item.title}</b>
-                      <span>{item.meta}</span>
-                      <div className="protocol-overview-markdown">
+                      <b className="text-[13px] [font-weight:950] normal-case [overflow-wrap:anywhere] max-w-full">{item.title}</b>
+                      <span className="text-[var(--muted)] text-[11px] [font-weight:900] uppercase [overflow-wrap:anywhere] max-w-full">{item.meta}</span>
+                      <div className="overflow-hidden text-inherit text-[11px] font-extrabold leading-[1.25] normal-case max-w-full [overflow-wrap:anywhere] [&_.markdown]:[-webkit-box-orient:vertical] [&_.markdown]:[-webkit-line-clamp:3] [&_.markdown]:[display:-webkit-box] [&_.markdown]:max-h-[4.1em] [&_.markdown]:overflow-hidden [&_.markdown]:text-inherit [&_.markdown]:leading-inherit">
                         <MarkdownBlock markdown={item.body || '_No details_'} />
                       </div>
                     </button>
                   ))
                 ) : protocols.length ? (
-                  <div className="protocol-empty">No entries</div>
+                  <div className={protocolEmptyClass}>No entries</div>
                 ) : (
                   <ProtocolEmptyAdd onAdd={addProtocol} disabled={!canUseProtocol} compact />
                 )}
@@ -716,7 +802,7 @@ export function MeetingProtocols({
               filteredProtocols.map((protocol) => (
                 <button
                   type="button"
-                  className={protocol.id === selectedProtocol?.id ? 'protocol-list-item active' : 'protocol-list-item'}
+                  className={protocol.id === selectedProtocol?.id ? protocolListItemActiveClass : protocolListItemClass}
                   key={protocol.id}
                   onClick={() => {
                     setSelectedProtocolId(protocol.id);
@@ -724,12 +810,12 @@ export function MeetingProtocols({
                     onProtocolSelect(protocol.id);
                   }}
                 >
-                  <span className="protocol-list-heading">
-                    <b>{protocol.title}</b>
-                    <span className="protocol-list-date">{formatProtocolDateTime(protocol)}</span>
+                  <span className={protocolListHeadingClass}>
+                    <b className="text-[13px] [font-weight:950] normal-case [overflow-wrap:anywhere] max-w-full">{protocol.title}</b>
+                    <span className={protocolListDateClass}>{formatProtocolDateTime(protocol)}</span>
                   </span>
-                  <span className="protocol-list-duration">{formatProtocolDuration(currentProtocolDuration(protocol, timerTick))}</span>
-                  <small>{protocol.updates.length} updates · {protocol.topics.length} topics · {protocol.todos.length} to-dos</small>
+                  <span className={protocolListDurationClass}>{formatProtocolDuration(currentProtocolDuration(protocol, timerTick))}</span>
+                  <small className="text-[var(--muted)] text-[11px] [font-weight:900] uppercase [overflow-wrap:anywhere] max-w-full">{protocol.updates.length} updates · {protocol.topics.length} topics · {protocol.todos.length} to-dos</small>
                 </button>
               ))
             ) : (
@@ -855,8 +941,8 @@ export function MeetingProtocols({
                   />
                 </div>
               </div>
-              <details className="protocol-instruction" open>
-                <summary>Instruction</summary>
+              <details className={protocolInstructionClass} open>
+                <summary className="cursor-pointer border-b border-[var(--soft-line)] bg-[var(--primary)] text-[var(--on-primary)] px-[10px] py-[7px] text-[12px] [font-weight:950] uppercase max-sm:[overflow-wrap:anywhere]">Instruction</summary>
                 {canEdit && isEditingInstruction ? (
                   <MarkdownEditor
                     className="protocol-editor protocol-instruction-editor"
@@ -865,7 +951,7 @@ export function MeetingProtocols({
                     rows={13}
                   />
                 ) : (
-                  <pre>{createMeetingProtocolInstruction(selectedProtocol.date, selectedProtocolDuration, instructionTemplate)}</pre>
+                  <pre className="max-w-full max-h-[260px] m-0 overflow-auto p-[10px] whitespace-pre-wrap [overflow-wrap:anywhere] break-words font-mono text-[12px] leading-[1.45] max-sm:max-h-[min(46dvh,320px)] max-sm:overflow-x-hidden max-sm:p-[9px] max-sm:text-[11px]">{createMeetingProtocolInstruction(selectedProtocol.date, selectedProtocolDuration, instructionTemplate)}</pre>
                 )}
               </details>
               <div className={protocolSectionsClass}>
@@ -908,7 +994,7 @@ export function MeetingProtocols({
                 <section
                   className={cn(
                     protocolStructuredSectionBaseClass,
-                    'border-[#c9c4b8]',
+                    'border-[var(--bar-default)]',
                   )}
                   id={`protocol-${selectedProtocol.id}-notes`}
                 >
@@ -967,8 +1053,9 @@ function ProtocolEmptyAdd({
   return (
     <div
       className={cn(
-        'protocol-empty flex items-center justify-center text-center',
-        compact ? 'min-h-[72px]' : 'protocol-empty-detail',
+        protocolEmptyClass,
+        'flex items-center justify-center text-center',
+        compact ? 'min-h-[72px]' : protocolEmptyDetailClass,
       )}
     >
       <div className="flex flex-col items-center justify-center gap-1.5">
@@ -1030,7 +1117,7 @@ function ProtocolItemEditorDialog({
           onSave(localItem);
         }}
       >
-        <div className="panel-title">{label}</div>
+        <div className={panelTitleClass}>{label}</div>
         <div className="form-grid">
           <TextField
             label="Title"
@@ -1091,7 +1178,7 @@ function ProtocolItemEditorDialog({
             rows={8}
           />
         </label>
-        <div className="action-row">
+        <div className={actionRowClass}>
           <button
             type="submit"
             className="icon-button modal-action-icon"
@@ -1154,7 +1241,7 @@ function ProtocolItemLinkDialog({
           onSave(localItem);
         }}
       >
-        <div className="panel-title">{isTodoLink ? 'Link todo' : 'Link event'}</div>
+        <div className={panelTitleClass}>{isTodoLink ? 'Link todo' : 'Link event'}</div>
         <SelectField
           label={isTodoLink ? 'Todo' : 'Event'}
           value={isTodoLink ? localItem.convertedTodoId ?? '' : localItem.convertedEventId ?? ''}
@@ -1174,7 +1261,7 @@ function ProtocolItemLinkDialog({
             </option>
           ))}
         </SelectField>
-        <div className="action-row">
+        <div className={actionRowClass}>
           <button
             type="submit"
             className="icon-button modal-action-icon"
@@ -1265,11 +1352,11 @@ function ProtocolStructuredSection({
       className={cn(
         protocolStructuredSectionBaseClass,
         kind === 'updates' &&
-          'border-[color-mix(in_srgb,var(--cyan)_58%,rgba(36,34,29,0.2))]',
+          'border-[color-mix(in_srgb,var(--cyan)_58%,color-mix(in_srgb,var(--line)_20%,transparent))]',
         kind === 'topics' &&
-          'border-[color-mix(in_srgb,var(--hot)_58%,rgba(36,34,29,0.2))]',
+          'border-[color-mix(in_srgb,var(--hot)_58%,color-mix(in_srgb,var(--line)_20%,transparent))]',
         kind === 'todos' &&
-          'border-[color-mix(in_srgb,var(--primary-strong)_58%,rgba(36,34,29,0.2))]',
+          'border-[color-mix(in_srgb,var(--primary-strong)_58%,color-mix(in_srgb,var(--line)_20%,transparent))]',
         isDropTarget &&
           'outline outline-3 outline-[var(--hot)] outline-offset-[-6px]',
       )}
@@ -1282,9 +1369,9 @@ function ProtocolStructuredSection({
       <div
         className={cn(
           protocolSectionTitleClass,
-          kind === 'updates' && '!bg-[#f7fcfe]',
-          kind === 'topics' && '!bg-[#fff2f8]',
-          kind === 'todos' && '!bg-[#fbfee9]',
+          kind === 'updates' && '!bg-[var(--time-bg)]',
+          kind === 'topics' && '!bg-[var(--protocol-bg)]',
+          kind === 'todos' && '!bg-[var(--tag-bg)]',
         )}
       >
         <div>
@@ -1306,7 +1393,7 @@ function ProtocolStructuredSection({
           </button>
           <button
             type="button"
-            className={`event-table-toggle mini-button h-[var(--icon-button-size)] min-h-[var(--icon-button-size)] w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] ${collapsed ? 'collapsed' : 'expanded'}`}
+            className={`event-table-toggle min-h-[28px] px-2 text-[11px] h-[var(--icon-button-size)] min-h-[var(--icon-button-size)] w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] ${collapsed ? 'collapsed' : 'expanded'}`}
             onClick={onToggleCollapsed}
             aria-expanded={!collapsed}
             aria-label={collapsed ? `Show ${title}` : `Hide ${title}`}
@@ -1344,14 +1431,14 @@ function ProtocolStructuredSection({
                 }}
                 onClick={() => onEdit(item)}
               >
-              <div className="protocol-entry-summary">
-                <div>
-                  <h4>{item.title}</h4>
-                  {item.owner ? <span>{item.owner}</span> : null}
+              <div className={protocolEntrySummaryClass}>
+                <div className="min-w-0 max-w-full [overflow-wrap:anywhere]">
+                  <h4 className="m-0 min-w-0 max-w-full text-[14px] [font-weight:950] leading-[1.15] [overflow-wrap:anywhere] break-words uppercase">{item.title}</h4>
+                  {item.owner ? <span className="inline-block border border-[color-mix(in_srgb,var(--line)_22%,transparent)] bg-[var(--meta-bg)] text-[var(--muted)] px-[5px] py-[1px] text-[9px] [font-weight:900] uppercase">{item.owner}</span> : null}
                 </div>
                 <div className="protocol-entry-controls">
                   {item.convertedTodoId || item.convertedEventId ? (
-                    <span className="protocol-converted-label">
+                    <span className={protocolConvertedLabelClass}>
                       {item.convertedTodoId && item.convertedEventId
                         ? 'Todo + event'
                         : item.convertedTodoId
@@ -1361,7 +1448,7 @@ function ProtocolStructuredSection({
                   ) : null}
                   <button
                     type="button"
-                    className="icon-button tertiary protocol-entry-icon-button protocol-edit-button"
+                    className="icon-button tertiary w-[28px] min-w-[28px] min-h-[26px] border-[color-mix(in_srgb,var(--line)_34%,transparent)] shadow-[var(--shadow-xs)] p-0 text-[9px] text-center protocol-edit-button"
                     onClick={(event) => {
                       event.stopPropagation();
                       onEdit(item);
@@ -1374,18 +1461,18 @@ function ProtocolStructuredSection({
                   </button>
                 </div>
               </div>
-              <div className="protocol-entry-preview">
+              <div className={protocolEntryPreviewClass}>
                 <MarkdownBlock markdown={item.body || '_No details yet._'} />
               </div>
               {item.comments?.length ? (
-                <div className="card-comments" aria-label="Protocol item comments">
+                <div className={cardCommentsClass} aria-label="Protocol item comments">
                   {item.comments.map((comment) => (
-                    <div className="card-comment" key={comment.id}>
-                      <time dateTime={comment.createdAt}>{formatProtocolUpdatedAt(comment.createdAt)}</time>
-                      <span>{comment.body}</span>
+                    <div className={cardCommentClass} key={comment.id}>
+                      <time className="text-[var(--muted)] text-[10px] [font-weight:950] leading-[1.35] whitespace-nowrap uppercase max-sm:col-span-full" dateTime={comment.createdAt}>{formatProtocolUpdatedAt(comment.createdAt)}</time>
+                      <span className="min-w-0 [overflow-wrap:anywhere]">{comment.body}</span>
                       <button
                         type="button"
-                        className="card-comment-delete icon-button danger"
+                        className={cn(cardCommentDeleteClass, 'icon-button danger')}
                         onClick={(event) => {
                           event.stopPropagation();
                           onDeleteComment(item, comment);
@@ -1400,11 +1487,11 @@ function ProtocolStructuredSection({
                   ))}
                 </div>
               ) : null}
-              <div className="protocol-entry-actions">
-                <time className="protocol-updated-meta" dateTime={item.updatedAt}>
+              <div className={protocolEntryActionsClass}>
+                <time className={protocolUpdatedMetaClass} dateTime={item.updatedAt}>
                   upd {formatProtocolUpdatedAt(item.updatedAt)}
                 </time>
-                <div className="protocol-entry-action-buttons">
+                <div className={protocolEntryActionButtonsClass}>
                   {item.convertedTodoId ? (
                     <button
                       type="button"
@@ -1435,7 +1522,7 @@ function ProtocolStructuredSection({
                   )}
                   <button
                     type="button"
-                    className="icon-button tertiary protocol-entry-icon-button"
+                    className="icon-button tertiary w-[28px] min-w-[28px] min-h-[26px] border-[color-mix(in_srgb,var(--line)_34%,transparent)] shadow-[var(--shadow-xs)] p-0 text-[9px] text-center"
                     onClick={(event) => {
                       event.stopPropagation();
                       onLinkTodo(item);
@@ -1476,7 +1563,7 @@ function ProtocolStructuredSection({
                   )}
                   <button
                     type="button"
-                    className="icon-button tertiary protocol-entry-icon-button"
+                    className="icon-button tertiary w-[28px] min-w-[28px] min-h-[26px] border-[color-mix(in_srgb,var(--line)_34%,transparent)] shadow-[var(--shadow-xs)] p-0 text-[9px] text-center"
                     onClick={(event) => {
                       event.stopPropagation();
                       onLinkEvent(item);
@@ -1489,7 +1576,7 @@ function ProtocolStructuredSection({
                   </button>
                   <button
                     type="button"
-                    className="icon-button tertiary protocol-entry-icon-button"
+                    className="icon-button tertiary w-[28px] min-w-[28px] min-h-[26px] border-[color-mix(in_srgb,var(--line)_34%,transparent)] shadow-[var(--shadow-xs)] p-0 text-[9px] text-center"
                     onClick={(event) => {
                       event.stopPropagation();
                       onAddComment(item);
@@ -1503,7 +1590,7 @@ function ProtocolStructuredSection({
                   <button
                     type="button"
                     className={cn(
-                      'icon-button tertiary protocol-entry-icon-button protocol-recurring-action',
+                      'icon-button tertiary w-[28px] min-w-[28px] min-h-[26px] border-[color-mix(in_srgb,var(--line)_34%,transparent)] shadow-[var(--shadow-xs)] p-0 text-[9px] text-center protocol-recurring-action',
                       item.recurring && 'active',
                     )}
                     onClick={(event) => {
@@ -1519,7 +1606,7 @@ function ProtocolStructuredSection({
                   </button>
                   <button
                     type="button"
-                    className="icon-button danger protocol-entry-icon-button"
+                    className="icon-button danger w-[28px] min-w-[28px] min-h-[26px] border-[color-mix(in_srgb,var(--line)_34%,transparent)] shadow-[var(--shadow-xs)] p-0 text-[9px] text-center"
                     onClick={(event) => {
                       event.stopPropagation();
                       onDelete(item.id);
