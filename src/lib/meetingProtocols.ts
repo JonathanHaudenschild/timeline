@@ -1,4 +1,4 @@
-import type { MeetingProtocol, MeetingProtocolItem } from './types';
+import type { MeetingProtocol, MeetingProtocolItem, ProtocolCustomSection } from './types';
 import { mergeTimelineComments, normalizeTimelineComments } from './comments';
 
 const weekdayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
@@ -33,11 +33,15 @@ export type ProtocolHeadline = {
   excerpt: string;
 };
 
-export type ProtocolItemKind = 'updates' | 'topics' | 'todos';
+export type ProtocolItemKind = string;
+
+export const defaultProtocolSectionKinds = ['updates', 'topics', 'todos'] as const;
+
+type DefaultProtocolKind = typeof defaultProtocolSectionKinds[number];
 
 const protocolItemKinds = ['updates', 'topics', 'todos'] as const;
 
-type MeetingProtocolInput = Partial<Omit<MeetingProtocol, ProtocolItemKind>> & {
+type MeetingProtocolInput = Partial<Omit<MeetingProtocol, 'updates' | 'topics' | 'todos'>> & {
   updates?: readonly Partial<MeetingProtocolItem>[];
   topics?: readonly Partial<MeetingProtocolItem>[];
   todos?: readonly Partial<MeetingProtocolItem>[];
@@ -67,6 +71,9 @@ export function normalizeMeetingProtocols(protocols: readonly MeetingProtocolInp
         updates: removeGeneratedProtocolItemConflictDuplicates(normalizeProtocolItems(protocol.updates, 'Update')),
         topics: removeGeneratedProtocolItemConflictDuplicates(normalizeProtocolItems(protocol.topics, 'Thema')),
         todos: removeGeneratedProtocolItemConflictDuplicates(normalizeProtocolItems(protocol.todos, 'To-Do')),
+        sectionNames: normalizeProtocolSectionNames(protocol.sectionNames),
+        sectionColors: normalizeProtocolSectionColors(protocol.sectionColors),
+        customSections: normalizeProtocolCustomSections(protocol.customSections),
         body: protocol.body ?? '',
         createdAt: protocol.createdAt || now,
         updatedAt: protocol.updatedAt || protocol.createdAt || now,
@@ -104,7 +111,7 @@ export function seedRecurringProtocolItems(
   protocol: MeetingProtocol,
   sourceProtocols: readonly MeetingProtocol[],
 ): MeetingProtocol {
-  const latestBySource = new Map<string, { kind: ProtocolItemKind; item: MeetingProtocolItem; protocol: MeetingProtocol }>();
+  const latestBySource = new Map<string, { kind: DefaultProtocolKind; item: MeetingProtocolItem; protocol: MeetingProtocol }>();
   const targetKey = protocolScheduleKey(protocol);
 
   for (const sourceProtocol of sourceProtocols) {
@@ -150,7 +157,7 @@ export function seedRecurringProtocolItems(
 export function toggleRecurringProtocolItem(
   protocols: readonly MeetingProtocol[],
   protocolId: string,
-  kind: ProtocolItemKind,
+  kind: DefaultProtocolKind,
   itemId: string,
   updatedAt = new Date().toISOString(),
 ) {
@@ -184,7 +191,7 @@ export function toggleRecurringProtocolItem(
 export function populateFutureRecurringProtocolItems(
   protocols: readonly MeetingProtocol[],
   sourceProtocolId: string,
-  kind: ProtocolItemKind,
+  kind: DefaultProtocolKind,
   sourceItem: MeetingProtocolItem,
   updatedAt = new Date().toISOString(),
 ) {
@@ -206,7 +213,15 @@ export function populateFutureRecurringProtocolItems(
     if (existing) {
       templateKind = existing.kind;
       templateItem = existing.item;
-      if (!existing.item.recurring) break;
+      if (!existing.item.recurring) {
+        const reenabledItem = { ...existing.item, recurring: true, updatedAt };
+        nextById.set(protocol.id, {
+          ...currentProtocol,
+          [templateKind]: currentProtocol[templateKind].map((i) => (i.id === existing.item.id ? reenabledItem : i)),
+          updatedAt,
+        });
+        templateItem = reenabledItem;
+      }
       continue;
     }
 
@@ -276,12 +291,12 @@ function stopFutureRecurringProtocolItems(
   });
 }
 
-export function createProtocolItem(kind: ProtocolItemKind, index: number): MeetingProtocolItem {
+export function createProtocolItem(sectionName: string, index: number): MeetingProtocolItem {
   const now = new Date().toISOString();
 
   return {
     id: crypto.randomUUID(),
-    title: `${protocolItemLabel(kind)} ${index}`,
+    title: `${sectionName} ${index}`,
     owner: '',
     body: '',
     createdAt: now,
@@ -297,7 +312,8 @@ export function moveProtocolItem(
   targetItemId?: string,
   updatedAt = new Date().toISOString(),
 ) {
-  const movingItem = protocol[fromKind].find((item) => item.id === itemId);
+  const fromItems = getProtocolSectionItems(protocol, fromKind);
+  const movingItem = fromItems.find((item) => item.id === itemId);
   if (!movingItem) return protocol;
   if (fromKind === toKind && itemId === targetItemId) return protocol;
 
@@ -305,8 +321,8 @@ export function moveProtocolItem(
     ...movingItem,
     updatedAt,
   };
-  const nextFromItems = protocol[fromKind].filter((item) => item.id !== itemId);
-  const targetItems = fromKind === toKind ? nextFromItems : protocol[toKind];
+  const nextFromItems = fromItems.filter((item) => item.id !== itemId);
+  const targetItems = fromKind === toKind ? nextFromItems : getProtocolSectionItems(protocol, toKind);
   const targetIndex = targetItemId ? targetItems.findIndex((item) => item.id === targetItemId) : -1;
   const insertIndex = targetIndex >= 0 ? targetIndex : targetItems.length;
   const nextTargetItems = [
@@ -315,10 +331,13 @@ export function moveProtocolItem(
     ...targetItems.slice(insertIndex),
   ];
 
+  const fromPatch = getProtocolSectionPatch(protocol, fromKind, fromKind === toKind ? nextTargetItems : nextFromItems);
+  const toPatch = fromKind === toKind ? {} : getProtocolSectionPatch(protocol, toKind, nextTargetItems);
+
   return {
     ...protocol,
-    [fromKind]: fromKind === toKind ? nextTargetItems : nextFromItems,
-    [toKind]: nextTargetItems,
+    ...fromPatch,
+    ...toPatch,
     updatedAt,
   };
 }
@@ -391,7 +410,7 @@ export function protocolItemConversionBody(
     `Date: ${protocol.date}`,
     protocol.time ? `Time: ${protocol.time}` : '',
     `Duration: ${formatProtocolDuration(protocol.durationSeconds)}`,
-    `Section: ${protocolItemLabel(kind)}`,
+    `Section: ${getSectionDisplayName(protocol, kind)}`,
     item.owner ? `Owner: ${item.owner}` : '',
     item.body || item.title,
   ].filter(Boolean);
@@ -401,9 +420,10 @@ export function protocolItemConversionBody(
 
 export function protocolConversionBody(protocol: MeetingProtocol, headline?: ProtocolHeadline) {
   const structuredBody = [
-    sectionMarkdown('Updates', protocol.updates),
-    sectionMarkdown('Themen', protocol.topics),
-    sectionMarkdown('To-Dos', protocol.todos),
+    sectionMarkdown(protocol.sectionNames?.updates ?? 'Updates', protocol.updates),
+    sectionMarkdown(protocol.sectionNames?.topics ?? 'Themen', protocol.topics),
+    sectionMarkdown(protocol.sectionNames?.todos ?? 'To-Dos', protocol.todos),
+    ...(protocol.customSections ?? []).map((s) => sectionMarkdown(s.name, s.items)),
     protocol.body ? `## Notes\n\n${protocol.body}` : '',
   ].filter(Boolean).join('\n\n');
   const parts = [
@@ -421,7 +441,114 @@ export function protocolConversionBody(protocol: MeetingProtocol, headline?: Pro
 export function protocolItemLabel(kind: ProtocolItemKind) {
   if (kind === 'updates') return 'Update';
   if (kind === 'topics') return 'Thema';
-  return 'To-Do';
+  if (kind === 'todos') return 'To-Do';
+  return 'Item';
+}
+
+export function getProtocolSectionItems(protocol: MeetingProtocol, kind: string): MeetingProtocolItem[] {
+  if (kind === 'updates' || kind === 'topics' || kind === 'todos') {
+    return protocol[kind] as MeetingProtocolItem[];
+  }
+  return protocol.customSections?.find((s) => s.id === kind)?.items ?? [];
+}
+
+export function getProtocolSectionPatch(protocol: MeetingProtocol, kind: string, items: MeetingProtocolItem[]): Partial<MeetingProtocol> {
+  if (kind === 'updates' || kind === 'topics' || kind === 'todos') {
+    return { [kind]: items };
+  }
+  return {
+    customSections: (protocol.customSections ?? []).map((s) =>
+      s.id === kind ? { ...s, items } : s,
+    ),
+  };
+}
+
+export function getSectionDisplayName(protocol: MeetingProtocol, kind: string): string {
+  if (kind === 'updates') return protocol.sectionNames?.updates ?? 'Updates';
+  if (kind === 'topics') return protocol.sectionNames?.topics ?? 'Topics';
+  if (kind === 'todos') return protocol.sectionNames?.todos ?? 'To-Dos';
+  return protocol.customSections?.find((s) => s.id === kind)?.name ?? kind;
+}
+
+export function renameProtocolSection(
+  protocol: MeetingProtocol,
+  kind: string,
+  name: string,
+  now = new Date().toISOString(),
+): MeetingProtocol {
+  if (kind === 'updates' || kind === 'topics' || kind === 'todos') {
+    return {
+      ...protocol,
+      sectionNames: { ...protocol.sectionNames, [kind]: name },
+      updatedAt: now,
+    };
+  }
+  return {
+    ...protocol,
+    customSections: (protocol.customSections ?? []).map((s) =>
+      s.id === kind ? { ...s, name } : s,
+    ),
+    updatedAt: now,
+  };
+}
+
+export function addProtocolSection(
+  protocol: MeetingProtocol,
+  name: string,
+  now = new Date().toISOString(),
+): MeetingProtocol {
+  const newSection: ProtocolCustomSection = {
+    id: crypto.randomUUID(),
+    name,
+    items: [],
+  };
+  return {
+    ...protocol,
+    customSections: [...(protocol.customSections ?? []), newSection],
+    updatedAt: now,
+  };
+}
+
+export function deleteProtocolSection(
+  protocol: MeetingProtocol,
+  kind: string,
+  now = new Date().toISOString(),
+): MeetingProtocol {
+  if (kind === 'updates' || kind === 'topics' || kind === 'todos') return protocol;
+  return {
+    ...protocol,
+    customSections: (protocol.customSections ?? []).filter((s) => s.id !== kind),
+    updatedAt: now,
+  };
+}
+
+export function getSectionColor(protocol: MeetingProtocol, kind: string): string | undefined {
+  if (kind === 'updates') return protocol.sectionColors?.updates;
+  if (kind === 'topics') return protocol.sectionColors?.topics;
+  if (kind === 'todos') return protocol.sectionColors?.todos;
+  return protocol.customSections?.find((s) => s.id === kind)?.color;
+}
+
+export function setProtocolSectionColor(
+  protocol: MeetingProtocol,
+  kind: string,
+  color: string,
+  now = new Date().toISOString(),
+): MeetingProtocol {
+  if (kind === 'updates' || kind === 'topics' || kind === 'todos') {
+    return {
+      ...protocol,
+      sectionColors: { ...protocol.sectionColors, [kind]: color },
+      updatedAt: now,
+    };
+  }
+  return {
+    ...protocol,
+    customSections: (protocol.customSections ?? []).map((s) =>
+      s.id === kind ? { ...s, color } : s,
+    ),
+    updatedAt: now,
+  };
 }
 
 export function mergeMeetingProtocols(
@@ -459,6 +586,9 @@ export function mergeMeetingProtocols(
         : remoteProtocol.todoOwner,
       body: mergeProtocolBody(baseProtocol.body, localProtocol.body, remoteProtocol.body),
       ...mergeProtocolSections(baseProtocol, localProtocol, remoteProtocol),
+      sectionNames: mergeProtocolSectionStringRecord(baseProtocol.sectionNames, localProtocol.sectionNames, remoteProtocol.sectionNames),
+      sectionColors: mergeProtocolSectionStringRecord(baseProtocol.sectionColors, localProtocol.sectionColors, remoteProtocol.sectionColors),
+      customSections: mergeCustomSections(baseProtocol.customSections ?? [], localProtocol.customSections ?? [], remoteProtocol.customSections ?? []),
       updatedAt: latestString(localProtocol.updatedAt, remoteProtocol.updatedAt),
     };
   });
@@ -724,7 +854,7 @@ function mergeProtocolItemKind(
 }
 
 function orderMergedProtocolItems(
-  kind: ProtocolItemKind,
+  kind: DefaultProtocolKind,
   baseProtocol: MeetingProtocol,
   localProtocol: MeetingProtocol,
   remoteProtocol: MeetingProtocol,
@@ -842,4 +972,143 @@ function latestString(left: string, right: string) {
 
 function changed(left: unknown, right: unknown) {
   return JSON.stringify(left) !== JSON.stringify(right);
+}
+
+function normalizeProtocolSectionColors(
+  sectionColors: unknown,
+): MeetingProtocol['sectionColors'] {
+  if (!sectionColors || typeof sectionColors !== 'object') return undefined;
+  const obj = sectionColors as Record<string, unknown>;
+  const result: MeetingProtocol['sectionColors'] = {};
+  if (typeof obj.updates === 'string' && obj.updates.trim()) result.updates = obj.updates.trim();
+  if (typeof obj.topics === 'string' && obj.topics.trim()) result.topics = obj.topics.trim();
+  if (typeof obj.todos === 'string' && obj.todos.trim()) result.todos = obj.todos.trim();
+  return Object.keys(result).length ? result : undefined;
+}
+
+function normalizeProtocolSectionNames(
+  sectionNames: unknown,
+): MeetingProtocol['sectionNames'] {
+  if (!sectionNames || typeof sectionNames !== 'object') return undefined;
+  const obj = sectionNames as Record<string, unknown>;
+  const result: MeetingProtocol['sectionNames'] = {};
+  if (typeof obj.updates === 'string' && obj.updates.trim()) result.updates = obj.updates.trim();
+  if (typeof obj.topics === 'string' && obj.topics.trim()) result.topics = obj.topics.trim();
+  if (typeof obj.todos === 'string' && obj.todos.trim()) result.todos = obj.todos.trim();
+  return Object.keys(result).length ? result : undefined;
+}
+
+function normalizeProtocolCustomSections(
+  customSections: unknown,
+): ProtocolCustomSection[] {
+  if (!Array.isArray(customSections)) return [];
+  return customSections.filter(
+    (s): s is ProtocolCustomSection =>
+      s && typeof s === 'object' &&
+      typeof s.id === 'string' && s.id.trim() !== '' &&
+      typeof s.name === 'string' && s.name.trim() !== '' &&
+      Array.isArray(s.items),
+  ).map((s) => ({
+    id: s.id.trim(),
+    name: s.name.trim(),
+    color: typeof s.color === 'string' && s.color.trim() ? s.color.trim() : undefined,
+    items: normalizeProtocolItems(s.items, s.name),
+  }));
+}
+
+function mergeProtocolSectionStringRecord(
+  base: Record<string, string | undefined> | undefined,
+  local: Record<string, string | undefined> | undefined,
+  remote: Record<string, string | undefined> | undefined,
+): Record<string, string | undefined> | undefined {
+  const keys = new Set([...Object.keys(base ?? {}), ...Object.keys(local ?? {}), ...Object.keys(remote ?? {})]);
+  const result: Record<string, string | undefined> = {};
+  for (const key of keys) {
+    result[key] = changed(base?.[key], local?.[key]) ? local?.[key] : remote?.[key];
+  }
+  const defined = Object.fromEntries(Object.entries(result).filter(([, v]) => v !== undefined));
+  return Object.keys(defined).length ? defined : undefined;
+}
+
+function mergeCustomSections(
+  baseSections: ProtocolCustomSection[],
+  localSections: ProtocolCustomSection[],
+  remoteSections: ProtocolCustomSection[],
+): ProtocolCustomSection[] {
+  const merged = mergeById(baseSections, localSections, remoteSections);
+  return merged.map((section) => {
+    const baseSection = baseSections.find((s) => s.id === section.id);
+    const localSection = localSections.find((s) => s.id === section.id);
+    const remoteSection = remoteSections.find((s) => s.id === section.id);
+    if (!baseSection || !localSection || !remoteSection) return section;
+
+    const name = changed(baseSection.name, localSection.name) ? localSection.name : remoteSection.name;
+    const color = changed(baseSection.color, localSection.color) ? localSection.color : remoteSection.color;
+    const items = mergeCustomSectionItems(baseSection.items, localSection.items, remoteSection.items);
+    return { ...section, name, color, items };
+  });
+}
+
+function mergeCustomSectionItems(
+  baseItems: MeetingProtocolItem[],
+  localItems: MeetingProtocolItem[],
+  remoteItems: MeetingProtocolItem[],
+): MeetingProtocolItem[] {
+  const baseById = new Map(baseItems.map((item) => [item.id, item]));
+  const localById = new Map(localItems.map((item) => [item.id, item]));
+  const remoteById = new Map(remoteItems.map((item) => [item.id, item]));
+  const mergedById = new Map<string, MeetingProtocolItem>();
+  const ids = new Set([...baseById.keys(), ...localById.keys(), ...remoteById.keys()]);
+
+  for (const id of ids) {
+    const baseItem = baseById.get(id);
+    const localItem = localById.get(id);
+    const remoteItem = remoteById.get(id);
+
+    if (!baseItem) {
+      const added = localItem ?? remoteItem;
+      if (added) mergedById.set(id, added);
+      continue;
+    }
+
+    if (!localItem && !remoteItem) continue;
+
+    if (!localItem) {
+      if (remoteItem && changed(baseItem, remoteItem)) mergedById.set(id, remoteItem);
+      continue;
+    }
+
+    if (!remoteItem) {
+      if (changed(baseItem, localItem)) mergedById.set(id, localItem);
+      continue;
+    }
+
+    const localChanged = changed(baseItem, localItem);
+    const remoteChanged = changed(baseItem, remoteItem);
+    const item =
+      localChanged && remoteChanged && changed(localItem, remoteItem)
+        ? mergeProtocolItem(baseItem, localItem, remoteItem)
+        : localChanged
+          ? localItem
+          : remoteItem;
+    mergedById.set(id, item);
+  }
+
+  const localOrderChanged = idsChanged(baseItems, localItems);
+  const orderSource = localOrderChanged ? localItems : remoteItems;
+  const ordered: MeetingProtocolItem[] = [];
+  const seen = new Set<string>();
+
+  for (const sourceItem of orderSource) {
+    const merged = mergedById.get(sourceItem.id);
+    if (!merged || seen.has(sourceItem.id)) continue;
+    ordered.push(merged);
+    seen.add(sourceItem.id);
+  }
+
+  for (const [id, merged] of mergedById) {
+    if (!seen.has(id)) ordered.push(merged);
+  }
+
+  return ordered;
 }

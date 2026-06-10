@@ -33,7 +33,7 @@ import { mergeTimelineComments } from '@/lib/comments';
 import { formatShortGermanDateRange } from '@/lib/dateFormat';
 import type { DuplicateCandidate } from '@/lib/duplicateHints';
 import { createDefaultProject, defaultProjectBackgroundColor, normalizeHash, normalizeProjectBackgroundColor } from '@/lib/project';
-import { mergeMeetingProtocols, normalizeMeetingProtocols } from '@/lib/meetingProtocols';
+import { getProtocolSectionItems, getProtocolSectionPatch, mergeMeetingProtocols, normalizeMeetingProtocols } from '@/lib/meetingProtocols';
 import { buildProjectLocationHash, ensureProjectHash, parseProjectLocationHash, type ProjectUrlTarget } from '@/lib/storage';
 import {
   findTodoBoardContainingTodo,
@@ -545,10 +545,6 @@ export function TimelineApp() {
     setIsTodoSectionMinimized(false);
     setSelectedTodoId(todoId);
     setExternalTodoDraft(board.id === activeBoard.id || !todo ? null : { ...todo, boardId: board.id });
-    scrollToElement(todoRef.current);
-    window.setTimeout(() => {
-      document.getElementById(`todo-card-${todoId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-    }, 0);
   }
 
   function openEventFromProtocol(eventId: string) {
@@ -559,10 +555,6 @@ export function TimelineApp() {
     }
 
     selectEvent(event.id);
-    scrollToElement(eventsRef.current);
-    window.setTimeout(() => {
-      document.getElementById(`event-row-${event.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-    }, 0);
   }
 
   function updateTodoBoards(boards: TimelineTodoBoardData[], activeBoardId = activeBoard.id) {
@@ -698,7 +690,7 @@ export function TimelineApp() {
     who?: string;
     protocolId?: string;
     protocolItemId?: string;
-    protocolItemKind?: 'updates' | 'topics' | 'todos';
+    protocolItemKind?: string;
   }) {
     if (isActiveBoardLocked) {
       void showAlert({
@@ -732,17 +724,18 @@ export function TimelineApp() {
     const protocolItemKind = source.protocolItemKind;
     const nextProtocols =
       source.protocolId && source.protocolItemId && protocolItemKind
-        ? meetingProtocols.map((protocol) =>
-          protocol.id === source.protocolId
-            ? {
-              ...protocol,
-              [protocolItemKind]: protocol[protocolItemKind].map((item) =>
-                item.id === source.protocolItemId ? { ...item, convertedTodoId: todoForSave.id, updatedAt: now } : item,
-              ),
-              updatedAt: now,
-            }
-            : protocol,
-        )
+        ? meetingProtocols.map((protocol) => {
+          if (protocol.id !== source.protocolId) return protocol;
+          const currentItems = getProtocolSectionItems(protocol, protocolItemKind);
+          const patch = getProtocolSectionPatch(
+            protocol,
+            protocolItemKind,
+            currentItems.map((item) =>
+              item.id === source.protocolItemId ? { ...item, convertedTodoId: todoForSave.id, updatedAt: now } : item,
+            ),
+          );
+          return { ...protocol, ...patch, updatedAt: now };
+        })
         : meetingProtocols;
 
     updateProject(syncProjectTodoBoard(
@@ -756,7 +749,7 @@ export function TimelineApp() {
     protocols: MeetingProtocol[];
     protocolId: string;
     protocolItemId: string;
-    protocolItemKind: 'updates' | 'topics' | 'todos';
+    protocolItemKind: string;
     previousTodoId?: string;
     todoId?: string;
   }) {
@@ -805,7 +798,7 @@ export function TimelineApp() {
     time?: string;
     protocolId?: string;
     protocolItemId?: string;
-    protocolItemKind?: 'updates' | 'topics' | 'todos';
+    protocolItemKind?: string;
   }) {
     if (!(await confirmEventCreation(`Create an event from "${source.title || 'this protocol'}"?`))) return;
 
@@ -825,17 +818,18 @@ export function TimelineApp() {
     const protocolItemKind = source.protocolItemKind;
     const nextProtocols =
       source.protocolId && source.protocolItemId && protocolItemKind
-        ? meetingProtocols.map((protocol) =>
-          protocol.id === source.protocolId
-            ? {
-              ...protocol,
-              [protocolItemKind]: protocol[protocolItemKind].map((item) =>
-                item.id === source.protocolItemId ? { ...item, convertedEventId: event.id, updatedAt: now } : item,
-              ),
-              updatedAt: now,
-            }
-            : protocol,
-        )
+        ? meetingProtocols.map((protocol) => {
+          if (protocol.id !== source.protocolId) return protocol;
+          const currentItems = getProtocolSectionItems(protocol, protocolItemKind);
+          const patch = getProtocolSectionPatch(
+            protocol,
+            protocolItemKind,
+            currentItems.map((item) =>
+              item.id === source.protocolItemId ? { ...item, convertedEventId: event.id, updatedAt: now } : item,
+            ),
+          );
+          return { ...protocol, ...patch, updatedAt: now };
+        })
         : meetingProtocols;
 
     updateProject({ ...project, events: [...project.events, event], meetingProtocols: nextProtocols });
@@ -2546,7 +2540,7 @@ function mergeTodoFields(baseTodo: TimelineTodo, localTodo: TimelineTodo, remote
       remoteTodo,
     ),
     order: mergeTodoChoiceField(baseTodo.order, localTodo.order, remoteTodo.order, localTodo, remoteTodo),
-    tags: normalizeTodoTags([...(remoteTodo.tags ?? []), ...(localTodo.tags ?? [])]),
+    tags: normalizeTodoTags(mergeStringList(baseTodo.tags ?? [], localTodo.tags ?? [], remoteTodo.tags ?? [])),
     comments: mergeTimelineComments(baseTodo.comments, localTodo.comments, remoteTodo.comments),
   };
 }

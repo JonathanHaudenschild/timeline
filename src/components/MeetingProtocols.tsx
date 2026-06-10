@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
 import { CalendarPlus, CalendarSearch, Download, Eye, EyeOff, ListPlus, ListTodo, MessageCircle, Pause, Pencil, Play, Plus, Repeat2, Save, Square, Trash2, X } from 'lucide-react';
 import { useAppDialog } from './AppDialog';
+import { ColorSwatch } from './ColorSwatch';
 import { DuplicateHints } from './DuplicateHints';
 import { FilterBadge } from './FilterBadge';
 import { SearchInput, SelectField, TextField } from './FormControls';
@@ -17,7 +18,16 @@ import {
   createMeetingProtocol,
   createMeetingProtocolInstruction,
   createProtocolItem,
+  defaultProtocolSectionKinds,
   formatProtocolDuration,
+  getProtocolSectionItems,
+  getProtocolSectionPatch,
+  getSectionDisplayName,
+  getSectionColor,
+  setProtocolSectionColor,
+  renameProtocolSection,
+  addProtocolSection,
+  deleteProtocolSection,
   moveProtocolItem,
   protocolConversionBody,
   protocolItemConversionBody,
@@ -97,11 +107,6 @@ type DraggedProtocolItem = {
   itemId: string;
 };
 
-const sectionConfig: Array<{ kind: ProtocolItemKind; title: string; addLabel: string }> = [
-  { kind: 'updates', title: 'Updates', addLabel: 'Add update' },
-  { kind: 'topics', title: 'Topics', addLabel: 'Add topic' },
-  { kind: 'todos', title: 'To-Dos', addLabel: 'Add to-do' },
-];
 
 const protocolWorkspaceClass =
   'mt-3 grid grid-cols-[260px_minmax(0,1fr)] items-start gap-3 max-sm:grid-cols-1';
@@ -237,7 +242,7 @@ export function MeetingProtocols({
   const [isMinimized, setIsMinimized] = usePersistentState(`timeline:ui:meeting-protocols-minimized:${projectHash}`, false);
   const [isEditingInstruction, setIsEditingInstruction] = usePersistentState(`timeline:ui:meeting-protocols-edit-instruction:${projectHash}`, false);
   const [showProtocolEntries, setShowProtocolEntries] = usePersistentState(`timeline:ui:meeting-protocols-left-entries:${projectHash}`, false);
-  const [collapsedProtocolSections, setCollapsedProtocolSections] = usePersistentState<Record<ProtocolItemKind, boolean>>(
+  const [collapsedProtocolSections, setCollapsedProtocolSections] = usePersistentState<Record<string, boolean>>(
     `timeline:ui:meeting-protocols-collapsed-sections:${projectHash}`,
     { updates: false, topics: false, todos: false },
   );
@@ -254,7 +259,7 @@ export function MeetingProtocols({
     target: 'todo' | 'event';
   } | null>(null);
   const [draggedProtocolItem, setDraggedProtocolItem] = useState<DraggedProtocolItem | null>(null);
-  const [dropTargetKind, setDropTargetKind] = useState<ProtocolItemKind | null>(null);
+  const [dropTargetKind, setDropTargetKind] = useState<string | null>(null);
   const [dropTargetItemId, setDropTargetItemId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [timerTick, setTimerTick] = useState(0);
@@ -262,6 +267,12 @@ export function MeetingProtocols({
   const consumedRequestedProtocolRef = useRef('');
   const sortedProtocols = useMemo(() => sortProtocolsByDateTime(protocols), [protocols]);
   const selectedProtocol = protocols.find((protocol) => protocol.id === selectedProtocolId) ?? sortedProtocols[0];
+  const sectionConfig = selectedProtocol ? [
+    { kind: 'updates', title: selectedProtocol.sectionNames?.updates ?? 'Updates', addLabel: 'Add item', color: selectedProtocol.sectionColors?.updates },
+    { kind: 'topics', title: selectedProtocol.sectionNames?.topics ?? 'Topics', addLabel: 'Add item', color: selectedProtocol.sectionColors?.topics },
+    { kind: 'todos', title: selectedProtocol.sectionNames?.todos ?? 'To-Dos', addLabel: 'Add item', color: selectedProtocol.sectionColors?.todos },
+    ...(selectedProtocol.customSections ?? []).map((s) => ({ kind: s.id, title: s.name, addLabel: 'Add item', color: s.color })),
+  ] : [];
   const selectedProtocolDuration = selectedProtocol ? currentProtocolDuration(selectedProtocol, timerTick) : 0;
   const isTimerRunning = Boolean(selectedProtocol?.timerStartedAt);
   const timerStartLabel = selectedProtocolDuration > 0 ? 'Resume' : 'Start';
@@ -439,9 +450,10 @@ export function MeetingProtocols({
     if (!canUseProtocol) return;
     if (!selectedProtocol) return;
 
+    const sectionDisplayName = getSectionDisplayName(selectedProtocol, kind);
     setEditingItem({
       kind,
-      item: createProtocolItem(kind, selectedProtocol[kind].length + 1),
+      item: createProtocolItem(sectionDisplayName, getProtocolSectionItems(selectedProtocol, kind).length + 1),
       isNew: true,
     });
   }
@@ -460,14 +472,16 @@ export function MeetingProtocols({
       ...itemToSave,
       updatedAt: now,
     };
+    const currentItems = getProtocolSectionItems(selectedProtocol, editingItem.kind);
     const nextItems = editingItem.isNew
-      ? [...selectedProtocol[editingItem.kind], nextItem]
-      : selectedProtocol[editingItem.kind].map((item) => (item.id === nextItem.id ? nextItem : item));
+      ? [...currentItems, nextItem]
+      : currentItems.map((item) => (item.id === nextItem.id ? nextItem : item));
+    const patch = getProtocolSectionPatch(selectedProtocol, editingItem.kind, nextItems);
     const nextProtocols = protocols.map((protocol) =>
       protocol.id === selectedProtocol.id
         ? {
           ...selectedProtocol,
-          [editingItem.kind]: nextItems,
+          ...patch,
           updatedAt: now,
         }
         : protocol,
@@ -492,13 +506,17 @@ export function MeetingProtocols({
     if (!selectedProtocol || !linkingItem) return;
     const now = new Date().toISOString();
     const nextItem = { ...itemToSave, updatedAt: now };
+    const currentItems = getProtocolSectionItems(selectedProtocol, linkingItem.kind);
+    const patch = getProtocolSectionPatch(
+      selectedProtocol,
+      linkingItem.kind,
+      currentItems.map((item) => (item.id === nextItem.id ? nextItem : item)),
+    );
     const nextProtocols = protocols.map((protocol) =>
       protocol.id === selectedProtocol.id
         ? {
           ...selectedProtocol,
-          [linkingItem.kind]: selectedProtocol[linkingItem.kind].map((item) =>
-            item.id === nextItem.id ? nextItem : item,
-          ),
+          ...patch,
           updatedAt: now,
         }
         : protocol,
@@ -534,9 +552,11 @@ export function MeetingProtocols({
       return;
     }
 
-    updateProtocol({
-      [kind]: selectedProtocol[kind].filter((item) => item.id !== itemId),
-    });
+    updateProtocol(getProtocolSectionPatch(
+      selectedProtocol,
+      kind,
+      getProtocolSectionItems(selectedProtocol, kind).filter((item) => item.id !== itemId),
+    ));
   }
 
   async function addItemComment(kind: ProtocolItemKind, item: MeetingProtocolItem) {
@@ -559,9 +579,11 @@ export function MeetingProtocols({
       updatedAt: now,
     };
 
-    updateProtocol({
-      [kind]: selectedProtocol[kind].map((entry) => (entry.id === item.id ? nextItem : entry)),
-    });
+    updateProtocol(getProtocolSectionPatch(
+      selectedProtocol,
+      kind,
+      getProtocolSectionItems(selectedProtocol, kind).map((entry) => (entry.id === item.id ? nextItem : entry)),
+    ));
   }
 
   async function deleteItemComment(kind: ProtocolItemKind, item: MeetingProtocolItem, comment: TimelineComment) {
@@ -587,16 +609,18 @@ export function MeetingProtocols({
       updatedAt: now,
     };
 
-    updateProtocol({
-      [kind]: selectedProtocol[kind].map((entry) => (entry.id === item.id ? nextItem : entry)),
-    });
+    updateProtocol(getProtocolSectionPatch(
+      selectedProtocol,
+      kind,
+      getProtocolSectionItems(selectedProtocol, kind).map((entry) => (entry.id === item.id ? nextItem : entry)),
+    ));
   }
 
   function toggleItemRecurring(kind: ProtocolItemKind, item: MeetingProtocolItem) {
     if (!canUseProtocol) return;
     if (!selectedProtocol) return;
 
-    onChange(toggleRecurringProtocolItem(protocols, selectedProtocol.id, kind, item.id));
+    onChange(toggleRecurringProtocolItem(protocols, selectedProtocol.id, kind as 'updates' | 'topics' | 'todos', item.id));
   }
 
   async function deleteEditingItem() {
@@ -711,11 +735,38 @@ export function MeetingProtocols({
 
   function toggleProtocolSection(kind: ProtocolItemKind) {
     setCollapsedProtocolSections((sections) => ({
-      updates: Boolean(sections.updates),
-      topics: Boolean(sections.topics),
-      todos: Boolean(sections.todos),
+      ...sections,
       [kind]: !sections[kind],
     }));
+  }
+
+  async function renameSectionInProtocol(kind: string, currentName: string) {
+    if (!canEdit) return;
+    const name = await appDialog.prompt({ title: 'Rename section', label: 'Section name', defaultValue: currentName, confirmLabel: 'Rename' });
+    if (!name?.trim() || !selectedProtocol) return;
+    const nextProtocol = renameProtocolSection(selectedProtocol, kind, name.trim());
+    onChange(protocols.map((p) => p.id === selectedProtocol.id ? nextProtocol : p));
+  }
+
+  async function addSectionToProtocol() {
+    if (!canEdit || !selectedProtocol) return;
+    const name = await appDialog.prompt({ title: 'Add section', label: 'Section name', confirmLabel: 'Add section' });
+    if (!name?.trim()) return;
+    const nextProtocol = addProtocolSection(selectedProtocol, name.trim());
+    onChange(protocols.map((p) => p.id === selectedProtocol.id ? nextProtocol : p));
+  }
+
+  async function deleteSectionFromProtocol(kind: string, sectionTitle: string) {
+    if (!canEdit || !selectedProtocol) return;
+    if (!(await appDialog.confirm({ title: 'Delete section?', message: `Delete "${sectionTitle}" and all its items?`, confirmLabel: 'Delete section', tone: 'danger' }))) return;
+    const nextProtocol = deleteProtocolSection(selectedProtocol, kind);
+    onChange(protocols.map((p) => p.id === selectedProtocol.id ? nextProtocol : p));
+  }
+
+  function setSectionColorInProtocol(kind: string, color: string) {
+    if (!canEdit || !selectedProtocol) return;
+    const nextProtocol = setProtocolSectionColor(selectedProtocol, kind, color);
+    onChange(protocols.map((p) => p.id === selectedProtocol.id ? nextProtocol : p));
   }
 
   return (
@@ -962,10 +1013,16 @@ export function MeetingProtocols({
                     kind={section.kind}
                     title={section.title}
                     addLabel={section.addLabel}
+                    color={section.color}
+                    items={getProtocolSectionItems(selectedProtocol, section.kind)}
                     collapsed={Boolean(collapsedProtocolSections[section.kind])}
                     search={search}
+                    canEdit={canEdit}
                     onAdd={() => addItem(section.kind)}
                     onToggleCollapsed={() => toggleProtocolSection(section.kind)}
+                    onRename={() => void renameSectionInProtocol(section.kind, section.title)}
+                    onSetColor={(color) => setSectionColorInProtocol(section.kind, color)}
+                    onDeleteSection={!defaultProtocolSectionKinds.includes(section.kind as 'updates' | 'topics' | 'todos') ? () => void deleteSectionFromProtocol(section.kind, section.title) : undefined}
                     onEdit={(item) => editItem(section.kind, item)}
                     onDelete={(itemId) => void deleteItem(section.kind, itemId)}
                     onAddComment={(item) => void addItemComment(section.kind, item)}
@@ -991,6 +1048,11 @@ export function MeetingProtocols({
                     canUseProtocol={canUseProtocol}
                   />
                 ))}
+                {canEdit ? (
+                  <button type="button" className={protocolAddInlineClass} onClick={() => void addSectionToProtocol()}>
+                    + Add section
+                  </button>
+                ) : null}
                 <section
                   className={cn(
                     protocolStructuredSectionBaseClass,
@@ -1288,13 +1350,19 @@ function ProtocolItemLinkDialog({
 function ProtocolStructuredSection({
   protocol,
   canUseProtocol,
+  canEdit,
   kind,
   title,
   addLabel,
+  color,
+  items: itemsProp,
   collapsed,
   search,
   onAdd,
   onToggleCollapsed,
+  onRename,
+  onSetColor,
+  onDeleteSection,
   onEdit,
   onDelete,
   onAddComment,
@@ -1316,13 +1384,19 @@ function ProtocolStructuredSection({
 }: {
   protocol: MeetingProtocol;
   canUseProtocol: boolean;
+  canEdit: boolean;
   kind: ProtocolItemKind;
   title: string;
   addLabel: string;
+  color?: string;
+  items: MeetingProtocolItem[];
   collapsed: boolean;
   search: string;
   onAdd: () => void;
   onToggleCollapsed: () => void;
+  onRename: () => void;
+  onSetColor: (color: string) => void;
+  onDeleteSection?: () => void;
   onEdit: (item: MeetingProtocolItem) => void;
   onDelete: (itemId: string) => void;
   onAddComment: (item: MeetingProtocolItem) => void;
@@ -1344,22 +1418,22 @@ function ProtocolStructuredSection({
 }) {
   const query = search.trim().toLowerCase();
   const items = query
-    ? protocol[kind].filter((item) => itemMatchesQuery(item, query))
-    : protocol[kind];
+    ? itemsProp.filter((item) => itemMatchesQuery(item, query))
+    : itemsProp;
+
+  const defaultColor = kind === 'updates' ? 'var(--cyan)' : kind === 'topics' ? 'var(--hot)' : kind === 'todos' ? 'var(--primary-strong)' : 'var(--bar-default)';
+  const activeColor = color ?? defaultColor;
 
   return (
     <section
       className={cn(
         protocolStructuredSectionBaseClass,
-        kind === 'updates' &&
-          'border-[color-mix(in_srgb,var(--cyan)_58%,color-mix(in_srgb,var(--line)_20%,transparent))]',
-        kind === 'topics' &&
-          'border-[color-mix(in_srgb,var(--hot)_58%,color-mix(in_srgb,var(--line)_20%,transparent))]',
-        kind === 'todos' &&
-          'border-[color-mix(in_srgb,var(--primary-strong)_58%,color-mix(in_srgb,var(--line)_20%,transparent))]',
-        isDropTarget &&
-          'outline outline-3 outline-[var(--hot)] outline-offset-[-6px]',
+        !color && kind === 'updates' && 'border-[color-mix(in_srgb,var(--cyan)_58%,color-mix(in_srgb,var(--line)_20%,transparent))]',
+        !color && kind === 'topics' && 'border-[color-mix(in_srgb,var(--hot)_58%,color-mix(in_srgb,var(--line)_20%,transparent))]',
+        !color && kind === 'todos' && 'border-[color-mix(in_srgb,var(--primary-strong)_58%,color-mix(in_srgb,var(--line)_20%,transparent))]',
+        isDropTarget && 'outline outline-3 outline-[var(--hot)] outline-offset-[-6px]',
       )}
+      style={color ? { borderColor: `color-mix(in srgb, ${color} 58%, color-mix(in srgb, var(--line) 20%, transparent))` } : undefined}
       onDragOver={onDragOver}
       onDrop={(event) => {
         event.preventDefault();
@@ -1369,10 +1443,11 @@ function ProtocolStructuredSection({
       <div
         className={cn(
           protocolSectionTitleClass,
-          kind === 'updates' && '!bg-[var(--time-bg)]',
-          kind === 'topics' && '!bg-[var(--protocol-bg)]',
-          kind === 'todos' && '!bg-[var(--tag-bg)]',
+          !color && kind === 'updates' && '!bg-[var(--time-bg)]',
+          !color && kind === 'topics' && '!bg-[var(--protocol-bg)]',
+          !color && kind === 'todos' && '!bg-[var(--tag-bg)]',
         )}
+        style={color ? { backgroundColor: `color-mix(in srgb, ${color} 18%, var(--card-bg))` } : undefined}
       >
         <div>
           <h3 className="m-0 text-sm font-black uppercase">{title}</h3>
@@ -1391,6 +1466,35 @@ function ProtocolStructuredSection({
           >
             <Plus size={15} aria-hidden="true" />
           </button>
+          {canEdit ? (
+            <>
+              <ColorSwatch
+                value={color ?? '#888888'}
+                onChange={onSetColor}
+                label={`Set color for ${title}`}
+              />
+              <button
+                type="button"
+                className="icon-button secondary h-[var(--icon-button-size)] min-h-[var(--icon-button-size)] w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0"
+                onClick={onRename}
+                aria-label={`Rename ${title}`}
+                title="Rename section"
+              >
+                <Pencil size={13} aria-hidden="true" />
+              </button>
+              {onDeleteSection ? (
+                <button
+                  type="button"
+                  className="icon-button danger h-[var(--icon-button-size)] min-h-[var(--icon-button-size)] w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0"
+                  onClick={onDeleteSection}
+                  aria-label={`Delete ${title} section`}
+                  title="Delete section"
+                >
+                  <Trash2 size={13} aria-hidden="true" />
+                </button>
+              ) : null}
+            </>
+          ) : null}
           <button
             type="button"
             className={cn(
@@ -1416,7 +1520,8 @@ function ProtocolStructuredSection({
                 <div className="h-[3px] rounded-[2px] bg-[var(--hot)] mx-[2px] mb-[5px] pointer-events-none shrink-0" aria-hidden="true" />
               ) : null}
               <article
-                className={`relative grid gap-[5px] min-w-0 max-w-full border border-[var(--soft-line)] rounded-[2px] bg-[var(--card-bg)] shadow-[0_1px_0_color-mix(in_srgb,var(--line)_14%,transparent),var(--shadow-sm)] p-[7px_7px_7px_11px] cursor-grab overflow-x-clip overflow-y-visible hover:z-[4] hover:border-[color-mix(in_srgb,var(--line)_34%,transparent)] hover:translate-y-[-1px] max-sm:hover:translate-y-0 hover:shadow-[0_2px_0_color-mix(in_srgb,var(--line)_16%,transparent),0_10px_18px_color-mix(in_srgb,var(--line)_8%,transparent)] focus-within:z-[4] active:cursor-grabbing before:content-[''] before:absolute before:inset-y-0 before:left-0 before:w-1 before:h-auto ${kind === 'updates' ? 'before:bg-[var(--cyan)]' : kind === 'topics' ? 'before:bg-[var(--hot)]' : kind === 'todos' ? 'before:bg-[var(--primary-strong)]' : 'before:bg-[var(--bar-default)]'} ${item.convertedTodoId || item.convertedEventId ? 'border-[color-mix(in_srgb,var(--line)_30%,transparent)] shadow-[var(--shadow-xs),var(--shadow-sm)] [background-image:repeating-linear-gradient(135deg,color-mix(in_srgb,var(--line)_5%,transparent)_0_7px,rgba(221,248,90,0.3)_7px_13px)]' : ''} ${draggedItem?.itemId === item.id ? 'opacity-[0.48]' : ''}`}
+                className={`relative grid gap-[5px] min-w-0 max-w-full border border-[var(--soft-line)] rounded-[2px] bg-[var(--card-bg)] shadow-[0_1px_0_color-mix(in_srgb,var(--line)_14%,transparent),var(--shadow-sm)] p-[7px_7px_7px_11px] cursor-grab overflow-x-clip overflow-y-visible hover:z-[4] hover:border-[color-mix(in_srgb,var(--line)_34%,transparent)] hover:translate-y-[-1px] max-sm:hover:translate-y-0 hover:shadow-[0_2px_0_color-mix(in_srgb,var(--line)_16%,transparent),0_10px_18px_color-mix(in_srgb,var(--line)_8%,transparent)] focus-within:z-[4] active:cursor-grabbing before:content-[''] before:absolute before:inset-y-0 before:left-0 before:w-1 before:h-auto before:bg-[var(--section-color)] ${item.convertedTodoId || item.convertedEventId ? 'border-[color-mix(in_srgb,var(--line)_30%,transparent)] shadow-[var(--shadow-xs),var(--shadow-sm)] [background-image:repeating-linear-gradient(135deg,color-mix(in_srgb,var(--line)_5%,transparent)_0_7px,rgba(221,248,90,0.3)_7px_13px)]' : ''} ${draggedItem?.itemId === item.id ? 'opacity-[0.48]' : ''}`}
+                style={{ '--section-color': activeColor } as React.CSSProperties}
                 draggable={canUseProtocol}
                 id={`protocol-${protocol.id}-${kind}-${item.id}`}
                 onDragStart={(event) => {
@@ -1647,11 +1752,20 @@ function ProtocolStructuredSection({
   );
 }
 
+function getProtocolAllSections(protocol: MeetingProtocol) {
+  return [
+    { kind: 'updates' as const, title: protocol.sectionNames?.updates ?? 'Updates', items: protocol.updates },
+    { kind: 'topics' as const, title: protocol.sectionNames?.topics ?? 'Topics', items: protocol.topics },
+    { kind: 'todos' as const, title: protocol.sectionNames?.todos ?? 'To-Dos', items: protocol.todos },
+    ...(protocol.customSections ?? []).map((s) => ({ kind: s.id, title: s.name, items: s.items })),
+  ];
+}
+
 function buildProtocolOverviewItems(protocols: MeetingProtocol[], search: string, now: number): ProtocolOverviewItem[] {
   const query = search.trim().toLowerCase();
   const items = protocols.flatMap((protocol) =>
-    sectionConfig.flatMap((section) =>
-      protocol[section.kind].map((item) => ({
+    getProtocolAllSections(protocol).flatMap((section) =>
+      section.items.map((item) => ({
         id: `protocol-${protocol.id}-${section.kind}-${item.id}`,
         protocolId: protocol.id,
         kind: section.kind,
@@ -1689,14 +1803,14 @@ function protocolMatchesQuery(protocol: MeetingProtocol, query: string, now: num
     protocol.protocolWriter,
     protocol.todoOwner,
     protocol.body,
-    ...sectionConfig.flatMap((section) =>
-          protocol[section.kind].flatMap((item) => [
-            section.title,
-            item.title,
-            item.owner,
-            item.body,
-            ...(item.comments ?? []).map((comment) => comment.body),
-          ]),
+    ...getProtocolAllSections(protocol).flatMap((section) =>
+      section.items.flatMap((item) => [
+        section.title,
+        item.title,
+        item.owner,
+        item.body,
+        ...(item.comments ?? []).map((comment) => comment.body),
+      ]),
     ),
   ]
     .join(' ')
@@ -1755,9 +1869,10 @@ function protocolPdfHtml(protocol: MeetingProtocol) {
     ['Todo-person', protocol.todoOwner],
   ];
   const sections = [
-    protocolItemsPdf('Updates', 'updates', protocol.updates),
-    protocolItemsPdf('Topics', 'topics', protocol.topics),
-    protocolItemsPdf('To-Dos', 'todos', protocol.todos),
+    protocolItemsPdf(protocol.sectionNames?.updates ?? 'Updates', 'updates', protocol.updates),
+    protocolItemsPdf(protocol.sectionNames?.topics ?? 'Topics', 'topics', protocol.topics),
+    protocolItemsPdf(protocol.sectionNames?.todos ?? 'To-Dos', 'todos', protocol.todos),
+    ...(protocol.customSections ?? []).map((s) => protocolItemsPdf(s.name, s.id, s.items)),
   ].filter(Boolean).join('');
   const notes = protocol.body.trim()
     ? `<section class="notes-section"><h2>Notes</h2><div class="markdown">${renderMarkdown(protocol.body)}</div></section>`

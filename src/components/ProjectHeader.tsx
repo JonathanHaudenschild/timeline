@@ -1,6 +1,5 @@
 "use client";
 
-import { useRef } from "react";
 import Image from "next/image";
 import {
   FilePlus2,
@@ -9,10 +8,10 @@ import {
   KeyRound,
   LogOut,
   Pencil,
-  Palette,
   RotateCcw,
   Trash2,
 } from "lucide-react";
+import { ColorSwatch } from "./ColorSwatch";
 import { DarkModeToggle } from "./DarkModeToggle";
 import { TextField } from "./FormControls";
 import { cn } from "@/lib/cn";
@@ -387,28 +386,15 @@ function BackgroundColorControl({
   onChange: (backgroundColor: string) => void;
   mobile?: boolean;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
   const isDefault = value === defaultProjectBackgroundColor;
   return (
     <>
-      <button
-        type="button"
-        className={mobile ? "secondary" : cn(projectToolButtonClass, "tertiary")}
-        onClick={() => inputRef.current?.click()}
-        title="Background color"
-        aria-label="Background color"
-      >
-        <Palette size={17} aria-hidden="true" />
-        {mobile && <span>Background color</span>}
-        <input
-          ref={inputRef}
-          type="color"
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          className="sr-only"
-          tabIndex={-1}
-        />
-      </button>
+      <ColorSwatch
+        value={value}
+        onChange={onChange}
+        label="Background color"
+        className={mobile ? 'secondary' : cn(projectToolButtonClass, 'tertiary')}
+      />
       {!isDefault && (
         <button
           type="button"

@@ -58,6 +58,13 @@ export type StickyLink = {
   url: string;
 };
 
+export type ProtocolCustomSection = {
+  id: string;
+  name: string;
+  color?: string;
+  items: MeetingProtocolItem[];
+};
+
 export type MeetingProtocol = {
   id: string;
   title: string;
@@ -71,6 +78,9 @@ export type MeetingProtocol = {
   updates: MeetingProtocolItem[];
   topics: MeetingProtocolItem[];
   todos: MeetingProtocolItem[];
+  sectionNames?: { updates?: string; topics?: string; todos?: string };
+  sectionColors?: { updates?: string; topics?: string; todos?: string };
+  customSections?: ProtocolCustomSection[];
   body: string;
   createdAt: string;
   updatedAt: string;

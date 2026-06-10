@@ -6,6 +6,7 @@ import type { TimelineEvent } from '@/lib/types';
 import { colorForType } from '@/lib/colors';
 import type { DuplicateCandidate } from '@/lib/duplicateHints';
 import { eventCategoryOptions, eventTypeOptions } from '@/lib/eventOptions';
+import { ColorSwatch } from './ColorSwatch';
 import { DuplicateHints } from './DuplicateHints';
 import { TextField } from './FormControls';
 import { MarkdownEditor } from './MarkdownEditor';
@@ -100,12 +101,10 @@ export function EventEditor({ draft, events, typeColors, duplicateCandidates = [
         <label>
           <span>Color</span>
           <div className="grid [grid-template-columns:var(--icon-button-size)_minmax(0,1fr)] gap-[6px] items-center">
-            <input
-              type="color"
-              className="w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] h-[var(--icon-button-size)] min-h-[var(--icon-button-size)] border-[color-mix(in_srgb,var(--line)_22%,transparent)] bg-[var(--input-bg)] shadow-none p-[3px] cursor-pointer"
+            <ColorSwatch
               value={localDraft.color || colorForType(localDraft.type, typeColors)}
-              onChange={(event) => updateDraft({ color: event.target.value })}
-              aria-label="Event color"
+              onChange={(color) => updateDraft({ color })}
+              label="Event color"
             />
             <input
               value={localDraft.color || ''}
