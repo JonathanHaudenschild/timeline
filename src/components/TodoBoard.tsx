@@ -430,7 +430,7 @@ export function TodoBoard({
             clearLabel="Clear todo filters"
             className="max-sm:w-full"
           />
-          <details className="mobile-control-menu todo-mobile-menu relative">
+          <details className="mobile-control-menu todo-mobile-menu relative sm:hidden">
             <summary className="min-h-[36px] inline-grid place-items-center border border-[color-mix(in_srgb,var(--line)_32%,transparent)] rounded-[2px] bg-[var(--primary)] text-[var(--on-primary)] shadow-[var(--punk-shadow)] cursor-pointer text-[12px] font-[950] list-none px-[10px] uppercase [&::-webkit-details-marker]:hidden open:bg-[var(--hot)]">Actions</summary>
               <div className="mobile-control-panel absolute right-0 top-[calc(100%+8px)] z-20 w-[min(280px,calc(100vw-24px))] grid gap-2 border border-[color-mix(in_srgb,var(--line)_24%,transparent)] rounded-[3px] bg-[var(--panel)] shadow-[0_14px_36px_color-mix(in_srgb,var(--line)_16%,transparent)] p-[10px] [&>button]:w-full [&>button]:inline-flex [&>button]:items-center [&>button]:justify-center [&>button]:gap-[7px] [&_.icon-button]:w-[var(--icon-button-size)] [&_.icon-button]:min-w-[var(--icon-button-size)] [&_.icon-button]:min-h-[var(--icon-button-size)] [&_.mobile-action-icons_.icon-button]:w-full [&_.mobile-action-icons_.icon-button]:min-w-0">
                 {renderBoardActions ? (
