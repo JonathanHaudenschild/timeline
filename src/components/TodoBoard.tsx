@@ -2,7 +2,7 @@
 
 import { Fragment, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Columns3, Link2, MessageCircle, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Columns3, Copy, Link2, MessageCircle, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useAppDialog } from './AppDialog';
 import { FilterBadge } from './FilterBadge';
 import { InlineTextInput, SearchInput, SelectField } from './FormControls';
@@ -26,7 +26,7 @@ import { cn } from '@/lib/cn';
 import { uiCard, uiSurface } from '@/lib/ui';
 import { usePersistentState } from '@/lib/usePersistentState';
 
-type TodoSortKey = 'manual' | 'due-date' | 'a-z' | 'owner' | 'created';
+type TodoSortKey = 'manual' | 'due-date' | 'a-z' | 'owner' | 'created' | 'importance';
 
 const todoBoardClass =
   `${uiSurface} min-w-0 max-w-full overflow-visible p-3.5 max-sm:p-2.5`;
@@ -116,6 +116,7 @@ type TodoBoardProps = {
   onTodoOpened?: () => void;
   onChange: (todos: TimelineTodo[]) => void;
   onMoveTodoToBoard: (todo: TimelineTodo, targetBoardId: string) => void;
+  onCopyTodoToBoard?: (todo: TimelineTodo, targetBoardId: string) => void;
   onConvertTodoToEvent: (todo: TimelineTodo) => boolean | void | Promise<boolean | void>;
   onOpenProtocolItem?: (todo: TimelineTodo) => void;
   onStatusesChange: (statuses: TodoStatus[]) => void;
@@ -136,6 +137,7 @@ export function TodoBoard({
   onTodoOpened,
   onChange,
   onMoveTodoToBoard,
+  onCopyTodoToBoard,
   onConvertTodoToEvent,
   onOpenProtocolItem,
   onStatusesChange,
@@ -309,6 +311,47 @@ export function TodoBoard({
     }, now);
 
     onChange(todos.map((item) => (item.id === todo.id ? nextTodo : item)));
+  }
+
+  async function handleDuplicate(todo: TimelineTodo) {
+    const otherBoards = boards.filter((b) => b.id !== boardId);
+    const now = new Date().toISOString();
+
+    let targetBoardId: string = boardId;
+
+    if (otherBoards.length > 0 && onCopyTodoToBoard) {
+      const boardOptions = [
+        { value: boardId, label: `${boardName} (this board)` },
+        ...otherBoards.map((b) => ({ value: b.id, label: b.name })),
+      ];
+      const picked = await appDialog.select({
+        title: 'Duplicate todo',
+        label: 'Target board',
+        options: boardOptions,
+        defaultValue: boardId,
+        confirmLabel: 'Duplicate',
+        confirmIcon: <Copy size={18} aria-hidden="true" />,
+        cancelIcon: <X size={18} aria-hidden="true" />,
+      });
+      if (!picked) return;
+      targetBoardId = picked;
+    }
+
+    const copy: TimelineTodo = {
+      ...todo,
+      id: crypto.randomUUID(),
+      createdAt: now,
+      updatedAt: now,
+      protocolId: undefined,
+      protocolItemId: undefined,
+      boardId: undefined,
+    };
+
+    if (targetBoardId === boardId) {
+      onChange([...todos, copy]);
+    } else {
+      onCopyTodoToBoard!(copy, targetBoardId);
+    }
   }
 
   const totalOpen = todos.filter((todo) => !isTodoCompleted(todo, completedTodoStatus)).length;
@@ -652,6 +695,7 @@ export function TodoBoard({
                 className="mb-[9px] mt-[-4px] w-full max-w-none"
               >
                 <option value="manual">Manual</option>
+                <option value="importance">Importance</option>
                 <option value="due-date">Due date</option>
                 <option value="a-z">A-Z</option>
                 <option value="owner">Owner</option>
@@ -695,6 +739,9 @@ export function TodoBoard({
                         setDropTargetId(null);
                       }}
                     onClick={() => setDraftTodo({ ...todo, boardId })}
+                    style={todo.importance && !isTodoCompleted(todo, completedTodoStatus)
+                      ? { backgroundColor: importanceCardBg(todo.importance) }
+                      : undefined}
                   >
                     <div className={todoCardToplineClass}>
                       <div className={todoCardTitleClass}>{todo.title}</div>
@@ -713,9 +760,22 @@ export function TodoBoard({
                         </button>
                       ) : null}
                     </div>
-                    {todo.who || todo.dueDate ? (
+                    {todo.who || todo.dueDate || todo.importance ? (
                       <div className={todoCardMetaClass}>
                         {todo.who ? <span className={todoCardMetaSpanClass}>{todo.who}</span> : null}
+                        {todo.importance ? (
+                          <span
+                            className="min-w-0 rounded-full border-0 px-[6px] py-px font-[950] leading-none tracking-tight"
+                            style={{
+                              backgroundColor: importanceCssColor(todo.importance),
+                              color: todo.importance < 34 ? 'var(--on-primary)' : 'white',
+                            }}
+                            title={`Importance: ${todo.importance}`}
+                            aria-label={`Importance ${todo.importance}`}
+                          >
+                            {todo.importance}
+                          </span>
+                        ) : null}
                         {todo.dueDate ? (
                           <time
                             className={cn(
@@ -844,6 +904,18 @@ export function TodoBoard({
                         </button>
                         <button
                           type="button"
+                          className="icon-button tertiary"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            void handleDuplicate(todo);
+                          }}
+                          aria-label={`Duplicate ${todo.title}`}
+                          title="Duplicate"
+                        >
+                          <Copy size={14} aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
                           className="icon-button danger"
                           onClick={(event) => {
                             event.stopPropagation();
@@ -908,6 +980,11 @@ function AddColumnButton({ onAddStatus }: { onAddStatus: () => void | Promise<vo
 function compareTodos(a: TimelineTodo, b: TimelineTodo, sortKey: TodoSortKey) {
   if (sortKey === 'manual') return compareManualTodos(a, b);
   if (sortKey === 'created') return a.id.localeCompare(b.id);
+  if (sortKey === 'importance') {
+    const ai = a.importance ?? 0;
+    const bi = b.importance ?? 0;
+    return bi - ai || compareText(a.title, b.title);
+  }
   if (sortKey === 'a-z') return compareText(a.title, b.title);
   if (sortKey === 'owner') {
     const ownerCompare = compareText(a.who || 'zzzz', b.who || 'zzzz');
@@ -985,6 +1062,18 @@ function formatClockTime(date: Date) {
 
 function localDateString(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function importanceCssColor(importance: number) {
+  if (importance >= 67) return 'var(--danger)';
+  if (importance >= 34) return 'var(--hot)';
+  return 'var(--primary)';
+}
+
+function importanceCardBg(importance: number) {
+  const color = importanceCssColor(importance);
+  const strength = importance >= 67 ? 14 : importance >= 34 ? 10 : 6;
+  return `color-mix(in srgb, ${color} ${strength}%, var(--card-bg))`;
 }
 
 function todoMatchesSearch(todo: TimelineTodo, search: string) {

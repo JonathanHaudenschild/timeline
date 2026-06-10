@@ -23,7 +23,6 @@ import {
   getProtocolSectionItems,
   getProtocolSectionPatch,
   getSectionDisplayName,
-  getSectionColor,
   setProtocolSectionColor,
   renameProtocolSection,
   addProtocolSection,

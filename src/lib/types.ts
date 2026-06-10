@@ -40,6 +40,7 @@ export type TimelineTodo = {
   comments?: TimelineComment[];
   showOnTimeline: boolean;
   order?: number;
+  importance?: number;
 };
 
 export type TimelineTodoBoard = {

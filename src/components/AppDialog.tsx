@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { TextField } from './FormControls';
+import { SelectField, TextField } from './FormControls';
 
 type DialogTone = 'default' | 'danger';
 
@@ -25,10 +25,19 @@ type PromptOptions = ConfirmOptions & {
   placeholder?: string;
 };
 
+type SelectDialogOption = { value: string; label: string };
+
+type SelectOptions = ConfirmOptions & {
+  label: string;
+  options: SelectDialogOption[];
+  defaultValue?: string;
+};
+
 type DialogState =
   | ({ kind: 'alert' } & AlertOptions)
   | ({ kind: 'confirm' } & ConfirmOptions)
-  | ({ kind: 'prompt' } & PromptOptions);
+  | ({ kind: 'prompt' } & PromptOptions)
+  | ({ kind: 'select' } & SelectOptions);
 
 type DialogResult = boolean | string | null;
 
@@ -58,7 +67,13 @@ export function useAppDialog() {
   }, [closeDialog, dialog]);
 
   const openDialog = useCallback(<T extends DialogResult>(nextDialog: DialogState) => {
-    setInputValue(nextDialog.kind === 'prompt' ? nextDialog.defaultValue ?? '' : '');
+    setInputValue(
+      nextDialog.kind === 'prompt'
+        ? nextDialog.defaultValue ?? ''
+        : nextDialog.kind === 'select'
+          ? nextDialog.defaultValue ?? nextDialog.options[0]?.value ?? ''
+          : '',
+    );
     setDialog(nextDialog);
 
     return new Promise<T>((resolve) => {
@@ -90,6 +105,16 @@ export function useAppDialog() {
     });
   }, [openDialog]);
 
+  const select = useCallback((options: SelectOptions) => {
+    return openDialog<string | null>({
+      kind: 'select',
+      confirmLabel: 'Select',
+      cancelLabel: 'Cancel',
+      tone: 'default',
+      ...options,
+    });
+  }, [openDialog]);
+
   const isDangerDialog = dialog?.kind !== 'alert' && dialog?.tone === 'danger';
   const dialogElement = dialog ? (
     <div className="fixed inset-0 z-[80] grid place-items-center p-[18px] bg-[rgba(18,24,22,0.42)]" role="dialog" aria-modal="true" aria-label={dialog.title}>
@@ -97,7 +122,7 @@ export function useAppDialog() {
         className={`bg-[var(--panel)] rounded-[3px] shadow-[var(--shadow)] p-[16px] w-[min(460px,100%)] max-h-[calc(100vh-36px)] overflow-auto shadow-[0_20px_60px_color-mix(in_srgb,var(--line)_20%,transparent)] grid gap-[14px] border ${isDangerDialog ? 'border-[color-mix(in_srgb,var(--danger)_50%,transparent)] shadow-[0_18px_48px_color-mix(in_srgb,var(--danger)_13%,transparent)]' : 'border-[color-mix(in_srgb,var(--line)_34%,transparent)]'}`}
         onSubmit={(event) => {
           event.preventDefault();
-          closeDialog(dialog.kind === 'prompt' ? inputValue : true);
+          closeDialog(dialog.kind === 'prompt' || dialog.kind === 'select' ? inputValue : true);
         }}
       >
         <header className="grid gap-2">
@@ -114,6 +139,18 @@ export function useAppDialog() {
             autoFocus
             className="grid gap-[6px]"
           />
+        ) : dialog.kind === 'select' ? (
+          <SelectField
+            label={dialog.label}
+            value={inputValue}
+            onValueChange={setInputValue}
+            autoFocus
+            className="grid gap-[6px] max-w-none"
+          >
+            {dialog.options.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </SelectField>
         ) : null}
 
         <div className="flex gap-2 items-center flex-wrap mt-0 justify-end">
@@ -131,7 +168,7 @@ export function useAppDialog() {
           <button
             type="submit"
             className={dialog.confirmIcon ? `icon-button w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0 ${isDangerDialog ? 'danger' : ''}` : isDangerDialog ? 'danger' : ''}
-            autoFocus={dialog.kind !== 'prompt'}
+            autoFocus={dialog.kind !== 'prompt' && dialog.kind !== 'select'}
             aria-label={dialog.confirmIcon ? dialog.confirmLabel : undefined}
             title={dialog.confirmIcon ? dialog.confirmLabel : undefined}
           >
@@ -147,5 +184,6 @@ export function useAppDialog() {
     alert,
     confirm,
     prompt,
+    select,
   };
 }

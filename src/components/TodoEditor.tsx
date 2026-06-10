@@ -166,62 +166,109 @@ export function TodoEditor({
               </SelectField>
             ) : null}
           </div>
-          <div className="col-span-full min-w-0">
-            <span className="text-[var(--muted)] text-xs">Tags</span>
-            <div className="grid gap-[6px] min-w-0 border border-[var(--soft-line)] rounded-[2px] bg-[var(--card-bg)] p-[5px]">
-              {selectedTags.length ? (
-                <div className="flex flex-wrap gap-1 items-center min-w-0" aria-label="Todo tags">
-                  {selectedTags.map((tag) => (
-                    <span
-                      className="inline-flex min-h-[19px] min-w-0 max-w-full items-center gap-1 rounded-[2px] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] bg-[var(--card-bg)] px-1.5 py-px text-[9px] font-[950] leading-[1.1] uppercase text-[var(--text)] shadow-none cursor-default"
-                      key={tag}
-                    >
-                      <span className="min-w-0 [overflow-wrap:anywhere]">{tag}</span>
-                      <button
-                        type="button"
-                        className="inline-grid place-items-center w-4 min-w-4 h-4 min-h-4 border-0 rounded-[2px] bg-transparent shadow-none text-[var(--muted)] p-0 hover:bg-[var(--danger)] hover:text-white focus-visible:bg-[var(--danger)] focus-visible:text-white"
-                        onClick={() => removeTag(tag)}
-                        aria-label={`Remove tag ${tag}`}
-                        title="Remove tag"
+          <div className="col-span-full grid grid-cols-[minmax(0,1fr)_180px] gap-2.5 max-sm:grid-cols-1 items-end">
+            <div className="min-w-0">
+              <span className="text-[var(--muted)] text-xs">Tags</span>
+              <div className="grid gap-[6px] min-w-0 border border-[var(--soft-line)] rounded-[2px] bg-[var(--card-bg)] p-[5px]">
+                {selectedTags.length ? (
+                  <div className="flex flex-wrap gap-1 items-center min-w-0" aria-label="Todo tags">
+                    {selectedTags.map((tag) => (
+                      <span
+                        className="inline-flex min-h-[19px] min-w-0 max-w-full items-center gap-1 rounded-[2px] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] bg-[var(--card-bg)] px-1.5 py-px text-[9px] font-[950] leading-[1.1] uppercase text-[var(--text)] shadow-none cursor-default"
+                        key={tag}
                       >
-                        <X size={12} aria-hidden="true" />
-                      </button>
-                    </span>
-                  ))}
+                        <span className="min-w-0 [overflow-wrap:anywhere]">{tag}</span>
+                        <button
+                          type="button"
+                          className="inline-grid place-items-center w-4 min-w-4 h-4 min-h-4 border-0 rounded-[2px] bg-transparent shadow-none text-[var(--muted)] p-0 hover:bg-[var(--danger)] hover:text-white focus-visible:bg-[var(--danger)] focus-visible:text-white"
+                          onClick={() => removeTag(tag)}
+                          aria-label={`Remove tag ${tag}`}
+                          title="Remove tag"
+                        >
+                          <X size={12} aria-hidden="true" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+                <div className="grid [grid-template-columns:minmax(0,1fr)_var(--icon-button-size)] gap-[6px] items-center min-w-0">
+                  <TextField
+                    label="Add todo tag"
+                    hideLabel
+                    value={tagInput}
+                    onValueChange={setTagInput}
+                    onKeyDown={(event) => {
+                      if (event.key !== 'Enter' && event.key !== ',') return;
+                      event.preventDefault();
+                      addTag(tagInput);
+                    }}
+                    list={tagOptionsId}
+                    placeholder={selectedTags.length ? 'Add tag' : 'Add or reuse tag'}
+                    aria-label="Add todo tag"
+                    className="min-w-0 flex-1"
+                  />
+                  <datalist id={tagOptionsId}>
+                    {suggestionTags.map((tag) => (
+                      <option key={tag} value={tag} />
+                    ))}
+                  </datalist>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    onClick={() => addTag(tagInput)}
+                    aria-label="Add tag"
+                    title="Add tag"
+                  >
+                    <Plus size={16} aria-hidden="true" />
+                  </button>
                 </div>
-              ) : null}
-              <div className="grid [grid-template-columns:minmax(0,1fr)_var(--icon-button-size)] gap-[6px] items-center min-w-0">
-                <TextField
-                  label="Add todo tag"
-                  hideLabel
-                  value={tagInput}
-                  onValueChange={setTagInput}
-                  onKeyDown={(event) => {
-                    if (event.key !== 'Enter' && event.key !== ',') return;
-                    event.preventDefault();
-                    addTag(tagInput);
-                  }}
-                  list={tagOptionsId}
-                  placeholder={selectedTags.length ? 'Add tag' : 'Add or reuse tag'}
-                  aria-label="Add todo tag"
-                  className="min-w-0 flex-1"
-                />
-                <datalist id={tagOptionsId}>
-                  {suggestionTags.map((tag) => (
-                    <option key={tag} value={tag} />
-                  ))}
-                </datalist>
-                <button
-                  type="button"
-                  className="icon-button"
-                  onClick={() => addTag(tagInput)}
-                  aria-label="Add tag"
-                  title="Add tag"
-                >
-                  <Plus size={16} aria-hidden="true" />
-                </button>
               </div>
             </div>
+            <label className="grid gap-[5px] content-start">
+              <span className="flex items-center justify-between gap-2 text-[var(--muted)] text-xs">
+                <span>Importance</span>
+                {localDraft.importance ? (
+                  <span
+                    className="rounded-[2px] px-[6px] py-px text-[11px] font-[950] leading-none"
+                    style={{
+                      backgroundColor: importanceCssColor(localDraft.importance),
+                      color: localDraft.importance < 34 ? 'var(--on-primary)' : 'white',
+                    }}
+                  >
+                    {localDraft.importance}
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-[900] text-[var(--muted)]">none</span>
+                )}
+              </span>
+              <div className="flex items-center gap-2 min-w-0 border border-[var(--soft-line)] rounded-[2px] bg-[var(--card-bg)] p-[5px]">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={localDraft.importance ?? ''}
+                  placeholder="0 – 100"
+                  onChange={(e) => {
+                    const val = Math.min(100, Math.max(0, Number(e.target.value)));
+                    updateDraft({ importance: val > 0 ? val : undefined });
+                  }}
+                  className="min-h-[var(--icon-button-size)] min-w-0 flex-1 rounded-[2px] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] bg-[var(--input-bg)] px-2 text-[13px] font-[950] shadow-none focus:border-[var(--text)] focus:outline focus:outline-2 focus:outline-[rgba(221,248,90,0.5)] focus:outline-offset-2"
+                  aria-label="Importance 0–100"
+                />
+                {localDraft.importance ? (
+                  <button
+                    type="button"
+                    className="icon-button tertiary h-[var(--icon-button-size)] min-h-[var(--icon-button-size)] w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0"
+                    onClick={() => updateDraft({ importance: undefined })}
+                    aria-label="Clear importance"
+                    title="Clear"
+                  >
+                    <X size={14} aria-hidden="true" />
+                  </button>
+                ) : null}
+              </div>
+            </label>
           </div>
         </div>
         <label className="mt-3 block">
@@ -259,6 +306,12 @@ export function TodoEditor({
       </form>
     </div>
   );
+}
+
+function importanceCssColor(importance: number) {
+  if (importance >= 67) return 'var(--danger)';
+  if (importance >= 34) return 'var(--hot)';
+  return 'var(--primary)';
 }
 
 function formatTodoCreatedAt(createdAt?: string) {

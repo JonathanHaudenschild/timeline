@@ -573,6 +573,25 @@ export function TimelineApp() {
     setSelectedTodoId(undefined);
   }
 
+  function copyTodoToBoard(todo: TimelineTodo, targetBoardId: string) {
+    const now = new Date().toISOString();
+    const copy: TimelineTodo = {
+      ...todo,
+      id: crypto.randomUUID(),
+      createdAt: now,
+      updatedAt: now,
+      protocolId: undefined,
+      protocolItemId: undefined,
+      boardId: undefined,
+    };
+    const targetBoard = todoBoards.find((b) => b.id === targetBoardId);
+    if (!targetBoard) return;
+    const nextBoards = todoBoards.map((b) =>
+      b.id === targetBoardId ? { ...b, todos: [...b.todos, copy] } : b,
+    );
+    updateTodoBoards(nextBoards, activeBoard.id);
+  }
+
   function saveExternalTodo(todoToSave: TimelineTodo) {
     if (!externalTodoBoard) return;
 
@@ -1960,6 +1979,7 @@ export function TimelineApp() {
                 })
               }
               onMoveTodoToBoard={(todo, targetBoardId) => moveTodoToBoard(todo, activeBoard.id, targetBoardId)}
+              onCopyTodoToBoard={(todo, targetBoardId) => copyTodoToBoard(todo, targetBoardId)}
               onConvertTodoToEvent={convertTodoToEvent}
               onOpenProtocolItem={openProtocolItemFromTodo}
               onStatusesChange={(todoStatuses) =>
@@ -2540,6 +2560,7 @@ function mergeTodoFields(baseTodo: TimelineTodo, localTodo: TimelineTodo, remote
       remoteTodo,
     ),
     order: mergeTodoChoiceField(baseTodo.order, localTodo.order, remoteTodo.order, localTodo, remoteTodo),
+    importance: mergeTodoChoiceField(baseTodo.importance, localTodo.importance, remoteTodo.importance, localTodo, remoteTodo),
     tags: normalizeTodoTags(mergeStringList(baseTodo.tags ?? [], localTodo.tags ?? [], remoteTodo.tags ?? [])),
     comments: mergeTimelineComments(baseTodo.comments, localTodo.comments, remoteTodo.comments),
   };
