@@ -945,7 +945,7 @@ export function MeetingProtocols({
                 <summary className="cursor-pointer border-b border-[var(--soft-line)] bg-[var(--primary)] text-[var(--on-primary)] px-[10px] py-[7px] text-[12px] [font-weight:950] uppercase max-sm:[overflow-wrap:anywhere]">Instruction</summary>
                 {canEdit && isEditingInstruction ? (
                   <MarkdownEditor
-                    className="protocol-editor protocol-instruction-editor"
+                    className="min-h-[260px] max-h-[520px] overflow-auto font-mono text-[12px] leading-[1.45] whitespace-pre-wrap disabled:bg-[var(--alt-bg)] disabled:text-[var(--muted)] disabled:opacity-100 protocol-instruction-editor max-sm:min-h-[min(54dvh,420px)] max-sm:max-h-[min(54dvh,420px)]"
                     value={instructionTemplate}
                     onChange={onInstructionTemplateChange}
                     rows={13}
@@ -1002,7 +1002,7 @@ export function MeetingProtocols({
                     <h3 className="m-0 text-sm font-black uppercase">Notes</h3>
                   </div>
                   <MarkdownEditor
-                    className="protocol-editor protocol-notes-editor"
+                    className="min-h-[220px] max-h-[520px] overflow-auto font-mono text-[12px] leading-[1.45] whitespace-pre-wrap disabled:bg-[var(--alt-bg)] disabled:text-[var(--muted)] disabled:opacity-100 max-sm:min-h-[min(54dvh,420px)] max-sm:max-h-[min(54dvh,420px)]"
                     value={selectedProtocol.body}
                     onChange={(body) => updateProtocol({ body })}
                     placeholder="Optional markdown notes that do not fit into updates, topics, or to-dos."
@@ -1595,8 +1595,8 @@ function ProtocolStructuredSection({
                   <button
                     type="button"
                     className={cn(
-                      'icon-button tertiary w-[28px] min-w-[28px] min-h-[26px] border-[color-mix(in_srgb,var(--line)_34%,transparent)] shadow-[var(--shadow-xs)] p-0 text-[9px] text-center protocol-recurring-action',
-                      item.recurring && 'active',
+                      'icon-button tertiary w-[28px] min-w-[28px] min-h-[26px] border-[color-mix(in_srgb,var(--line)_34%,transparent)] shadow-[var(--shadow-xs)] p-0 text-[9px] text-center',
+                      item.recurring && 'bg-[var(--primary)] shadow-[0_1px_0_var(--soft-line)] !text-[var(--on-primary)]',
                     )}
                     onClick={(event) => {
                       event.stopPropagation();

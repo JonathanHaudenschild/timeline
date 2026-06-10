@@ -520,7 +520,7 @@ export function TimelineCanvas({
       </div>
       <canvas
         ref={canvasRef}
-        className={`timeline-canvas ${project.settings.mode}`}
+        className={`timeline-canvas w-full h-[760px] block border border-[color-mix(in_srgb,var(--line)_24%,transparent)] rounded-[3px] bg-[var(--input-bg)] touch-pan-y ${project.settings.mode === 'view' ? 'cursor-grab' : project.settings.mode === 'edit' ? 'cursor-crosshair' : ''}`}
         onPointerDown={(event) => {
           const hit = hitBoxesRef.current.find(
             (box) =>

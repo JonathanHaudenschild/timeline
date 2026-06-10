@@ -792,7 +792,7 @@ export function TodoBoard({
                           upd {formatTodoUpdatedAt(todo.updatedAt ?? todo.createdAt)}
                         </time>
                       ) : <span />}
-                      <div className="todo-card-actions">
+                      <div className="todo-card-actions flex gap-1 items-center justify-end flex-none ml-auto overflow-visible border-0 rounded-none bg-transparent shadow-none">
                         <button
                           type="button"
                           className="icon-button tertiary"
