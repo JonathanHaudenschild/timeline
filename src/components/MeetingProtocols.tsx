@@ -108,9 +108,9 @@ const protocolWorkspaceClass =
 const protocolListClass =
   'grid max-h-[2480px] gap-2 overflow-auto max-sm:max-h-[42dvh] max-[420px]:max-h-[38dvh]';
 const protocolListToggleClass =
-  'segmented grid-cols-2';
+  'segmented inline-grid [grid-template-columns:1fr_1fr] min-h-[var(--icon-button-size)] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-[2px] overflow-hidden bg-[var(--input-bg)] shadow-none';
 const protocolListFilterClass =
-  'sticky top-0 z-[2] grid gap-1.5 bg-[var(--panel)] pb-1';
+  'sticky top-0 grid gap-1.5 bg-[var(--panel)] pb-1';
 const protocolDetailClass = 'grid min-w-0 gap-2.5';
 const protocolMetaToolbarClass =
   `${uiCard} grid min-w-0 gap-2 overflow-visible p-[7px] max-sm:w-full max-sm:p-1.5 max-[420px]:mx-[-2px] max-[420px]:gap-1 max-[420px]:rounded-none max-[420px]:border-x-0 max-[420px]:px-1`;
@@ -145,10 +145,10 @@ const protocolListHeadingClass =
 
 // .protocol-list-item b: text-[13px] font-[950] normal-case
 // .protocol-list-item span/small: text-[var(--muted)] text-[11px] font-[900] uppercase [overflow-wrap:anywhere]
-// protocol-list-date: inline-flex min-h-[22px] flex-none items-center border border-[color-mix(in_srgb,var(--line)_28%,transparent)] rounded-[2px] bg-[var(--card-bg)] !text-[var(--text)] px-[6px] font-mono text-[10px] !font-[950] tracking-normal text-right
+// protocol-list-date: inline-flex min-h-[22px] flex-none items-center border border-[color-mix(in_srgb,var(--line)_28%,transparent)] rounded-[2px] bg-[var(--card-bg)] text-[var(--text)]! px-[6px] font-mono text-[10px]! font-[950]! tracking-[0] text-right
 // (note: ::before pseudo-element can't be inlined, keep class)
 const protocolListDateClass =
-  'protocol-list-date inline-flex min-h-[22px] flex-none items-center border border-[color-mix(in_srgb,var(--line)_28%,transparent)] rounded-[2px] bg-[var(--card-bg)] !text-[var(--text)] px-[6px] font-mono !text-[10px] !font-[950] tracking-normal text-right';
+  'protocol-list-date inline-flex min-h-[22px] flex-none items-center border border-[color-mix(in_srgb,var(--line)_28%,transparent)] rounded-[2px] bg-[var(--card-bg)] text-[var(--text)]! px-[6px] font-mono text-[10px]! font-[950]! tracking-[0] text-right';
 
 // protocol-list-duration: !text-[var(--text)] font-mono !text-[11px]
 const protocolListDurationClass =
@@ -945,7 +945,7 @@ export function MeetingProtocols({
                 <summary className="cursor-pointer border-b border-[var(--soft-line)] bg-[var(--primary)] text-[var(--on-primary)] px-[10px] py-[7px] text-[12px] [font-weight:950] uppercase max-sm:[overflow-wrap:anywhere]">Instruction</summary>
                 {canEdit && isEditingInstruction ? (
                   <MarkdownEditor
-                    className="min-h-[260px] max-h-[520px] overflow-auto font-mono text-[12px] leading-[1.45] whitespace-pre-wrap disabled:bg-[var(--alt-bg)] disabled:text-[var(--muted)] disabled:opacity-100 protocol-instruction-editor max-sm:min-h-[min(54dvh,420px)] max-sm:max-h-[min(54dvh,420px)]"
+                    className="min-h-[260px] max-h-[520px] overflow-auto font-mono text-[12px] leading-[1.45] whitespace-pre-wrap disabled:bg-[var(--alt-bg)] disabled:text-[var(--muted)] disabled:opacity-100 max-sm:min-h-[min(54dvh,420px)] max-sm:max-h-[min(54dvh,420px)]"
                     value={instructionTemplate}
                     onChange={onInstructionTemplateChange}
                     rows={13}

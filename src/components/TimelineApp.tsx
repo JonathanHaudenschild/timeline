@@ -1769,7 +1769,7 @@ export function TimelineApp() {
           style={popoverPosition ? { left: `${popoverPosition.x}px`, top: `${popoverPosition.y}px` } : undefined}
         >
           <div
-            className="flex justify-between gap-3 items-start overflow-visible touch-none select-none"
+            className="group/popover flex justify-between gap-3 items-start overflow-visible touch-none select-none"
             onPointerDown={startPopoverDrag}
             onPointerMove={dragPopover}
             onPointerUp={stopPopoverDrag}
@@ -1778,7 +1778,7 @@ export function TimelineApp() {
               <div className="min-w-0 grid [grid-template-columns:auto_minmax(0,1fr)] gap-2 items-start">
               <button
                 type="button"
-                className="drag-handle w-[var(--icon-button-compact-size)] min-w-[var(--icon-button-compact-size)] min-h-[var(--icon-button-compact-size)] h-[var(--icon-button-compact-size)] p-0 border-[color-mix(in_srgb,var(--line)_26%,transparent)] bg-[var(--card-bg)] text-[var(--text)] cursor-grab shadow-[0_1px_0_color-mix(in_srgb,var(--line)_12%,transparent)]"
+                className="drag-handle w-[var(--icon-button-compact-size)] min-w-[var(--icon-button-compact-size)] min-h-[var(--icon-button-compact-size)] h-[var(--icon-button-compact-size)] p-0 border-[color-mix(in_srgb,var(--line)_26%,transparent)] bg-[var(--card-bg)] text-[var(--text)] cursor-grab shadow-[0_1px_0_color-mix(in_srgb,var(--line)_12%,transparent)] hover:border-[var(--primary)] hover:bg-[var(--primary)] focus-visible:border-[var(--primary)] focus-visible:bg-[var(--primary)] [&>svg]:block [&>svg]:[stroke-width:2.6] group-active/popover:cursor-grabbing"
                 aria-label="Move selected event popover"
                 title="Move"
               >

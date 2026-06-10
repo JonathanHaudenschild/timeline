@@ -34,12 +34,11 @@ const todoHeadingClass =
   'relative z-[5] mb-0.5 grid grid-cols-[auto_minmax(0,1fr)] items-end gap-3 pb-2 max-sm:z-[5] max-sm:grid-cols-1 max-sm:items-stretch max-sm:gap-2';
 const todoActionsClass =
   'flex min-w-0 items-end justify-end gap-2 flex-wrap max-sm:grid max-sm:w-full max-sm:grid-cols-1 max-sm:items-stretch';
-const todoActionGroupClass =
-  'inline-flex min-w-0 items-center gap-1.5';
+
 const todoActionIconsClass =
   'mobile-action-icons inline-flex min-w-0 items-center gap-1 max-sm:grid max-sm:w-full max-sm:grid-cols-[repeat(auto-fit,minmax(36px,1fr))]';
 const todoColumnsClass =
-  'relative z-[2] mt-[-12px] flex w-full max-w-full min-w-0 gap-2.5 overflow-x-auto overflow-y-visible overscroll-x-contain py-[18px] pr-0 pb-2.5 pl-0 [scroll-snap-type:x_proximity] [scrollbar-gutter:stable] max-sm:z-[1] max-sm:grid max-sm:grid-cols-1 max-sm:gap-2 max-sm:overflow-visible max-sm:px-0 max-sm:[scroll-snap-type:none]';
+  'relative z-2 mt-[-12px] flex w-full max-w-full min-w-0 gap-2.5 overflow-x-auto overflow-y-visible overscroll-x-contain py-[18px] pr-0 pb-2.5 pl-0 [scroll-snap-type:x_proximity] [scrollbar-gutter:stable] max-sm:z-[1] max-sm:grid max-sm:grid-cols-1 max-sm:gap-2 max-sm:overflow-visible max-sm:px-0 max-sm:[scroll-snap-type:none]';
 const todoColumnClass =
   `${uiCard} relative min-h-[150px] min-w-[300px] flex-[0_0_300px] overflow-visible border-[color-mix(in_srgb,var(--line)_22%,transparent)] bg-[var(--tag-bg)] p-[9px] shadow-[inset_0_3px_0_color-mix(in_srgb,var(--line)_18%,transparent),0_6px_14px_color-mix(in_srgb,var(--line)_5%,transparent)] [scroll-snap-align:start] hover:z-20 focus-within:z-20 max-sm:w-full max-sm:min-w-0 max-sm:scroll-snap-align-none max-sm:py-[7px] max-sm:pr-[7px] max-sm:pb-[7px] max-sm:pl-3`;
 const columnTitleClass =
@@ -431,9 +430,9 @@ export function TodoBoard({
             clearLabel="Clear todo filters"
             className="max-sm:w-full"
           />
-          <details className="mobile-control-menu todo-mobile-menu">
-            <summary>Actions</summary>
-              <div className="mobile-control-panel">
+          <details className="mobile-control-menu todo-mobile-menu relative">
+            <summary className="min-h-[36px] inline-grid place-items-center border border-[color-mix(in_srgb,var(--line)_32%,transparent)] rounded-[2px] bg-[var(--primary)] shadow-[var(--punk-shadow)] cursor-pointer text-[12px] font-[950] list-none px-[10px] uppercase [&::-webkit-details-marker]:hidden open:bg-[var(--hot)]">Actions</summary>
+              <div className="mobile-control-panel absolute right-0 top-[calc(100%+8px)] z-20 w-[min(280px,calc(100vw-24px))] grid gap-2 border border-[color-mix(in_srgb,var(--line)_24%,transparent)] rounded-[3px] bg-[var(--panel)] shadow-[0_14px_36px_color-mix(in_srgb,var(--line)_16%,transparent)] p-[10px] [&>button]:w-full [&>button]:inline-flex [&>button]:items-center [&>button]:justify-center [&>button]:gap-[7px] [&_.icon-button]:w-[var(--icon-button-size)] [&_.icon-button]:min-w-[var(--icon-button-size)] [&_.icon-button]:min-h-[var(--icon-button-size)] [&_.mobile-action-icons_.icon-button]:w-full [&_.mobile-action-icons_.icon-button]:min-w-0">
                 {renderBoardActions ? (
                 <div className={todoActionIconsClass}>{renderBoardActions()}</div>
               ) : null}

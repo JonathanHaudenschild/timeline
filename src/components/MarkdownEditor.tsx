@@ -222,7 +222,7 @@ export function MarkdownEditor({
               }}
             />
           ))}
-          <label className="w-[48px] min-w-[28px] min-h-[36px] inline-grid items-center justify-items-center border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-[2px] bg-[var(--input-bg)] shadow-none p-[2px] cursor-pointer" title="Custom text color" aria-label="Custom text color">
+          <label className="w-[48px] min-w-[28px] min-h-[36px] inline-grid items-center justify-items-center rounded-[2px] bg-[var(--input-bg)] shadow-none p-[2px] cursor-pointer" title="Custom text color" aria-label="Custom text color">
             <span className="sr-only">Custom color</span>
             <input
               type="color"
