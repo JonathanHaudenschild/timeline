@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import Image from "next/image";
 import {
   FilePlus2,
@@ -48,10 +49,7 @@ const dateControlClass =
   "grid min-w-[150px] grid-cols-1 items-stretch gap-1 border-0 bg-transparent p-0 shadow-none max-sm:w-full max-sm:min-w-0 [&>span]:block [&>span]:border-0 [&>span]:bg-transparent [&>span]:p-0 [&>span]:text-[10px] [&>span]:font-black [&>span]:leading-none [&>span]:text-[var(--muted)] [&>span]:uppercase";
 const dateInputClass =
   "!min-h-[var(--icon-button-size)] !border !border-[color-mix(in_srgb,var(--line)_22%,transparent)] !bg-[var(--input-bg)] !px-[7px] !py-1 !text-xs !font-black disabled:!bg-[var(--alt-bg)] disabled:!text-[var(--muted)] disabled:!opacity-100";
-const backgroundColorControlClass =
-  "grid min-w-[112px] grid-cols-[minmax(0,1fr)_var(--icon-button-size)] items-end gap-1.5 max-sm:w-full max-sm:min-w-0";
-const backgroundColorInputClass =
-  "!min-h-[var(--icon-button-size)] !h-[var(--icon-button-size)] !border !border-[color-mix(in_srgb,var(--line)_22%,transparent)] !bg-[var(--input-bg)] !p-1";
+
 const projectToolButtonClass =
   "icon-button h-[var(--icon-button-size)] min-h-[var(--icon-button-size)] w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0";
 const statusChipBaseClass =
@@ -252,6 +250,7 @@ export function ProjectHeader({
                 <BackgroundColorControl
                   value={projectBackgroundColor}
                   onChange={changeBackgroundColor}
+                  mobile
                 />
                 <button
                   type="button"
@@ -382,34 +381,47 @@ export function ProjectHeader({
 function BackgroundColorControl({
   value,
   onChange,
+  mobile = false,
 }: {
   value: string;
   onChange: (backgroundColor: string) => void;
+  mobile?: boolean;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const isDefault = value === defaultProjectBackgroundColor;
   return (
-    <div className={backgroundColorControlClass}>
-      <TextField
-        label="Bg"
-        type="color"
-        value={value}
-        onValueChange={onChange}
-        inputClassName={backgroundColorInputClass}
-      />
+    <>
       <button
         type="button"
-        className={cn(projectToolButtonClass, value === defaultProjectBackgroundColor ? "tertiary" : "secondary")}
-        onClick={() => onChange(defaultProjectBackgroundColor)}
-        aria-label="Reset background color"
-        title="Reset background color"
-        disabled={value === defaultProjectBackgroundColor}
+        className={mobile ? "secondary" : cn(projectToolButtonClass, "tertiary")}
+        onClick={() => inputRef.current?.click()}
+        title="Background color"
+        aria-label="Background color"
       >
-        {value === defaultProjectBackgroundColor ? (
-          <Palette size={17} aria-hidden="true" />
-        ) : (
-          <RotateCcw size={17} aria-hidden="true" />
-        )}
+        <Palette size={17} aria-hidden="true" />
+        {mobile && <span>Background color</span>}
+        <input
+          ref={inputRef}
+          type="color"
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          className="sr-only"
+          tabIndex={-1}
+        />
       </button>
-    </div>
+      {!isDefault && (
+        <button
+          type="button"
+          className={mobile ? "tertiary" : cn(projectToolButtonClass, "tertiary")}
+          onClick={() => onChange(defaultProjectBackgroundColor)}
+          aria-label="Reset background color"
+          title="Reset background color"
+        >
+          <RotateCcw size={15} aria-hidden="true" />
+          {mobile && <span>Reset background</span>}
+        </button>
+      )}
+    </>
   );
 }
 

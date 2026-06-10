@@ -624,16 +624,16 @@ function EventInsertRow({
   onAdd: () => void;
 }) {
   return (
-    <tr className="event-insert-row">
-      <td colSpan={colSpan}>
+    <tr className="event-insert-row group/insert h-0 border-0">
+      <td colSpan={colSpan} className="h-0 border-0 bg-transparent p-0 leading-none">
         <button
           type="button"
-          className="event-insert-button"
+          className="event-insert-button relative flex w-full h-0 min-h-0 items-center justify-center border-0 bg-transparent shadow-none p-0 opacity-0 group-hover/insert:opacity-100 group-focus-within/insert:opacity-100 before:content-[''] before:absolute before:right-2 before:left-2 before:h-px before:bg-transparent"
           onClick={onAdd}
           aria-label={label}
           title={label}
         >
-          <span aria-hidden="true" />
+          <span aria-hidden="true" className="relative z-[1] inline-grid w-[72px] min-w-[72px] h-[6px] place-items-center border-0 rounded-[2px] bg-transparent text-[var(--text)] leading-none group-hover/insert:bg-[var(--hot)] group-focus-within/insert:bg-[var(--hot)]" />
         </button>
       </td>
     </tr>

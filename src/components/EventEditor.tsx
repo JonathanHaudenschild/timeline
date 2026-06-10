@@ -134,11 +134,12 @@ export function EventEditor({ draft, events, typeColors, duplicateCandidates = [
           value={localDraft.who}
           onValueChange={(who) => updateDraft({ who })}
         />
-        <label className="switch-control self-end w-full col-span-full max-sm:col-auto">
+        <label className="relative min-h-[var(--icon-button-size)] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-[2px] bg-[var(--input-bg)] shadow-none pl-[42px] pr-[10px] font-[950] uppercase focus-within:border-[var(--text)] focus-within:outline focus-within:outline-2 focus-within:outline-[rgba(221,248,90,0.5)] focus-within:outline-offset-2 self-end w-full col-span-full max-sm:col-auto">
           <input
             type="checkbox"
             checked={localDraft.showOnTimeline !== false}
             onChange={(event) => updateDraft({ showOnTimeline: event.target.checked })}
+            className="absolute left-2 top-1/2 w-[25px] h-[15px] m-0 appearance-none border border-[color-mix(in_srgb,var(--line)_34%,transparent)] rounded-full bg-[var(--input-bg)] cursor-pointer -translate-y-1/2 checked:border-[var(--hot)] checked:bg-[var(--primary)] before:content-[''] before:absolute before:w-[9px] before:h-[9px] before:left-[2px] before:top-[2px] before:bg-[var(--line)] before:rounded-full before:transition-transform before:duration-[120ms] before:ease-[ease] checked:before:translate-x-[10px] checked:before:bg-[var(--hot)]"
           />
           <span>Show on timeline</span>
         </label>

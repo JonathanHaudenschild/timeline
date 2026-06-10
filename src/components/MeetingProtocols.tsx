@@ -1416,7 +1416,7 @@ function ProtocolStructuredSection({
                 <div className="h-[3px] rounded-[2px] bg-[var(--hot)] mx-[2px] mb-[5px] pointer-events-none shrink-0" aria-hidden="true" />
               ) : null}
               <article
-                className={`protocol-entry ${kind} ${item.convertedTodoId || item.convertedEventId ? 'converted' : ''} ${draggedItem?.itemId === item.id ? 'dragging' : ''}`}
+                className={`relative grid gap-[5px] min-w-0 max-w-full border border-[var(--soft-line)] rounded-[2px] bg-[var(--card-bg)] shadow-[0_1px_0_color-mix(in_srgb,var(--line)_14%,transparent),var(--shadow-sm)] p-[7px_7px_7px_11px] cursor-grab overflow-x-clip overflow-y-visible hover:z-[4] hover:border-[color-mix(in_srgb,var(--line)_34%,transparent)] hover:translate-y-[-1px] max-sm:hover:translate-y-0 hover:shadow-[0_2px_0_color-mix(in_srgb,var(--line)_16%,transparent),0_10px_18px_color-mix(in_srgb,var(--line)_8%,transparent)] focus-within:z-[4] active:cursor-grabbing before:content-[''] before:absolute before:inset-y-0 before:left-0 before:w-1 before:h-auto ${kind === 'updates' ? 'before:bg-[var(--cyan)]' : kind === 'topics' ? 'before:bg-[var(--hot)]' : kind === 'todos' ? 'before:bg-[var(--primary-strong)]' : 'before:bg-[var(--bar-default)]'} ${item.convertedTodoId || item.convertedEventId ? 'border-[color-mix(in_srgb,var(--line)_30%,transparent)] shadow-[var(--shadow-xs),var(--shadow-sm)] [background-image:repeating-linear-gradient(135deg,color-mix(in_srgb,var(--line)_5%,transparent)_0_7px,rgba(221,248,90,0.3)_7px_13px)]' : ''} ${draggedItem?.itemId === item.id ? 'opacity-[0.48]' : ''}`}
                 draggable={canUseProtocol}
                 id={`protocol-${protocol.id}-${kind}-${item.id}`}
                 onDragStart={(event) => {
@@ -1441,7 +1441,7 @@ function ProtocolStructuredSection({
                   <h4 className="m-0 min-w-0 max-w-full text-[14px] [font-weight:950] leading-[1.15] [overflow-wrap:anywhere] break-words uppercase">{item.title}</h4>
                   {item.owner ? <span className="inline-block border border-[color-mix(in_srgb,var(--line)_22%,transparent)] bg-[var(--meta-bg)] text-[var(--muted)] px-[5px] py-[1px] text-[9px] [font-weight:900] uppercase">{item.owner}</span> : null}
                 </div>
-                <div className="protocol-entry-controls">
+                <div className="protocol-entry-controls flex items-start justify-end gap-1 flex-wrap">
                   {item.convertedTodoId || item.convertedEventId ? (
                     <span className={protocolConvertedLabelClass}>
                       {item.convertedTodoId && item.convertedEventId

@@ -664,7 +664,7 @@ export function TodoBoard({
                       <div className="h-[3px] rounded-[2px] bg-[var(--hot)] mx-[2px] mb-[5px] pointer-events-none shrink-0" aria-hidden="true" />
                     ) : null}
                     <article
-                      className={`todo-item ${todo.protocolId ? 'linked' : ''} ${todoDueClass(todo, completedTodoStatus)} ${draggedTodoId === todo.id ? 'dragging' : ''}`}
+                      className={`relative grid gap-[5px] border-0 rounded-[2px] p-[7px_7px_7px_11px] mb-2 shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--line)_16%,transparent),var(--shadow-sm)] cursor-grab overflow-visible z-0 hover:z-[12] focus-within:z-[12] active:cursor-grabbing hover:translate-y-[-1px] max-sm:hover:translate-y-0 hover:shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--line)_16%,transparent),0_10px_18px_color-mix(in_srgb,var(--line)_8%,transparent)] before:content-[''] before:absolute before:inset-y-0 before:left-0 before:w-1 before:h-auto ${todoDueClass(todo, completedTodoStatus) === 'done' || (todo.protocolId && todoDueClass(todo, completedTodoStatus) === 'done') ? 'bg-[var(--done-bg)] shadow-none before:bg-[var(--bar-done)]' : todoDueClass(todo, completedTodoStatus) === 'due-soon' ? 'bg-[var(--card-bg)] before:bg-[var(--hot)]' : todoDueClass(todo, completedTodoStatus) === 'overdue' ? 'bg-[var(--card-bg)] before:bg-[var(--danger)]' : 'bg-[var(--card-bg)] before:bg-[var(--bar-default)]'} ${draggedTodoId === todo.id ? 'opacity-[0.45]' : ''}`}
                       id={`todo-card-${todo.id}`}
                       draggable
                       onDragStart={(event) => {
