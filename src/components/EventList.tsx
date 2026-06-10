@@ -172,7 +172,12 @@ export function EventList({
           />
           <button
             type="button"
-            className={`event-table-toggle event-past-toggle ${hidePastEvents ? "collapsed" : "expanded"}`}
+            className={cn(
+              "relative inline-flex w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] min-h-[var(--icon-button-size)] items-center justify-center border shadow-none p-0 text-[13px] font-[950] uppercase",
+              hidePastEvents
+                ? "bg-[var(--card-bg)] text-[var(--muted)]"
+                : "bg-[var(--primary)] text-[var(--on-primary)]",
+            )}
             onClick={() => setHidePastEvents((hidden) => !hidden)}
             aria-pressed={hidePastEvents}
             aria-label={
@@ -191,7 +196,7 @@ export function EventList({
           {canEdit ? (
             <button
               type="button"
-              className="icon-button event-add-button max-sm:justify-self-end"
+              className="icon-button w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0 max-sm:justify-self-end"
               onClick={() => onAdd()}
               aria-label="Add event"
               title="Add event"
@@ -200,7 +205,7 @@ export function EventList({
             </button>
           ) : null}
           {canEdit ? (
-            <div className="desktop-control-group bulk-event-actions">
+            <div className="hidden">
               <button
                 type="button"
                 className="secondary"
@@ -310,7 +315,7 @@ export function EventList({
                         {!event.endDate ? (
                           <button
 	                            type="button"
-	                            className="inline-date-add"
+	                            className="relative inline-flex w-[30px] min-w-[30px] min-h-[28px] items-center justify-center border border-[color-mix(in_srgb,var(--line)_22%,transparent)] bg-[var(--input-bg)] shadow-none p-0 text-[10px] font-[950] uppercase"
 	                            onClick={() =>
 	                              onChange({ ...event, endDate: event.date, endTime: undefined })
 	                            }
@@ -337,7 +342,7 @@ export function EventList({
                           />
                           <button
                             type="button"
-                            className="inline-date-add"
+                            className="relative inline-flex w-[30px] min-w-[30px] min-h-[28px] items-center justify-center border border-[color-mix(in_srgb,var(--line)_22%,transparent)] bg-[var(--input-bg)] shadow-none p-0 text-[10px] font-[950] uppercase"
                             onClick={() =>
                               onChange({ ...event, endDate: undefined, endTime: undefined })
                             }
@@ -367,7 +372,7 @@ export function EventList({
                         {event.time ? (
                           <button
                             type="button"
-                            className="inline-date-add"
+                            className="relative inline-flex w-[30px] min-w-[30px] min-h-[28px] items-center justify-center border border-[color-mix(in_srgb,var(--line)_22%,transparent)] bg-[var(--input-bg)] shadow-none p-0 text-[10px] font-[950] uppercase"
                             onClick={() => onChange({ ...event, time: "", endTime: undefined })}
                             aria-label={`Make ${event.what || "event"} all day`}
                             title="Make all day"
@@ -390,7 +395,7 @@ export function EventList({
                             />
                             <button
                               type="button"
-                              className="inline-date-add"
+                              className="relative inline-flex w-[30px] min-w-[30px] min-h-[28px] items-center justify-center border border-[color-mix(in_srgb,var(--line)_22%,transparent)] bg-[var(--input-bg)] shadow-none p-0 text-[10px] font-[950] uppercase"
                               onClick={() => onChange({ ...event, endTime: undefined })}
                               aria-label={`Remove end time for ${event.what}`}
                               title="Remove end time"
@@ -401,7 +406,7 @@ export function EventList({
                         ) : (
                           <button
                             type="button"
-                            className="inline-time-add"
+                            className="min-h-[28px] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] bg-[var(--input-bg)] shadow-none px-[7px] py-0 text-[10px] font-[950]"
                             onClick={() => onChange({ ...event, endTime: event.time })}
                             aria-label={`Add end time for ${event.what}`}
                             title="Add end time"
@@ -525,7 +530,12 @@ export function EventList({
                       <IconButton
                         tone="tertiary"
                         size="sm"
-                        className={`timeline-toggle action-toggle ${event.showOnTimeline === false ? "off" : "on"}`}
+                        className={cn(
+                          "min-h-[28px] border shadow-none px-[9px] py-0 text-[11px] font-[950]",
+                          event.showOnTimeline === false
+                            ? "bg-[var(--alt-bg)] text-[var(--muted)]"
+                            : "bg-[var(--primary)]",
+                        )}
                         onClick={(click) => {
                           click.stopPropagation();
                           onToggleTimeline(event);

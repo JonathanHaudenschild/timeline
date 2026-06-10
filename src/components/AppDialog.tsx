@@ -92,9 +92,9 @@ export function useAppDialog() {
 
   const isDangerDialog = dialog?.kind !== 'alert' && dialog?.tone === 'danger';
   const dialogElement = dialog ? (
-    <div className="modal-backdrop z-[80]" role="dialog" aria-modal="true" aria-label={dialog.title}>
+    <div className="fixed inset-0 z-[80] grid place-items-center p-[18px] bg-[rgba(18,24,22,0.42)]" role="dialog" aria-modal="true" aria-label={dialog.title}>
       <form
-        className={`editor-panel modal-panel w-[min(460px,100%)] grid gap-[14px] p-[16px] ${isDangerDialog ? 'border-[color-mix(in_srgb,var(--danger)_50%,transparent)] shadow-[0_18px_48px_color-mix(in_srgb,var(--danger)_13%,transparent)]' : 'border-[color-mix(in_srgb,var(--line)_34%,transparent)]'}`}
+        className={`bg-[var(--panel)] rounded-[3px] shadow-[var(--shadow)] p-[16px] w-[min(460px,100%)] max-h-[calc(100vh-36px)] overflow-auto shadow-[0_20px_60px_color-mix(in_srgb,var(--line)_20%,transparent)] grid gap-[14px] border ${isDangerDialog ? 'border-[color-mix(in_srgb,var(--danger)_50%,transparent)] shadow-[0_18px_48px_color-mix(in_srgb,var(--danger)_13%,transparent)]' : 'border-[color-mix(in_srgb,var(--line)_34%,transparent)]'}`}
         onSubmit={(event) => {
           event.preventDefault();
           closeDialog(dialog.kind === 'prompt' ? inputValue : true);

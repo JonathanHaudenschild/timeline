@@ -427,7 +427,7 @@ export function TimelineCanvas({
                 </button>
               </div>
             </details>
-            <div className="desktop-control-group">
+            <div className="contents max-sm:!hidden">
               <button
                 type="button"
                 className="secondary"

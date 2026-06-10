@@ -830,22 +830,22 @@ export function MeetingProtocols({
                     <strong className={protocolTimerReadoutClass}>{formatProtocolDuration(selectedProtocolDuration)}</strong>
                     {isTimerRunning ? (
                       <>
-                        <button type="button" className="icon-button secondary protocol-timer-button" onClick={pauseTimer} aria-label="Pause timer" title="Pause">
+                        <button type="button" className="icon-button secondary w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] min-h-[var(--icon-button-size)] p-0" onClick={pauseTimer} aria-label="Pause timer" title="Pause">
                           <Pause size={16} aria-hidden="true" />
                         </button>
-                        <button type="button" className="icon-button secondary protocol-timer-button" onClick={stopTimer} aria-label="Stop timer" title="Stop">
+                        <button type="button" className="icon-button secondary w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] min-h-[var(--icon-button-size)] p-0" onClick={stopTimer} aria-label="Stop timer" title="Stop">
                           <Square size={16} aria-hidden="true" />
                         </button>
                       </>
                     ) : (
-                      <button type="button" className="icon-button secondary protocol-timer-button" onClick={startTimer} aria-label={`${timerStartLabel} timer`} title={timerStartLabel}>
+                      <button type="button" className="icon-button secondary w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] min-h-[var(--icon-button-size)] p-0" onClick={startTimer} aria-label={`${timerStartLabel} timer`} title={timerStartLabel}>
                         <Play size={16} aria-hidden="true" />
                       </button>
                     )}
                   </div>
                   <button
                     type="button"
-                    className="icon-button protocol-action-button"
+                    className="icon-button w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0"
                     onClick={addProtocol}
                     disabled={!canUseProtocol}
                     aria-label="Add protocol"
@@ -856,7 +856,7 @@ export function MeetingProtocols({
                   {canEdit ? (
                     <button
                       type="button"
-                      className="icon-button secondary protocol-action-button"
+                      className="icon-button secondary w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0"
                       onClick={() => setIsEditingInstruction((editing) => !editing)}
                       aria-label={isEditingInstruction ? 'Preview instruction' : 'Edit instruction'}
                       title={isEditingInstruction ? 'Preview instruction' : 'Edit instruction'}
@@ -866,7 +866,7 @@ export function MeetingProtocols({
                   ) : null}
                   <button
                     type="button"
-                    className="icon-button secondary protocol-action-button"
+                    className="icon-button secondary w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0"
                     onClick={createEventFromProtocol}
                     aria-label="Create event from protocol"
                     title="Event from protocol"
@@ -875,7 +875,7 @@ export function MeetingProtocols({
                   </button>
                   <button
                     type="button"
-                    className="icon-button secondary protocol-action-button"
+                    className="icon-button secondary w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0"
                     onClick={exportProtocolPdf}
                     aria-label="Export protocol as PDF"
                     title="Export PDF"
@@ -884,7 +884,7 @@ export function MeetingProtocols({
                   </button>
                   <button
                     type="button"
-                    className="icon-button danger protocol-action-button"
+                    className="icon-button danger w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0"
                     onClick={() => void deleteProtocol()}
                     aria-label="Delete protocol"
                     title="Delete protocol"
@@ -1109,16 +1109,16 @@ function ProtocolItemEditorDialog({
   }
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={`Edit ${label}`}>
+    <div className="fixed inset-0 z-40 grid place-items-center p-[18px] bg-[rgba(18,24,22,0.42)]" role="dialog" aria-modal="true" aria-label={`Edit ${label}`}>
       <form
-        className="editor-panel modal-panel protocol-item-dialog"
+        className="bg-[var(--panel)] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-[3px] shadow-[var(--shadow)] p-[14px] w-[min(720px,100%)] max-h-[calc(100vh-36px)] overflow-auto shadow-[0_20px_60px_color-mix(in_srgb,var(--line)_20%,transparent)] grid gap-3 protocol-item-dialog"
         onSubmit={(event) => {
           event.preventDefault();
           onSave(localItem);
         }}
       >
         <div className={panelTitleClass}>{label}</div>
-        <div className="form-grid">
+        <div className="grid [grid-template-columns:repeat(2,minmax(0,1fr))] gap-[10px] mb-[10px] max-sm:grid-cols-1">
           <TextField
             label="Title"
             value={localItem.title}
@@ -1181,7 +1181,7 @@ function ProtocolItemEditorDialog({
         <div className={actionRowClass}>
           <button
             type="submit"
-            className="icon-button modal-action-icon"
+            className="icon-button w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0"
             aria-label={`Save ${lowerLabel}`}
             title={`Save ${lowerLabel}`}
           >
@@ -1189,7 +1189,7 @@ function ProtocolItemEditorDialog({
           </button>
           <button
             type="button"
-            className="icon-button tertiary modal-action-icon"
+            className="icon-button tertiary w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0"
             onClick={onCancel}
             aria-label="Cancel"
             title="Cancel"
@@ -1198,7 +1198,7 @@ function ProtocolItemEditorDialog({
           </button>
           <button
             type="button"
-            className="icon-button danger modal-action-icon"
+            className="icon-button danger w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0"
             onClick={onDelete}
             aria-label={`Delete ${lowerLabel}`}
             title={`Delete ${lowerLabel}`}
@@ -1233,9 +1233,9 @@ function ProtocolItemLinkDialog({
   const options = isTodoLink ? todoLinkOptions : eventLinkOptions;
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={isTodoLink ? 'Link todo' : 'Link event'}>
+    <div className="fixed inset-0 z-40 grid place-items-center p-[18px] bg-[rgba(18,24,22,0.42)]" role="dialog" aria-modal="true" aria-label={isTodoLink ? 'Link todo' : 'Link event'}>
       <form
-        className="editor-panel modal-panel protocol-item-dialog"
+        className="bg-[var(--panel)] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-[3px] shadow-[var(--shadow)] p-[14px] w-[min(720px,100%)] max-h-[calc(100vh-36px)] overflow-auto shadow-[0_20px_60px_color-mix(in_srgb,var(--line)_20%,transparent)] grid gap-3 protocol-item-dialog"
         onSubmit={(event) => {
           event.preventDefault();
           onSave(localItem);
@@ -1264,7 +1264,7 @@ function ProtocolItemLinkDialog({
         <div className={actionRowClass}>
           <button
             type="submit"
-            className="icon-button modal-action-icon"
+            className="icon-button w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0"
             aria-label={isTodoLink ? 'Save linked todo' : 'Save linked event'}
             title="Save"
           >
@@ -1272,7 +1272,7 @@ function ProtocolItemLinkDialog({
           </button>
           <button
             type="button"
-            className="icon-button tertiary modal-action-icon"
+            className="icon-button tertiary w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0"
             onClick={onCancel}
             aria-label="Cancel"
             title="Cancel"
@@ -1393,7 +1393,12 @@ function ProtocolStructuredSection({
           </button>
           <button
             type="button"
-            className={`event-table-toggle min-h-[28px] px-2 text-[11px] h-[var(--icon-button-size)] min-h-[var(--icon-button-size)] w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] ${collapsed ? 'collapsed' : 'expanded'}`}
+            className={cn(
+              "relative inline-flex h-[var(--icon-button-size)] min-h-[var(--icon-button-size)] w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] items-center justify-center border shadow-none p-0 text-[13px] font-[950] uppercase",
+              collapsed
+                ? "bg-[var(--card-bg)] text-[var(--muted)]"
+                : "bg-[var(--primary)] text-[var(--on-primary)]",
+            )}
             onClick={onToggleCollapsed}
             aria-expanded={!collapsed}
             aria-label={collapsed ? `Show ${title}` : `Hide ${title}`}
@@ -1404,11 +1409,11 @@ function ProtocolStructuredSection({
         </div>
       </div>
       {collapsed ? null : items.length ? (
-        <div className="protocol-entry-list">
+        <div className="grid gap-2 min-w-0 max-w-full pl-0">
           {items.map((item) => (
             <Fragment key={item.id}>
               {dropTargetItemId === item.id && draggedItem?.itemId !== item.id ? (
-                <div className="protocol-drop-indicator" aria-hidden="true" />
+                <div className="h-[3px] rounded-[2px] bg-[var(--hot)] mx-[2px] mb-[5px] pointer-events-none shrink-0" aria-hidden="true" />
               ) : null}
               <article
                 className={`protocol-entry ${kind} ${item.convertedTodoId || item.convertedEventId ? 'converted' : ''} ${draggedItem?.itemId === item.id ? 'dragging' : ''}`}
@@ -1495,7 +1500,7 @@ function ProtocolStructuredSection({
                   {item.convertedTodoId ? (
                     <button
                       type="button"
-                      className="icon-button protocol-convert-action protocol-linked-todo"
+                      className="icon-button w-[28px] min-w-[28px] min-h-[26px] shadow-[var(--shadow-xs)] p-0 text-[9px] text-center bg-[var(--primary)] border-[color-mix(in_srgb,var(--line)_34%,transparent)] shadow-[0_1px_0_var(--soft-line)] text-[var(--on-primary)]"
                       onClick={(event) => {
                         event.stopPropagation();
                         onOpenTodo(item.convertedTodoId!);
@@ -1508,7 +1513,7 @@ function ProtocolStructuredSection({
                   ) : (
                     <button
                       type="button"
-                      className="icon-button protocol-convert-action protocol-create-todo"
+                      className="icon-button w-[28px] min-w-[28px] min-h-[26px] border-transparent shadow-none p-0 text-[9px] text-center bg-transparent text-[var(--text)]"
                       onClick={(event) => {
                         event.stopPropagation();
                         onCreateTodo(item);
@@ -1536,7 +1541,7 @@ function ProtocolStructuredSection({
                   {item.convertedEventId ? (
                     <button
                       type="button"
-                      className="icon-button protocol-convert-action protocol-linked-event"
+                      className="icon-button w-[28px] min-w-[28px] min-h-[26px] shadow-[var(--shadow-xs)] p-0 text-[9px] text-center bg-[var(--primary)] border-[color-mix(in_srgb,var(--line)_34%,transparent)] shadow-[0_1px_0_var(--soft-line)] text-[var(--on-primary)]"
                       onClick={(event) => {
                         event.stopPropagation();
                         onOpenEvent(item.convertedEventId!);
@@ -1549,7 +1554,7 @@ function ProtocolStructuredSection({
                   ) : (
                     <button
                       type="button"
-                      className="icon-button protocol-convert-action protocol-create-event"
+                      className="icon-button w-[28px] min-w-[28px] min-h-[26px] border-transparent shadow-none p-0 text-[9px] text-center bg-transparent text-[var(--text)]"
                       onClick={(event) => {
                         event.stopPropagation();
                         onCreateEvent(item);
@@ -1625,7 +1630,7 @@ function ProtocolStructuredSection({
         </div>
       ) : (
         <div
-          className="protocol-empty protocol-drop-empty"
+          className="border border-dashed border-[var(--muted-border)] rounded-[2px] text-[var(--muted)] grid min-h-[58px] place-items-center p-[10px] text-[12px] font-[950] uppercase ml-[4px] bg-[color-mix(in_srgb,var(--input-bg)_45%,transparent)]"
           onDragOver={onDragOver}
           onDrop={(event) => {
             event.preventDefault();

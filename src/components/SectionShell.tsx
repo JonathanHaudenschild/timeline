@@ -111,7 +111,12 @@ export function SectionShell({
             {canCollapse ? (
               <button
                 type="button"
-                className={`event-table-toggle ${collapsed ? "collapsed" : "expanded"}`}
+                className={cn(
+                  "relative inline-flex w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] min-h-[var(--icon-button-size)] items-center justify-center border shadow-none p-0 text-[13px] font-[950] uppercase",
+                  collapsed
+                    ? "bg-[var(--card-bg)] text-[var(--muted)]"
+                    : "bg-[var(--primary)] text-[var(--on-primary)]",
+                )}
                 onClick={onToggle}
                 aria-expanded={!collapsed}
                 aria-label={collapsed ? `Show ${title}` : `Hide ${title}`}

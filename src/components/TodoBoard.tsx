@@ -446,7 +446,7 @@ export function TodoBoard({
               </button>
             </div>
           </details>
-          <div className={`desktop-control-group ${todoActionGroupClass}`}>
+          <div className="contents max-sm:!hidden">
             {canEdit ? (
               <AddColumnButton onAddStatus={addStatus} />
             ) : null}
@@ -662,7 +662,7 @@ export function TodoBoard({
                 columnTodos.map((todo) => (
                   <Fragment key={todo.id}>
                     {dropTargetId === todo.id && draggedTodoId !== todo.id ? (
-                      <div className="todo-drop-indicator" aria-hidden="true" />
+                      <div className="h-[3px] rounded-[2px] bg-[var(--hot)] mx-[2px] mb-[5px] pointer-events-none shrink-0" aria-hidden="true" />
                     ) : null}
                     <article
                       className={`todo-item ${todo.protocolId ? 'linked' : ''} ${todoDueClass(todo, completedTodoStatus)} ${draggedTodoId === todo.id ? 'dragging' : ''}`}

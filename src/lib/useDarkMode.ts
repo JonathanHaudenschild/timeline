@@ -18,13 +18,15 @@ function applyTheme(pref: ThemePreference) {
 }
 
 export function useDarkMode() {
-  const [preference, setPreference] = useState<ThemePreference>('system');
+  const [preference, setPreference] = useState<ThemePreference>(() => {
+    if (typeof window === 'undefined') return 'system';
+    return (localStorage.getItem(STORAGE_KEY) as ThemePreference | null) ?? 'system';
+  });
 
+  // Apply theme to DOM on mount
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY) as ThemePreference | null;
-    const initial = stored ?? 'system';
-    setPreference(initial);
-    applyTheme(initial);
+    applyTheme(preference);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const setTheme = useCallback((pref: ThemePreference) => {

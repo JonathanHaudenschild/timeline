@@ -151,16 +151,16 @@ export function StickyLinks({ links, canEdit, onChange }: StickyLinksProps) {
       </aside>
 
       {draftLink ? (
-        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Edit sticky link">
+        <div className="fixed inset-0 z-40 grid place-items-center p-[18px] bg-[rgba(18,24,22,0.42)]" role="dialog" aria-modal="true" aria-label="Edit sticky link">
           <form
-            className="editor-panel modal-panel grid gap-3"
+            className="bg-[var(--panel)] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-[3px] shadow-[var(--shadow)] p-[14px] w-[min(720px,100%)] max-h-[calc(100vh-36px)] overflow-auto shadow-[0_20px_60px_color-mix(in_srgb,var(--line)_20%,transparent)] grid gap-3"
             onSubmit={(event) => {
               event.preventDefault();
               saveLink();
             }}
           >
-            <div className="text-[18px] [font-weight:950] mb-[10px] uppercase">Sticky link</div>
-            <div className="grid grid-cols-2 gap-[10px] mb-[10px]">
+            <div className="text-[18px] font-[950] mb-[10px] uppercase">Sticky link</div>
+            <div className="grid [grid-template-columns:repeat(2,minmax(0,1fr))] gap-[10px] mb-[10px] max-sm:grid-cols-1">
               <SelectField
                 label="Icon"
                 value={draftLink.icon}

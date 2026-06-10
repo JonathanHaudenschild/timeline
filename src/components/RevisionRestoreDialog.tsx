@@ -31,8 +31,8 @@ export function RevisionRestoreDialog({
   const canRestore = Boolean(selected && selected.revision !== currentRevision && restoringRevision === null);
 
   return (
-    <div className="modal-backdrop z-[70]" role="dialog" aria-modal="true" aria-label="Restore revision">
-      <section className="editor-panel modal-panel w-[min(980px,100%)] max-w-[calc(100vw-36px)] grid gap-[14px] p-[16px] overflow-x-hidden">
+    <div className="fixed inset-0 z-[70] grid place-items-center p-[18px] bg-[rgba(18,24,22,0.42)]" role="dialog" aria-modal="true" aria-label="Restore revision">
+      <section className="bg-[var(--panel)] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-[3px] shadow-[var(--shadow)] p-[16px] w-[min(980px,100%)] max-w-[calc(100vw-36px)] max-h-[calc(100vh-36px)] overflow-auto shadow-[0_20px_60px_color-mix(in_srgb,var(--line)_20%,transparent)] grid gap-[14px] overflow-x-hidden">
         <header className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-start">
           <div>
             <h2>Restore revision</h2>

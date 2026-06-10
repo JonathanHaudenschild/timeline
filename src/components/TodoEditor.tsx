@@ -80,9 +80,9 @@ export function TodoEditor({
   }
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Edit todo">
+    <div className="fixed inset-0 z-40 grid place-items-center p-[18px] bg-[rgba(18,24,22,0.42)]" role="dialog" aria-modal="true" aria-label="Edit todo">
       <form
-        className="editor-panel modal-panel"
+        className="bg-[var(--panel)] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-[3px] shadow-[var(--shadow)] p-[14px] w-[min(720px,100%)] max-h-[calc(100vh-36px)] overflow-auto shadow-[0_20px_60px_color-mix(in_srgb,var(--line)_20%,transparent)]"
         onSubmit={(event) => {
           event.preventDefault();
           saveWithPendingTag();
@@ -166,20 +166,20 @@ export function TodoEditor({
               </SelectField>
             ) : null}
           </div>
-          <div className="todo-tags-field">
+          <div className="col-span-full min-w-0">
             <span className="text-[var(--muted)] text-xs">Tags</span>
-            <div className="todo-editor-tags">
+            <div className="grid gap-[6px] min-w-0 border border-[var(--soft-line)] rounded-[2px] bg-[var(--card-bg)] p-[5px]">
               {selectedTags.length ? (
-                <div className="todo-tag-list" aria-label="Todo tags">
+                <div className="flex flex-wrap gap-1 items-center min-w-0" aria-label="Todo tags">
                   {selectedTags.map((tag) => (
                     <span
-                      className="todo-tag-chip todo-tag-remove"
+                      className="inline-flex min-h-[19px] min-w-0 max-w-full items-center gap-1 rounded-[2px] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] bg-[var(--card-bg)] px-1.5 py-px text-[9px] font-[950] leading-[1.1] uppercase text-[var(--text)] shadow-none cursor-default"
                       key={tag}
                     >
-                      <span>{tag}</span>
+                      <span className="min-w-0 [overflow-wrap:anywhere]">{tag}</span>
                       <button
                         type="button"
-                        className="todo-tag-remove-button"
+                        className="inline-grid place-items-center w-4 min-w-4 h-4 min-h-4 border-0 rounded-[2px] bg-transparent shadow-none text-[var(--muted)] p-0 hover:bg-[var(--danger)] hover:text-white focus-visible:bg-[var(--danger)] focus-visible:text-white"
                         onClick={() => removeTag(tag)}
                         aria-label={`Remove tag ${tag}`}
                         title="Remove tag"
@@ -190,7 +190,7 @@ export function TodoEditor({
                   ))}
                 </div>
               ) : null}
-              <div className="todo-tag-input-row">
+              <div className="grid [grid-template-columns:minmax(0,1fr)_var(--icon-button-size)] gap-[6px] items-center min-w-0">
                 <TextField
                   label="Add todo tag"
                   hideLabel
@@ -233,21 +233,21 @@ export function TodoEditor({
           />
         </label>
         <div className="flex gap-2 items-center flex-wrap mt-[10px]">
-          <button type="submit" className="icon-button modal-action-icon" aria-label={saveLabel} title={saveLabel}>
+          <button type="submit" className="icon-button w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0" aria-label={saveLabel} title={saveLabel}>
             <Save size={18} aria-hidden="true" />
           </button>
-          <button type="button" className="icon-button tertiary modal-action-icon" onClick={onCancel} aria-label="Cancel" title="Cancel">
+          <button type="button" className="icon-button tertiary w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0" onClick={onCancel} aria-label="Cancel" title="Cancel">
             <X size={18} aria-hidden="true" />
           </button>
           {onDelete ? (
-            <button type="button" className="icon-button danger modal-action-icon" onClick={onDelete} aria-label="Delete todo" title="Delete todo">
+            <button type="button" className="icon-button danger w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0" onClick={onDelete} aria-label="Delete todo" title="Delete todo">
               <Trash2 size={18} aria-hidden="true" />
             </button>
           ) : null}
           {onConvertToEvent ? (
             <button
               type="button"
-              className="icon-button secondary modal-action-icon"
+              className="icon-button secondary w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0"
               onClick={onConvertToEvent}
               aria-label="Convert to event"
               title="Convert to event"

@@ -939,7 +939,7 @@ export function TimelineApp() {
       <>
         <button
           type="button"
-          className="icon-button secondary todo-board-tool-button"
+          className="icon-button secondary w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0"
           onClick={() => void renameTodoBoard(activeBoard)}
           aria-label="Rename todo board"
           title="Rename board"
@@ -948,7 +948,7 @@ export function TimelineApp() {
         </button>
         <button
           type="button"
-          className="icon-button secondary todo-board-tool-button"
+          className="icon-button secondary w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0"
           onClick={() => void changeTodoBoardPin(activeBoard)}
           aria-label={activeBoard.pinHash ? 'Change board PIN' : 'Add board PIN'}
           title={activeBoard.pinHash ? 'Change board PIN' : 'Add board PIN'}
@@ -958,7 +958,7 @@ export function TimelineApp() {
         {activeBoard.pinHash ? (
           <button
             type="button"
-            className="icon-button tertiary todo-board-tool-button"
+            className="icon-button tertiary w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0"
             onClick={() => void removeTodoBoardPin(activeBoard)}
             aria-label="Remove board PIN"
             title="Remove board PIN"
@@ -969,7 +969,7 @@ export function TimelineApp() {
         {todoBoards.length > 1 ? (
           <button
             type="button"
-            className="icon-button danger todo-board-tool-button"
+            className="icon-button danger w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0"
             onClick={() => void deleteTodoBoard(activeBoard)}
             aria-label="Delete todo board"
             title="Delete board"
@@ -1623,9 +1623,9 @@ export function TimelineApp() {
       />
 
       {collaborationNotice ? (
-        <div className={`collaboration-banner ${saveState === 'conflict' ? 'conflict' : ''}`}>
+        <div className={`flex flex-wrap justify-between gap-[10px] items-center border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-[3px] shadow-none p-[8px_10px] text-[13px] font-[900] ${saveState === 'conflict' ? 'bg-[var(--hot)]' : 'bg-[var(--time-bg)]'}`}>
           <span>{collaborationNotice}</span>
-          <button type="button" className="tertiary" onClick={() => setCollaborationNotice('')}>
+          <button type="button" className="tertiary min-h-[28px] px-[8px] text-[10px]" onClick={() => setCollaborationNotice('')}>
             Dismiss
           </button>
         </div>
@@ -1764,29 +1764,29 @@ export function TimelineApp() {
 
       {selectedEvent && !draftEvent ? (
         <aside
-          className={`selected-popover ${selectedPopoverMinimized ? 'minimized' : ''}`}
+          className={`bg-[var(--panel)] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-[3px] shadow-[0_18px_45px_color-mix(in_srgb,var(--line)_18%,transparent)] fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 overflow-auto grid gap-[10px] p-[14px] ${selectedPopoverMinimized ? 'w-[min(340px,calc(100vw-28px))] max-h-[96px] overflow-visible' : 'w-[min(460px,calc(100vw-28px))] max-h-[calc(100vh-72px)]'} max-sm:!left-2 max-sm:!right-2 max-sm:!top-auto max-sm:!bottom-[78px] max-sm:!w-auto max-sm:!max-w-none max-sm:![transform:none]`}
           ref={selectedPopoverRef}
           style={popoverPosition ? { left: `${popoverPosition.x}px`, top: `${popoverPosition.y}px` } : undefined}
         >
           <div
-            className="popover-heading"
+            className="flex justify-between gap-3 items-start overflow-visible touch-none select-none"
             onPointerDown={startPopoverDrag}
             onPointerMove={dragPopover}
             onPointerUp={stopPopoverDrag}
             onPointerCancel={stopPopoverDrag}
             >
-              <div className="popover-title-line">
+              <div className="min-w-0 grid [grid-template-columns:auto_minmax(0,1fr)] gap-2 items-start">
               <button
                 type="button"
-                className="w-[var(--icon-button-compact-size)] min-w-[var(--icon-button-compact-size)] min-h-[var(--icon-button-compact-size)] h-[var(--icon-button-compact-size)] p-0 border-[color-mix(in_srgb,var(--line)_26%,transparent)] bg-[var(--card-bg)] text-[var(--text)] cursor-grab shadow-[0_1px_0_color-mix(in_srgb,var(--line)_12%,transparent)]"
+                className="drag-handle w-[var(--icon-button-compact-size)] min-w-[var(--icon-button-compact-size)] min-h-[var(--icon-button-compact-size)] h-[var(--icon-button-compact-size)] p-0 border-[color-mix(in_srgb,var(--line)_26%,transparent)] bg-[var(--card-bg)] text-[var(--text)] cursor-grab shadow-[0_1px_0_color-mix(in_srgb,var(--line)_12%,transparent)]"
                 aria-label="Move selected event popover"
                 title="Move"
               >
                 <GripVertical size={15} aria-hidden="true" />
               </button>
-              <div className="panel-title">{selectedEvent.what}</div>
+              <div className={`text-[18px] font-[950] uppercase ${selectedPopoverMinimized ? 'max-h-[40px]' : 'max-h-[64px]'} overflow-hidden [overflow-wrap:anywhere] leading-[1.15]`}>{selectedEvent.what}</div>
             </div>
-            <div className="popover-tools">
+            <div className="flex gap-2 flex-none overflow-visible">
               <button
                 type="button"
                 className="icon-button tertiary w-[30px] min-w-[30px] min-h-[30px] p-0 leading-none"
@@ -1807,22 +1807,22 @@ export function TimelineApp() {
           </div>
           {selectedPopoverMinimized ? null : (
             <>
-              <dl>
-                <dt>Date</dt>
-              <dd>{formatShortGermanDateRange(selectedEvent.date, selectedEvent.endDate)}</dd>
-              <dt>Time</dt>
-              <dd>{formatEventTimeRange(selectedEvent)}</dd>
-                <dt>Who</dt>
-                <dd>{selectedEvent.who || '-'}</dd>
-                <dt>Type</dt>
-                <dd>{selectedEvent.type}</dd>
-                <dt>Note</dt>
-                <dd>
+              <dl className="grid [grid-template-columns:58px_1fr] gap-[7px_10px] m-0 text-[13px]">
+                <dt className="text-[var(--muted)] font-[800] uppercase">Date</dt>
+              <dd className="m-0 min-w-0 [overflow-wrap:anywhere]">{formatShortGermanDateRange(selectedEvent.date, selectedEvent.endDate)}</dd>
+              <dt className="text-[var(--muted)] font-[800] uppercase">Time</dt>
+              <dd className="m-0 min-w-0 [overflow-wrap:anywhere]">{formatEventTimeRange(selectedEvent)}</dd>
+                <dt className="text-[var(--muted)] font-[800] uppercase">Who</dt>
+                <dd className="m-0 min-w-0 [overflow-wrap:anywhere]">{selectedEvent.who || '-'}</dd>
+                <dt className="text-[var(--muted)] font-[800] uppercase">Type</dt>
+                <dd className="m-0 min-w-0 [overflow-wrap:anywhere]">{selectedEvent.type}</dd>
+                <dt className="text-[var(--muted)] font-[800] uppercase">Note</dt>
+                <dd className="m-0 min-w-0 [overflow-wrap:anywhere]">
                   {selectedEvent.note.trim() ? <MarkdownBlock markdown={selectedEvent.note} /> : '-'}
                 </dd>
               </dl>
               {canEdit ? (
-                <button type="button" className="popover-edit secondary" onClick={() => setDraftEvent({ ...selectedEvent })}>
+                <button type="button" className="secondary w-full min-h-[34px]" onClick={() => setDraftEvent({ ...selectedEvent })}>
                   Edit event
                 </button>
               ) : null}
@@ -1932,10 +1932,10 @@ export function TimelineApp() {
             ) : null}
           </div>
           {canEdit && isActiveBoardLocked ? (
-            <div className="todo-board-tools">{renderTodoBoardActions()}</div>
+            <div className="flex flex-wrap items-center gap-2 min-w-0 justify-end border-0 border-t border-t-[color-mix(in_srgb,var(--line)_14%,transparent)] rounded-[3px] bg-transparent shadow-none pt-2 pb-0">{renderTodoBoardActions()}</div>
           ) : null}
           {isActiveBoardLocked ? (
-            <section className="todo-board-locked">
+            <section className="grid gap-[10px] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-[3px] bg-[var(--panel)] shadow-[var(--shadow)] p-[18px]">
               <h2>{activeBoard.name}</h2>
               <p>This todo board is PIN protected.</p>
               <button type="button" onClick={() => void unlockTodoBoard(activeBoard)}>
@@ -2072,9 +2072,9 @@ function PinDialog({
   const [showPins, setShowPins] = useState(false);
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label={config.title}>
+    <div className="fixed inset-0 z-40 grid place-items-center p-[18px] bg-[rgba(18,24,22,0.42)]" role="dialog" aria-modal="true" aria-label={config.title}>
       <form
-        className="editor-panel modal-panel grid gap-3"
+        className="bg-[var(--panel)] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-[3px] shadow-[var(--shadow)] p-[14px] w-[min(720px,100%)] max-h-[calc(100vh-36px)] overflow-auto shadow-[0_20px_60px_color-mix(in_srgb,var(--line)_20%,transparent)] grid gap-3"
         onSubmit={(event) => {
           event.preventDefault();
           onSubmit();

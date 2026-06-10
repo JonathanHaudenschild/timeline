@@ -33,15 +33,15 @@ export function EventEditor({ draft, events, typeColors, duplicateCandidates = [
 
   const form = (
     <form
-      className={modal ? 'editor-panel modal-panel' : 'editor-panel'}
+      className={modal ? 'bg-[var(--panel)] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-[3px] shadow-[var(--shadow)] p-[14px] w-[min(720px,100%)] max-h-[calc(100vh-36px)] overflow-auto shadow-[0_20px_60px_color-mix(in_srgb,var(--line)_20%,transparent)]' : 'bg-[var(--panel)] border border-[color-mix(in_srgb,var(--line)_22%,transparent)] rounded-[3px] shadow-[var(--shadow)] p-[14px]'}
       onSubmit={(event) => {
         event.preventDefault();
         onChange(localDraft);
         onSave(localDraft);
       }}
     >
-      <div className="panel-title">Event</div>
-      <div className="form-grid">
+      <div className="text-[18px] font-[950] mb-[10px] uppercase">Event</div>
+      <div className="grid [grid-template-columns:repeat(2,minmax(0,1fr))] gap-[10px] mb-[10px] max-sm:grid-cols-1">
         <TextField
           label="Date"
           type="date"
@@ -99,9 +99,10 @@ export function EventEditor({ draft, events, typeColors, duplicateCandidates = [
           </datalist>
         <label>
           <span>Color</span>
-          <div className="color-row">
+          <div className="grid [grid-template-columns:var(--icon-button-size)_minmax(0,1fr)] gap-[6px] items-center">
             <input
               type="color"
+              className="w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] h-[var(--icon-button-size)] min-h-[var(--icon-button-size)] border-[color-mix(in_srgb,var(--line)_22%,transparent)] bg-[var(--input-bg)] shadow-none p-[3px] cursor-pointer"
               value={localDraft.color || colorForType(localDraft.type, typeColors)}
               onChange={(event) => updateDraft({ color: event.target.value })}
               aria-label="Event color"
@@ -133,7 +134,7 @@ export function EventEditor({ draft, events, typeColors, duplicateCandidates = [
           value={localDraft.who}
           onValueChange={(who) => updateDraft({ who })}
         />
-        <label className="check-control switch-control event-timeline-switch">
+        <label className="switch-control self-end w-full col-span-full max-sm:col-auto">
           <input
             type="checkbox"
             checked={localDraft.showOnTimeline !== false}
@@ -150,15 +151,15 @@ export function EventEditor({ draft, events, typeColors, duplicateCandidates = [
           rows={5}
         />
       </label>
-      <div className="action-row">
-        <button type="submit" className="icon-button modal-action-icon" aria-label="Save event" title="Save event">
+      <div className="flex gap-2 items-center flex-wrap mt-[10px]">
+        <button type="submit" className="icon-button w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0" aria-label="Save event" title="Save event">
           <Save size={18} aria-hidden="true" />
         </button>
-        <button type="button" className="icon-button tertiary modal-action-icon" onClick={onCancel} aria-label="Cancel" title="Cancel">
+        <button type="button" className="icon-button tertiary w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0" onClick={onCancel} aria-label="Cancel" title="Cancel">
           <X size={18} aria-hidden="true" />
         </button>
         {onDelete ? (
-          <button type="button" className="icon-button danger modal-action-icon" onClick={onDelete} aria-label="Delete event" title="Delete event">
+          <button type="button" className="icon-button danger w-[var(--icon-button-size)] min-w-[var(--icon-button-size)] p-0" onClick={onDelete} aria-label="Delete event" title="Delete event">
             <Trash2 size={18} aria-hidden="true" />
           </button>
         ) : null}
@@ -169,7 +170,7 @@ export function EventEditor({ draft, events, typeColors, duplicateCandidates = [
   if (!modal) return form;
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="Edit event">
+    <div className="fixed inset-0 z-40 grid place-items-center p-[18px] bg-[rgba(18,24,22,0.42)]" role="dialog" aria-modal="true" aria-label="Edit event">
       {form}
     </div>
   );

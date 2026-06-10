@@ -309,7 +309,7 @@ export function ProjectHeader({
           </div>
         </details>
         {project.settings.mode === "edit" ? (
-          <div className="desktop-control-group">
+          <div className="contents max-sm:!hidden">
             <BackgroundColorControl
               value={projectBackgroundColor}
               onChange={changeBackgroundColor}
@@ -421,7 +421,7 @@ function ImportButton({
   desktopOnly?: boolean;
 }) {
   const labelClassName = desktopOnly
-    ? cn(iconImportButtonClass, "desktop-only-control")
+    ? cn(iconImportButtonClass, "max-sm:!hidden")
     : cn(importingButtonClass, "w-full");
 
   return (
