@@ -407,7 +407,7 @@ export function TimelineCanvas({
               </button>
             </div>
             <details className="mobile-control-menu relative max-sm:min-w-0 max-sm:w-full [&_summary]:max-sm:min-h-[var(--icon-button-size)] [&_summary]:max-sm:px-2">
-              <summary className="min-h-[36px] inline-grid place-items-center border border-[color-mix(in_srgb,var(--line)_32%,transparent)] rounded-[2px] bg-[var(--primary)] shadow-[var(--punk-shadow)] cursor-pointer text-[12px] font-[950] list-none px-[10px] uppercase [&::-webkit-details-marker]:hidden open:bg-[var(--hot)]">Tools</summary>
+              <summary className="min-h-[36px] inline-grid place-items-center border border-[color-mix(in_srgb,var(--line)_32%,transparent)] rounded-[2px] bg-[var(--primary)] text-[var(--on-primary)] shadow-[var(--punk-shadow)] cursor-pointer text-[12px] font-[950] list-none px-[10px] uppercase [&::-webkit-details-marker]:hidden open:bg-[var(--hot)]">Tools</summary>
               <div className="mobile-control-panel absolute right-0 top-[calc(100%+8px)] z-20 w-[min(280px,calc(100vw-24px))] grid gap-2 border border-[color-mix(in_srgb,var(--line)_24%,transparent)] rounded-[3px] bg-[var(--panel)] shadow-[0_14px_36px_color-mix(in_srgb,var(--line)_16%,transparent)] p-[10px] [&>button]:w-full [&>button]:inline-flex [&>button]:items-center [&>button]:justify-center [&>button]:gap-[7px] [&_.icon-button]:w-[var(--icon-button-size)] [&_.icon-button]:min-w-[var(--icon-button-size)] [&_.icon-button]:min-h-[var(--icon-button-size)] [&_.mobile-action-icons_.icon-button]:w-full [&_.mobile-action-icons_.icon-button]:min-w-0">
                 <button
                   type="button"
@@ -467,7 +467,7 @@ export function TimelineCanvas({
       <div className="mb-2 flex min-w-0 max-w-full flex-col gap-1">
         {eventTypes.length > 1 ? (
           <details className="mobile-control-menu relative hidden max-sm:block max-sm:min-w-0 max-sm:w-full">
-            <summary className="min-h-[36px] inline-grid place-items-center border border-[color-mix(in_srgb,var(--line)_32%,transparent)] rounded-[2px] bg-[var(--primary)] shadow-[var(--punk-shadow)] cursor-pointer text-[12px] font-[950] list-none px-[10px] uppercase [&::-webkit-details-marker]:hidden open:bg-[var(--hot)]">
+            <summary className="min-h-[36px] inline-grid place-items-center border border-[color-mix(in_srgb,var(--line)_32%,transparent)] rounded-[2px] bg-[var(--primary)] text-[var(--on-primary)] shadow-[var(--punk-shadow)] cursor-pointer text-[12px] font-[950] list-none px-[10px] uppercase [&::-webkit-details-marker]:hidden open:bg-[var(--hot)]">
               Types {eventTypes.length - hiddenTypes.length}/{eventTypes.length}
             </summary>
             <div className="mobile-control-panel absolute right-0 top-[calc(100%+8px)] z-20 w-[min(280px,calc(100vw-24px))] grid gap-2 border border-[color-mix(in_srgb,var(--line)_24%,transparent)] rounded-[3px] bg-[var(--panel)] shadow-[0_14px_36px_color-mix(in_srgb,var(--line)_16%,transparent)] p-[10px] [&>button]:w-full [&>button]:inline-flex [&>button]:items-center [&>button]:justify-center [&>button]:gap-[7px] [&_.icon-button]:w-[var(--icon-button-size)] [&_.icon-button]:min-w-[var(--icon-button-size)] [&_.icon-button]:min-h-[var(--icon-button-size)] [&_.mobile-action-icons_.icon-button]:w-full [&_.mobile-action-icons_.icon-button]:min-w-0 max-h-[min(340px,calc(100vh-160px))] overflow-auto max-sm:left-0 max-sm:right-auto max-sm:w-[min(320px,calc(100vw-24px))]">
@@ -493,7 +493,7 @@ export function TimelineCanvas({
         ) : null}
         {eventCategories.length > 1 ? (
           <details className="mobile-control-menu relative hidden max-sm:block max-sm:min-w-0 max-sm:w-full">
-            <summary className="min-h-[36px] inline-grid place-items-center border border-[color-mix(in_srgb,var(--line)_32%,transparent)] rounded-[2px] bg-[var(--primary)] shadow-[var(--punk-shadow)] cursor-pointer text-[12px] font-[950] list-none px-[10px] uppercase [&::-webkit-details-marker]:hidden open:bg-[var(--hot)]">
+            <summary className="min-h-[36px] inline-grid place-items-center border border-[color-mix(in_srgb,var(--line)_32%,transparent)] rounded-[2px] bg-[var(--primary)] text-[var(--on-primary)] shadow-[var(--punk-shadow)] cursor-pointer text-[12px] font-[950] list-none px-[10px] uppercase [&::-webkit-details-marker]:hidden open:bg-[var(--hot)]">
               Categories {eventCategories.length - hiddenCategories.length}/{eventCategories.length}
             </summary>
             <div className="mobile-control-panel absolute right-0 top-[calc(100%+8px)] z-20 w-[min(280px,calc(100vw-24px))] grid gap-2 border border-[color-mix(in_srgb,var(--line)_24%,transparent)] rounded-[3px] bg-[var(--panel)] shadow-[0_14px_36px_color-mix(in_srgb,var(--line)_16%,transparent)] p-[10px] [&>button]:w-full [&>button]:inline-flex [&>button]:items-center [&>button]:justify-center [&>button]:gap-[7px] [&_.icon-button]:w-[var(--icon-button-size)] [&_.icon-button]:min-w-[var(--icon-button-size)] [&_.icon-button]:min-h-[var(--icon-button-size)] [&_.mobile-action-icons_.icon-button]:w-full [&_.mobile-action-icons_.icon-button]:min-w-0 max-h-[min(340px,calc(100vh-160px))] overflow-auto max-sm:left-0 max-sm:right-auto max-sm:w-[min(320px,calc(100vw-24px))]">
