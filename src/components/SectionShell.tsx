@@ -50,14 +50,8 @@ export function SectionShell({
   onRename,
   children,
 }: SectionShellProps) {
-  const [renameValue, setRenameValue] = useState(title);
+  const [renameValue, setRenameValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  // Keep local value in sync when title prop changes (e.g. external reset)
-  const prevTitleRef = useRef(title);
-  if (prevTitleRef.current !== title) {
-    prevTitleRef.current = title;
-    setRenameValue(title);
-  }
   const shellClassName = cn(
     uiSectionShell,
     className,
@@ -94,16 +88,17 @@ export function SectionShell({
               <input
                 ref={inputRef}
                 type="text"
-                value={renameValue}
+                value={renameValue || title}
+                onFocus={() => setRenameValue(title)}
                 onChange={(e) => setRenameValue(e.target.value)}
                 onBlur={() => {
                   const trimmed = renameValue.trim();
                   if (trimmed) onRename(trimmed);
-                  else setRenameValue(title);
+                  setRenameValue('');
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') inputRef.current?.blur();
-                  if (e.key === 'Escape') { setRenameValue(title); inputRef.current?.blur(); }
+                  if (e.key === 'Escape') { setRenameValue(''); inputRef.current?.blur(); }
                 }}
                 className={cn(uiSectionTitle, "bg-transparent border-none outline-none w-full min-w-0 p-0 focus:outline-none focus:underline focus:decoration-dotted")}
                 aria-label={`Rename ${title} section`}
