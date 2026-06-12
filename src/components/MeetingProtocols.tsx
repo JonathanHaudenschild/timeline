@@ -90,6 +90,8 @@ type MeetingProtocolsProps = {
     protocolItemId?: string;
     protocolItemKind?: ProtocolItemKind;
   }) => void;
+  sectionTitle?: string;
+  onRenameSection?: (name: string) => void;
 };
 
 type ProtocolOverviewItem = {
@@ -236,6 +238,8 @@ export function MeetingProtocols({
   duplicateCandidates = [],
   onLinkProtocolItemTodo,
   onCreateEvent,
+  sectionTitle = 'Protocols',
+  onRenameSection,
 }: MeetingProtocolsProps) {
   const appDialog = useAppDialog();
   const [isMinimized, setIsMinimized] = usePersistentState(`timeline:ui:meeting-protocols-minimized:${projectHash}`, false);
@@ -770,7 +774,8 @@ export function MeetingProtocols({
 
   return (
     <SectionShell
-      title="Protocols"
+      title={sectionTitle}
+      onRename={onRenameSection}
       className="protocol-section"
       isCollapsed={isMinimized}
       onToggle={() => setIsMinimized((minimized) => !minimized)}
@@ -1604,7 +1609,7 @@ function ProtocolStructuredSection({
                   {item.convertedTodoId ? (
                     <button
                       type="button"
-                      className="icon-button w-[28px] min-w-[28px] min-h-[26px] shadow-[var(--shadow-xs)] p-0 text-[9px] text-center bg-[var(--primary)] border-[color-mix(in_srgb,var(--line)_34%,transparent)] shadow-[0_1px_0_var(--soft-line)] text-[var(--on-primary)]"
+                      className="icon-button tertiary w-[28px] min-w-[28px] min-h-[26px] shadow-[var(--shadow-xs)] p-0 text-[9px] text-center bg-[var(--primary)] border-[color-mix(in_srgb,var(--line)_34%,transparent)] shadow-[0_1px_0_var(--soft-line)] text-[var(--on-primary)]"
                       onClick={(event) => {
                         event.stopPropagation();
                         onOpenTodo(item.convertedTodoId!);
@@ -1617,7 +1622,7 @@ function ProtocolStructuredSection({
                   ) : (
                     <button
                       type="button"
-                      className="icon-button w-[28px] min-w-[28px] min-h-[26px] border-transparent shadow-none p-0 text-[9px] text-center bg-transparent text-[var(--text)]"
+                      className="icon-button tertiary w-[28px] min-w-[28px] min-h-[26px] border-transparent shadow-none p-0 text-[9px] text-center bg-transparent text-[var(--text)]"
                       onClick={(event) => {
                         event.stopPropagation();
                         onCreateTodo(item);
@@ -1645,7 +1650,7 @@ function ProtocolStructuredSection({
                   {item.convertedEventId ? (
                     <button
                       type="button"
-                      className="icon-button w-[28px] min-w-[28px] min-h-[26px] shadow-[var(--shadow-xs)] p-0 text-[9px] text-center bg-[var(--primary)] border-[color-mix(in_srgb,var(--line)_34%,transparent)] shadow-[0_1px_0_var(--soft-line)] text-[var(--on-primary)]"
+                      className="icon-button tertiary w-[28px] min-w-[28px] min-h-[26px] border-[color-mix(in_srgb,var(--line)_34%,transparent)] shadow-[var(--shadow-xs)] p-0 text-[9px] text-center !bg-[var(--primary)] !text-[var(--on-primary)]"
                       onClick={(event) => {
                         event.stopPropagation();
                         onOpenEvent(item.convertedEventId!);
@@ -1658,7 +1663,7 @@ function ProtocolStructuredSection({
                   ) : (
                     <button
                       type="button"
-                      className="icon-button w-[28px] min-w-[28px] min-h-[26px] border-transparent shadow-none p-0 text-[9px] text-center bg-transparent text-[var(--text)]"
+                      className="icon-button tertiary w-[28px] min-w-[28px] min-h-[26px] border-[color-mix(in_srgb,var(--line)_34%,transparent)] shadow-[var(--shadow-xs)] p-0 text-[9px] text-center"
                       onClick={(event) => {
                         event.stopPropagation();
                         onCreateEvent(item);
@@ -1700,7 +1705,7 @@ function ProtocolStructuredSection({
                     type="button"
                     className={cn(
                       'icon-button tertiary w-[28px] min-w-[28px] min-h-[26px] border-[color-mix(in_srgb,var(--line)_34%,transparent)] shadow-[var(--shadow-xs)] p-0 text-[9px] text-center',
-                      item.recurring && 'bg-[var(--primary)] shadow-[0_1px_0_var(--soft-line)] !text-[var(--on-primary)]',
+                      item.recurring && '!bg-[var(--primary)] !text-[var(--on-primary)]',
                     )}
                     onClick={(event) => {
                       event.stopPropagation();

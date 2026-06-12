@@ -126,6 +126,7 @@ export type TimelineProject = {
     activeTodoBoardId?: string;
     stickyLinks?: StickyLink[];
     sectionOrder?: string[];
+    sectionNames?: Partial<Record<string, string>>;
   };
 };
 

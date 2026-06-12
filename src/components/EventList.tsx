@@ -41,6 +41,8 @@ type EventListProps = {
     canMoveUp: boolean;
     canMoveDown: boolean;
   };
+  sectionTitle?: string;
+  onRenameSection?: (name: string) => void;
 };
 
 type SortKey =
@@ -79,6 +81,8 @@ export function EventList({
   onCopyLink,
   linkCopied,
   moveControls,
+  sectionTitle = 'Events',
+  onRenameSection,
 }: EventListProps) {
   const appDialog = useAppDialog();
   const [sortKey, setSortKey] = usePersistentState<SortKey>(
@@ -130,7 +134,8 @@ export function EventList({
 
   return (
     <SectionShell
-      title="Events"
+      title={sectionTitle}
+      onRename={onRenameSection}
       className="relative min-w-0 max-w-full overflow-x-clip overflow-y-visible"
       isCollapsed={isMinimized}
       onToggle={onToggleMinimized}

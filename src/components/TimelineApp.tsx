@@ -195,6 +195,10 @@ export function TimelineApp() {
   }, [saveState]);
 
   useEffect(() => {
+    document.title = project.name || 'Timeline';
+  }, [project.name]);
+
+  useEffect(() => {
     const backgroundColor = normalizeProjectBackgroundColor(project.settings.backgroundColor);
     // Parse hex to rgb for mixing a dark-mode variant
     const r = parseInt(backgroundColor.slice(1, 3), 16);
@@ -451,6 +455,12 @@ export function TimelineApp() {
 
   const selectedEvent = project.events.find((event) => event.id === selectedEventId);
   const canEdit = project.settings.mode === 'edit' && saveState !== 'loading';
+  const getSectionName = (key: MovableSection) =>
+    project.settings.sectionNames?.[key] ?? sectionNavigationLabels[key];
+  const renameSectionFn = canEdit
+    ? (key: MovableSection) => (name: string) =>
+        updateProject({ ...project, settings: { ...project.settings, sectionNames: { ...project.settings.sectionNames, [key]: name } } })
+    : undefined;
   const todoBoards = normalizeTodoBoards(project);
   const activeBoard = todoBoards.find((board) => board.id === project.settings.activeTodoBoardId) ?? todoBoards[0];
   const todoStatuses = normalizeTodoStatuses(activeBoard.statuses, activeBoard.todos);
@@ -1561,7 +1571,7 @@ export function TimelineApp() {
             key={section}
             onClick={() => navigateToTarget({ section })}
           >
-            {sectionNavigationLabels[section]}
+            {getSectionName(section)}
           </button>
         ))}
       </nav>
@@ -1646,7 +1656,8 @@ export function TimelineApp() {
 
 	      <div className="ordered-section ordered-section-info" ref={infoRef} style={sectionOrderStyle('info')}>
 	        <SectionShell
-	          title="Info"
+	          title={getSectionName('info')}
+	          onRename={renameSectionFn?.('info')}
 	          className="bg-[var(--panel)]"
 	          meta={`${project.infoMarkdown.trim().split(/\s+/).filter(Boolean).length} words`}
 	          moveControls={sectionMoveControls('info')}
@@ -1711,6 +1722,8 @@ export function TimelineApp() {
           linkCopied={copiedSectionLink === 'protocol'}
           moveControls={sectionMoveControls('protocol')}
           onCreateEvent={createEventFromProtocol}
+          sectionTitle={getSectionName('protocol')}
+          onRenameSection={renameSectionFn?.('protocol')}
         />
       </div>
 
@@ -1737,6 +1750,8 @@ export function TimelineApp() {
           onCopyLink={() => copySectionLink({ section: 'timeline' })}
           linkCopied={copiedSectionLink === 'timeline'}
           moveControls={sectionMoveControls('timeline')}
+          sectionTitle={getSectionName('timeline')}
+          onRenameSection={renameSectionFn?.('timeline')}
         />
       </div>
 
@@ -1875,6 +1890,8 @@ export function TimelineApp() {
           onCopyLink={() => copySectionLink({ section: 'events' })}
           linkCopied={copiedSectionLink === 'events'}
           moveControls={sectionMoveControls('events')}
+          sectionTitle={getSectionName('events')}
+          onRenameSection={renameSectionFn?.('events')}
           onDelete={(eventId) => {
             updateProject({ ...project, events: project.events.filter((event) => event.id !== eventId) });
             if (selectedEventId === eventId) selectEvent(undefined);
@@ -1884,7 +1901,8 @@ export function TimelineApp() {
 
       <div className="ordered-section min-w-0 max-w-full" ref={todoRef} style={sectionOrderStyle('todos')}>
         <SectionShell
-          title="Todos"
+          title={getSectionName('todos')}
+          onRename={renameSectionFn?.('todos')}
           className="overflow-visible"
           meta={`${activeBoard.todos.length} / ${activeBoard.todos.length}`}
           copyLink={{

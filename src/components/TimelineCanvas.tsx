@@ -39,6 +39,8 @@ type TimelineCanvasProps = {
     canMoveUp: boolean;
     canMoveDown: boolean;
   };
+  sectionTitle?: string;
+  onRenameSection?: (name: string) => void;
 };
 
 type HitBox = {
@@ -84,6 +86,8 @@ export function TimelineCanvas({
   onCopyLink,
   linkCopied,
   moveControls,
+  sectionTitle = 'Timeline',
+  onRenameSection,
 }: TimelineCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hitBoxesRef = useRef<HitBox[]>([]);
@@ -300,7 +304,8 @@ export function TimelineCanvas({
   return (
     <SectionShell
       as="div"
-      title="Timeline"
+      title={sectionTitle}
+      onRename={onRenameSection}
       className="bg-[var(--panel)] border-[color-mix(in_srgb,var(--line)_22%,transparent)] max-sm:shadow-[0_6px_18px_color-mix(in_srgb,var(--line)_8%,transparent)]"
       isCollapsed={isMinimized}
       onToggle={() => setIsMinimized((minimized) => !minimized)}

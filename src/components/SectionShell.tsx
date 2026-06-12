@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Check, Eye, EyeOff, Link2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { uiChip, uiIconButton, uiSectionHeader, uiSectionShell, uiSectionTitle } from "@/lib/ui";
@@ -28,6 +29,7 @@ type SectionShellProps = {
   };
   subheader?: ReactNode;
   subheaderClassName?: string;
+  onRename?: (name: string) => void;
   children: ReactNode;
 };
 
@@ -45,8 +47,17 @@ export function SectionShell({
   copyLink,
   subheader,
   subheaderClassName,
+  onRename,
   children,
 }: SectionShellProps) {
+  const [renameValue, setRenameValue] = useState(title);
+  const inputRef = useRef<HTMLInputElement>(null);
+  // Keep local value in sync when title prop changes (e.g. external reset)
+  const prevTitleRef = useRef(title);
+  if (prevTitleRef.current !== title) {
+    prevTitleRef.current = title;
+    setRenameValue(title);
+  }
   const shellClassName = cn(
     uiSectionShell,
     className,
@@ -79,7 +90,27 @@ export function SectionShell({
                 )}
               </button>
             ) : null}
-            <h2 className={showTitle ? uiSectionTitle : "sr-only"}>{title}</h2>
+            {onRename ? (
+              <input
+                ref={inputRef}
+                type="text"
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onBlur={() => {
+                  const trimmed = renameValue.trim();
+                  if (trimmed) onRename(trimmed);
+                  else setRenameValue(title);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') inputRef.current?.blur();
+                  if (e.key === 'Escape') { setRenameValue(title); inputRef.current?.blur(); }
+                }}
+                className={cn(uiSectionTitle, "bg-transparent border-none outline-none w-full min-w-0 p-0 focus:outline-none focus:underline focus:decoration-dotted")}
+                aria-label={`Rename ${title} section`}
+              />
+            ) : (
+              <h2 className={showTitle ? uiSectionTitle : "sr-only"}>{title}</h2>
+            )}
           </div>
           <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 max-sm:gap-1.5 max-[420px]:w-full max-[420px]:justify-start">
             {meta ? <span className={chipClassName}>{meta}</span> : null}
